@@ -419,5 +419,9 @@ The service is ready for Phase 3 (Snipers) exploitation planning and execution.
 ## See Also
 
 - **services/swarm/README.md** - Complete Swarm service documentation
-- **docs/Phases/PHASE2_SWARM_SCANNER.md** - Trinity agents and scanning
+- **docs/Phases/PHASE1_CARTOGRAPHER.md** - Phase 1 Reconnaissance
+- **docs/Phases/PHASE2_SWARM_SCANNER.md** - Phase 2 Trinity Agents and Scanning
+- **docs/Phases/PHASE4_SNIPERS_EXPLOIT.md** - Phase 4 HITL Exploitation
 - **docs/main.md** - Architecture overview
+- **docs/code_base_structure.md** - Directory organization
+- **docs/tech_stack.md** - Technology overview

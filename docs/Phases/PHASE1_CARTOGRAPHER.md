@@ -309,3 +309,15 @@ Phase 1 successfully delivers a production-grade reconnaissance agent that:
 6. Maintains 100% test passing rate with 94-96% coverage
 
 The service is ready for integration with Phase 2 (Swarm scanning).
+
+---
+
+## See Also
+
+- **services/cartographer/README.md** - Service overview and quick start
+- **services/cartographer/RECON_STRATEGY.md** - 11 attack vectors explained
+- **services/cartographer/ARCHITECTURE.md** - Internal design patterns
+- **services/cartographer/EXAMPLES.md** - Runnable examples and troubleshooting
+- **docs/Phases/PHASE2_SWARM_SCANNER.md** - Phase 2 Intelligent Scanning
+- **docs/main.md** - Architecture overview
+- **docs/code_base_structure.md** - Directory organization

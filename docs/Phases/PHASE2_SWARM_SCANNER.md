@@ -520,5 +520,9 @@ The service is ready for integration with Phase 3 (Snipers exploitation).
 ## See Also
 
 - **services/swarm/README.md** - Service overview and usage guide (2,050 lines)
+- **docs/Phases/PHASE1_CARTOGRAPHER.md** - Phase 1 Reconnaissance
+- **docs/Phases/PHASE3_GARAK_INTEGRATION.md** - Phase 3 Detector Refinement
+- **docs/Phases/PHASE4_SNIPERS_EXPLOIT.md** - Phase 4 HITL Exploitation
 - **docs/main.md** - Architecture overview
 - **docs/code_base_structure.md** - Directory organization
+- **docs/tech_stack.md** - Technology overview

@@ -32,7 +32,9 @@
       "Bash(Select-Object -ExpandProperty Name)",
       "Bash(uv pip install:*)",
       "Bash(.venvScriptspython.exe -m scripts.exploit_agent_attack --target-url http://localhost:8080/chat --garak-report \"garak_runs/simple-scan-001_agent_jailbreak_report.json\" --recon-file \"recon_results/integration-test-001_20251124_042702.json\")",
-      "Bash(tree:*)"
+      "Bash(tree:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ],
     "deny": [],
     "ask": []
