@@ -8,6 +8,8 @@ import time
 from typing import List, Optional, Tuple
 
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 import garak.generators.base
 
 from services.swarm.core.utils import log_performance_metric
@@ -31,7 +33,14 @@ class HttpGenerator(garak.generators.base.Generator):
     - {"choices": [{"message": {"content": "..."}}]} - OpenAI format
     """
 
-    def __init__(self, endpoint_url: str, headers: dict = None):
+    def __init__(
+        self,
+        endpoint_url: str,
+        headers: dict = None,
+        timeout: int = 30,
+        max_retries: int = 3,
+        retry_backoff: float = 1.0
+    ):
         # Set name BEFORE calling super().__init__() because parent class needs it
         self.name = "HttpGenerator"
         self.generations = 1
@@ -40,9 +49,31 @@ class HttpGenerator(garak.generators.base.Generator):
 
         self.endpoint_url = endpoint_url
         self.headers = headers or {}
+        self.timeout = timeout
+        self.max_retries = max_retries
+        self.retry_backoff = retry_backoff
         self._connection_validated = False
         self._error_count = 0
         self._success_count = 0
+        
+        # Create session with connection pooling and retry strategy
+        self.session = requests.Session()
+        
+        # Configure retry strategy
+        if max_retries > 0:
+            retry_strategy = Retry(
+                total=max_retries,
+                backoff_factor=retry_backoff,
+                status_forcelist=[500, 502, 503, 504],  # Retry on server errors
+                allowed_methods=["POST"]  # Only retry POST requests
+            )
+            adapter = HTTPAdapter(max_retries=retry_strategy, pool_connections=10, pool_maxsize=20)
+            self.session.mount("http://", adapter)
+            self.session.mount("https://", adapter)
+        
+        # Set default headers
+        if self.headers:
+            self.session.headers.update(self.headers)
 
     def validate_endpoint(self) -> Tuple[bool, Optional[str]]:
         """Validate that the endpoint is reachable.
@@ -51,7 +82,7 @@ class HttpGenerator(garak.generators.base.Generator):
             Tuple of (is_valid, error_message)
         """
         try:
-            response = requests.head(
+            response = self.session.head(
                 self.endpoint_url.rsplit('/', 1)[0],  # Check base URL
                 timeout=5
             )
@@ -101,11 +132,11 @@ class HttpGenerator(garak.generators.base.Generator):
                 payload = {"prompt": prompt}
                 request_start = time.time()
 
-                response = requests.post(
+                # Use session with connection pooling and retry strategy
+                response = self.session.post(
                     self.endpoint_url,
                     json=payload,
-                    headers=self.headers,
-                    timeout=30
+                    timeout=self.timeout
                 )
 
                 request_duration = time.time() - request_start
@@ -132,7 +163,7 @@ class HttpGenerator(garak.generators.base.Generator):
 
             except requests.Timeout as e:
                 self._error_count += 1
-                logger.error(f"Request timeout after 30s: {e}")
+                logger.error(f"Request timeout after {self.timeout}s: {e}")
                 results.append("")
 
             except requests.HTTPError as e:
@@ -165,3 +196,8 @@ class HttpGenerator(garak.generators.base.Generator):
             "failed": self._error_count,
             "success_rate": self._success_count / total if total > 0 else 0.0,
         }
+    
+    def __del__(self):
+        """Clean up session on destruction."""
+        if hasattr(self, 'session'):
+            self.session.close()

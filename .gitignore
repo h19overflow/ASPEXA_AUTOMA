@@ -18,3 +18,6 @@ recon_results/
 htmlcov/
 garak_runs/
 claude/
+
+# Decision logs
+logs/

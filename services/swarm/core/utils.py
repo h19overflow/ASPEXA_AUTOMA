@@ -8,6 +8,8 @@ import time
 from typing import Dict, Any, Optional
 from functools import wraps
 
+from services.swarm.core.decision_logger import get_decision_logger as _get_decision_logger, DecisionLogger
+
 logger = logging.getLogger(__name__)
 
 
@@ -171,4 +173,26 @@ def time_function(func):
     if asyncio.iscoroutinefunction(func):
         return async_wrapper
     return sync_wrapper
+
+
+def get_decision_logger(audit_id: str, log_dir: str = "logs") -> DecisionLogger:
+    """
+    Get or create a DecisionLogger instance for an audit_id.
+    
+    This is a convenience wrapper that provides access to the decision logger
+    from the utils module. The logger writes structured JSON logs for all
+    agent decisions, tool calls, and scan progress.
+    
+    Args:
+        audit_id: Audit identifier for the scan
+        log_dir: Directory to store log files (default: "logs")
+        
+    Returns:
+        DecisionLogger instance for this audit_id
+        
+    Example:
+        logger = get_decision_logger("audit-123")
+        logger.log_agent_start("agent_jailbreak", "https://api.example.com", {...})
+    """
+    return _get_decision_logger(audit_id, log_dir)
 

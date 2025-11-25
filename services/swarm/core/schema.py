@@ -29,6 +29,8 @@ class ScanConfig(StrictBaseModel):
     - Number of probe attempts
     - Specific probes to run
     - Whether agent can adjust parameters dynamically
+    - Parallel execution and rate limiting
+    - Connection type (HTTP/WebSocket)
     """
     approach: str = Field(
         default=ScanApproach.STANDARD,
@@ -60,6 +62,91 @@ class ScanConfig(StrictBaseModel):
         le=50,
         description="Maximum generations agent can use per probe (1-50)"
     )
+    # Parallel execution controls
+    enable_parallel_execution: bool = Field(
+        default=False,
+        description="Enable parallel execution of probes and generations (master switch)"
+    )
+    max_concurrent_probes: int = Field(
+        default=1,
+        ge=1,
+        le=10,
+        description="Maximum number of probes to run concurrently (1-10)"
+    )
+    max_concurrent_generations: int = Field(
+        default=1,
+        ge=1,
+        le=5,
+        description="Maximum number of generation attempts per probe to run concurrently (1-5)"
+    )
+    # Rate limiting
+    requests_per_second: Optional[float] = Field(
+        default=None,
+        gt=0.0,
+        description="Rate limit in requests per second (None = unlimited)"
+    )
+    max_concurrent_connections: int = Field(
+        default=5,
+        ge=1,
+        le=50,
+        description="Maximum concurrent connections to target API (1-50)"
+    )
+    # Request configuration
+    request_timeout: int = Field(
+        default=30,
+        ge=1,
+        le=300,
+        description="Request timeout in seconds (1-300)"
+    )
+    max_retries: int = Field(
+        default=3,
+        ge=0,
+        le=10,
+        description="Maximum retry attempts on failure (0-10)"
+    )
+    retry_backoff: float = Field(
+        default=1.0,
+        ge=0.1,
+        le=10.0,
+        description="Exponential backoff multiplier for retries (0.1-10.0)"
+    )
+    # Connection type
+    connection_type: str = Field(
+        default="http",
+        description="Connection protocol: 'http' or 'websocket' (auto-detected from URL if not specified)"
+    )
+
+    @model_validator(mode='after')
+    def validate_configuration(self):
+        """Validate configuration consistency."""
+        # Validate connection type
+        if self.connection_type not in ["http", "websocket"]:
+            raise ValueError(f"connection_type must be 'http' or 'websocket', got '{self.connection_type}'")
+        
+        # Validate requests_per_second if provided
+        if self.requests_per_second is not None and self.requests_per_second <= 0:
+            raise ValueError("requests_per_second must be > 0 if provided")
+        
+        # Validate concurrent limits don't exceed connection pool
+        max_concurrent_ops = self.max_concurrent_probes * self.max_concurrent_generations
+        if max_concurrent_ops > self.max_concurrent_connections:
+            raise ValueError(
+                f"max_concurrent_probes ({self.max_concurrent_probes}) * "
+                f"max_concurrent_generations ({self.max_concurrent_generations}) = {max_concurrent_ops} "
+                f"exceeds max_concurrent_connections ({self.max_concurrent_connections})"
+            )
+        
+        # Warn if parallel execution enabled but limits are conservative
+        if self.enable_parallel_execution:
+            if self.max_concurrent_probes == 1 and self.max_concurrent_generations == 1:
+                import warnings
+                warnings.warn(
+                    "enable_parallel_execution is True but both max_concurrent_probes and "
+                    "max_concurrent_generations are 1. Parallel execution will have no effect.",
+                    UserWarning
+                )
+        
+        return self
 
 
 class ScanInput(StrictBaseModel):
