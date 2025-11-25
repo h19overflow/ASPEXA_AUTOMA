@@ -47,10 +47,13 @@ class TestConverterFactory:
         if invalid_name not in available:
             logger.error(f"✗ Should handle invalid converter name: {invalid_name}")
 
-    def test_nine_converters_available(self, mock_converter_factory, capture_logs):
+    def test_nine_converters_available(self, capture_logs):
         """Test that all 9 converters are available."""
+        from services.snipers.tools.pyrit_bridge import ConverterFactory
+
         logger.info("Testing 9 converters availability")
-        available = mock_converter_factory.get_available_names()
+        factory = ConverterFactory()
+        available = factory.get_available_names()
 
         expected_converters = [
             "Base64Converter",
@@ -70,7 +73,7 @@ class TestConverterFactory:
             else:
                 logger.error(f"  ✗ Missing converter: {expected}")
 
-        assert len(available) >= len(expected_converters) - 1  # At least 8 of 9
+        assert len(available) >= len(expected_converters)  # All 9
 
 
 class TestPayloadTransformer:

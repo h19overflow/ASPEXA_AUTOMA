@@ -1,20 +1,15 @@
 """
 Payload Generation Tool
 
-Generates attack payloads based on pattern analysis and converter selection.
-Uses structured output with create_agent and Pydantic validation.
+Generates attack payloads based on learned patterns.
+Uses structured output with LangChain's with_structured_output for Pydantic validation.
 """
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
-from langchain.agents import create_agent
 from langchain_core.language_models import BaseChatModel
+from langchain_core.messages import SystemMessage, HumanMessage
 
-from services.snipers.models import (
-    ConverterSelection,
-    ExampleFinding,
-    PayloadGeneration,
-    PatternAnalysis,
-)
+from services.snipers.models import PayloadGeneration
 from services.snipers.agent.prompts import (
     PAYLOAD_GENERATION_PROMPT,
     format_example_findings,
@@ -22,7 +17,7 @@ from services.snipers.agent.prompts import (
 )
 
 
-def create_payload_generation_agent(llm: BaseChatModel) -> Any:
+def create_payload_generation_agent(llm: BaseChatModel) -> BaseChatModel:
     """
     Create payload generation agent with structured Pydantic output.
 
@@ -30,41 +25,22 @@ def create_payload_generation_agent(llm: BaseChatModel) -> Any:
         llm: Language model for generation
 
     Returns:
-        Compiled agent that outputs PayloadGeneration
+        LLM with structured output bound to PayloadGeneration
     """
-    agent = create_agent(
-        model=llm,
-        tools=[],  # No tools needed for this agent
-        system_prompt="You are an expert at crafting attack payloads based on learned patterns.",
-        response_format=PayloadGeneration,
-    )
-    return agent
+    return llm.with_structured_output(PayloadGeneration)
 
 
 def generate_payloads_with_context(
-    agent: Any,
-    llm: BaseChatModel,
-    probe_name: str,
-    target_url: str,
-    pattern_analysis: PatternAnalysis,
-    converter_selection: ConverterSelection,
-    example_findings: list[ExampleFinding],
-    recon_intelligence: Dict[str, Any],
-    human_guidance: Optional[str] = None,
+    agent: BaseChatModel, llm: BaseChatModel, context: Dict[str, Any]
 ) -> PayloadGeneration:
     """
-    Generate attack payloads using the agent with structured output.
+    Generate payloads using the agent with structured output.
 
     Args:
-        agent: Compiled payload generation agent
-        llm: Language model
-        probe_name: Name of the probe
-        target_url: Target URL
-        pattern_analysis: PatternAnalysis result
-        converter_selection: ConverterSelection result
-        example_findings: List of example findings
-        recon_intelligence: Recon intelligence data
-        human_guidance: Optional guidance from human
+        agent: LLM with structured output (PayloadGeneration)
+        llm: Language model (unused, kept for API compatibility)
+        context: Context dict with probe_name, target_url, pattern_analysis,
+                 converter_selection, example_findings, recon_intelligence, human_guidance
 
     Returns:
         PayloadGeneration with validated structure
@@ -73,29 +49,42 @@ def generate_payloads_with_context(
         ValueError: If payload generation fails
     """
     try:
-        human_guidance_text = human_guidance or "No specific guidance provided."
+        pattern_analysis = context.get("pattern_analysis", {})
+        converter_selection = context.get("converter_selection", {})
+
+        if hasattr(pattern_analysis, "model_dump"):
+            pattern_analysis_str = str(pattern_analysis.model_dump())
+        else:
+            pattern_analysis_str = str(pattern_analysis)
+
+        if hasattr(converter_selection, "model_dump"):
+            converter_selection_str = str(converter_selection.model_dump())
+        else:
+            converter_selection_str = str(converter_selection)
 
         prompt = PAYLOAD_GENERATION_PROMPT.format(
-            probe_name=probe_name,
-            target_url=target_url,
-            pattern_analysis=pattern_analysis.model_dump_json(indent=2),
-            converter_selection=converter_selection.model_dump_json(indent=2),
-            example_findings=format_example_findings(example_findings),
-            recon_intelligence=format_recon_intelligence(recon_intelligence or {}),
-            human_guidance=human_guidance_text,
+            probe_name=context["probe_name"],
+            target_url=context["target_url"],
+            pattern_analysis=pattern_analysis_str,
+            converter_selection=converter_selection_str,
+            example_findings=format_example_findings(context.get("example_findings", [])),
+            recon_intelligence=format_recon_intelligence(
+                context.get("recon_intelligence", {})
+            ),
+            human_guidance=context.get("human_guidance", "No specific guidance provided."),
         )
 
-        result = agent.invoke({"messages": [("user", prompt)]})
-        payload_generation = result.get("structured_response")
+        messages = [
+            SystemMessage(content="You are an expert at crafting attack payloads based on learned patterns."),
+            HumanMessage(content=prompt)
+        ]
 
-        if not payload_generation:
-            raise ValueError("No structured response from agent")
+        result = agent.invoke(messages)
 
-        if not isinstance(payload_generation, PayloadGeneration):
-            # Fallback validation with Pydantic
-            payload_generation = PayloadGeneration(**payload_generation)
+        if not isinstance(result, PayloadGeneration):
+            raise ValueError(f"Expected PayloadGeneration, got {type(result)}")
 
-        return payload_generation
+        return result
 
     except Exception as e:
         raise ValueError(f"Payload generation failed: {str(e)}") from e

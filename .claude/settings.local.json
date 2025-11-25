@@ -1,0 +1,40 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -m pytest:*)",
+      "Bash(python:*)",
+      "Bash(find:*)",
+      "Bash(curl:*)",
+      "Bash(timeout 120 python -m scripts.examples.scan_target_with_swarm:*)",
+      "Bash(timeout 180 python:*)",
+      "Bash(uv run python -m pytest:*)",
+      "Bash(uv run python:*)",
+      "Bash(timeout 120 uv run python:*)",
+      "Bash(timeout 180 uv run python:*)",
+      "Bash(Remove-Item -Recurse -Force \"C:\\Users\\User\\Projects\\Aspexa_Automa\\services\\swarm\\adapters\", \"C:\\Users\\User\\Projects\\Aspexa_Automa\\services\\swarm\\core\", \"C:\\Users\\User\\Projects\\Aspexa_Automa\\services\\swarm\\policies\", \"C:\\Users\\User\\Projects\\Aspexa_Automa\\services\\swarm\\tools\", \"C:\\Users\\User\\Projects\\Aspexa_Automa\\services\\swarm\\agent\")",
+      "Bash(./.venv/Scripts/python.exe:*)",
+      "mcp__docs-langchain__SearchDocsByLangChain",
+      "Bash(cat:*)",
+      "WebFetch(domain:docs.garak.ai)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:reference.garak.ai)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "mcp__ide__getDiagnostics",
+      "Bash($null)",
+      "Bash(dir:*)",
+      "WebSearch",
+      "WebFetch(domain:azure.github.io)",
+      "Bash(.\\.venv\\Scripts\\python.exe:*)",
+      "Bash(.venv/Scripts/python.exe:*)",
+      "Bash(findstr:*)",
+      "Bash(.venvScriptspython.exe -m pytest tests/unit/services/snipers/test_scorers.py -v --tb=short)",
+      "Bash(Get-ChildItem -Path \"C:\\Users\\User\\Projects\\Aspexa_Automa\\libs\" -Directory)",
+      "Bash(Select-Object -ExpandProperty Name)",
+      "Bash(uv pip install:*)",
+      "Bash(.venvScriptspython.exe -m scripts.exploit_agent_attack --target-url http://localhost:8080/chat --garak-report \"garak_runs/simple-scan-001_agent_jailbreak_report.json\" --recon-file \"recon_results/integration-test-001_20251124_042702.json\")",
+      "Bash(tree:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

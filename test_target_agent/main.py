@@ -10,18 +10,15 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import HumanMessage, SystemMessage, AIMessage, ToolMessage
 from langchain_core.tools import tool
 from dotenv import load_dotenv
-
-# Load environment variables
-load_dotenv()
-
-from system_prompt import get_system_prompt
-from mock_tools import (
+from .system_prompt import get_system_prompt
+from .mock_tools import (
     fetch_customer_balance,
     process_refund_transaction,
     query_order_status,
     search_knowledge_base,
     get_transaction_history,
 )
+# Load environment variables
 
 
 # FastAPI app

@@ -180,21 +180,10 @@ class PyRITExecutor:
         import asyncio
 
         try:
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                # We're in an async context, need to use nest_asyncio
-                import nest_asyncio
-
-                nest_asyncio.apply()
-                return loop.run_until_complete(
-                    self.execute_attack_async(payload, converter_names, target_url)
-                )
-            else:
-                return loop.run_until_complete(
-                    self.execute_attack_async(payload, converter_names, target_url)
-                )
+            return asyncio.get_event_loop().run_until_complete(
+                self.execute_attack_async(payload, converter_names, target_url)
+            )
         except RuntimeError:
-            # No event loop, create one
             return asyncio.run(
                 self.execute_attack_async(payload, converter_names, target_url)
             )

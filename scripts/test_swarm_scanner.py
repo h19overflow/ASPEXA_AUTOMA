@@ -10,9 +10,13 @@ Purpose: Test the Swarm scanning system with REAL intelligence data
 Configuration Entry Points:
 ---------------------------
 1. TARGET_URL: The endpoint to attack (default: http://localhost:8080/chat)
+   - Supports: http://, https://, ws://, wss://
 2. RECON_FILE: Path to reconnaissance intelligence JSON
 3. SCAN_MODE: 'quick' (default) | 'standard' | 'thorough'
 4. AGENT_TYPE: 'jailbreak' (default) | 'sql' | 'auth' | 'all'
+5. ENABLE_PARALLEL: Enable parallel execution (default: False)
+6. ENABLE_RATE_LIMITING: Enable rate limiting (default: False)
+7. RATE_LIMIT_RPS: Requests per second limit (default: 10.0)
 
 Understanding Scan Parameters:
 ------------------------------
@@ -45,6 +49,10 @@ What This Tests:
 ✓ Detector evaluation (pass/fail determination)
 ✓ Report generation with vulnerability clusters
 ✓ End-to-end Swarm pipeline
+✓ Parallel execution (if enabled)
+✓ Rate limiting (if enabled)
+✓ WebSocket support (if ws:// or wss:// URL)
+✓ Request retry and timeout handling
 
 Expected Vulnerabilities:
 ------------------------
@@ -95,13 +103,19 @@ class TestConfig:
     
     # Target Configuration
     TARGET_URL = "http://localhost:8080/chat"  # 👈 CHANGE THIS to your target
+    # Supports: http://, https://, ws://, wss://
     
     # Intelligence File
-    RECON_FILE = project_root / "recon_results" / "integration-test-001_20251124_042930.json"
+    RECON_FILE = project_root / "tests" / "recon_results" / "integration-test-001_20251124_042930.json"
     
     # Scan Configuration
-    SCAN_MODE = "quick"  # quick | standard | thorough | aggressive (default: quick for simple testing)
+    SCAN_MODE = "quick"  # quick | standard | thorough (default: quick for simple testing)
     AGENT_TYPE = "jailbreak"  # jailbreak | sql | auth | all (default: jailbreak for simple testing)
+    
+    # Production Features Configuration
+    ENABLE_PARALLEL = False  # Enable parallel execution (default: False for compatibility)
+    ENABLE_RATE_LIMITING = False  # Enable rate limiting (default: False)
+    RATE_LIMIT_RPS = 10.0  # Requests per second limit (if rate limiting enabled)
     
     # Scan Intensity Settings
     # max_probes = number of different attack types (probes) to run
@@ -110,23 +124,38 @@ class TestConfig:
         "quick": {
             "max_probes": 1,        # Run just 1 probe type for fastest testing
             "max_generations": 1,    # Try each prompt 1 time
-            "approach": "quick"      # Use quick approach defaults
+            "approach": "quick",     # Use quick approach defaults
+            # Parallel execution settings (only used if ENABLE_PARALLEL=True)
+            "max_concurrent_probes": 1,
+            "max_concurrent_generations": 1,
+            "max_concurrent_connections": 5,
         },
         "standard": {
             "max_probes": 3,
             "max_generations": 2,
-            "approach": "standard"
+            "approach": "standard",
+            "max_concurrent_probes": 2,
+            "max_concurrent_generations": 1,
+            "max_concurrent_connections": 5,
         },
         "thorough": {
             "max_probes": 10,
             "max_generations": 5,
-            "approach": "thorough"
+            "approach": "thorough",
+            "max_concurrent_probes": 3,
+            "max_concurrent_generations": 2,
+            "max_concurrent_connections": 10,
         },
     }
     
+    # Request Configuration
+    REQUEST_TIMEOUT = 30  # Request timeout in seconds
+    MAX_RETRIES = 3  # Maximum retry attempts
+    RETRY_BACKOFF = 1.0  # Exponential backoff multiplier
+    
     # Output Configuration
-    OUTPUT_DIR = project_root / "garak_runs"
-    RESULTS_DIR = project_root / "test_results"
+    OUTPUT_DIR = project_root / "tests" / "garak_runs"
+    RESULTS_DIR = project_root / "tests" / "test_results"
 
 
 # ============================================================================
@@ -251,6 +280,9 @@ async def run_aggressive_scan(
     logger.info(f"   Target: {target_url}")
     logger.info(f"   Mode: {config.SCAN_MODE}")
     logger.info(f"   Agent: {agent_type}")
+    logger.info(f"   Parallel Execution: {config.ENABLE_PARALLEL}")
+    if config.ENABLE_RATE_LIMITING:
+        logger.info(f"   Rate Limiting: {config.RATE_LIMIT_RPS} RPS")
     
     # Get scan settings
     settings = config.SCAN_CONFIG[config.SCAN_MODE]
@@ -258,12 +290,23 @@ async def run_aggressive_scan(
     # Build scan input
     audit_id = f"swarm-test-{datetime.now().strftime('%Y%m%d_%H%M%S')}"
     
+    # Auto-detect connection type from URL
+    # Build scan config with new production features
     scan_config = ScanConfig(
         approach=settings["approach"],
         max_probes=settings["max_probes"],
         max_generations=settings["max_generations"],
         allow_agent_override=True,  # Let agent optimize based on intelligence
         custom_probes=None,  # Let agent decide
+        # Production features
+        enable_parallel_execution=config.ENABLE_PARALLEL,
+        max_concurrent_probes=settings.get("max_concurrent_probes", 1),
+        max_concurrent_generations=settings.get("max_concurrent_generations", 1),
+        max_concurrent_connections=settings.get("max_concurrent_connections", 5),
+        requests_per_second=config.RATE_LIMIT_RPS if config.ENABLE_RATE_LIMITING else None, 
+        request_timeout=config.REQUEST_TIMEOUT,
+        max_retries=config.MAX_RETRIES,
+        retry_backoff=config.RETRY_BACKOFF,
     )
     
     scan_input = ScanInput(
@@ -600,20 +643,32 @@ if __name__ == "__main__":
     python scripts/test_swarm_scanner.py
     
     # Modify TestConfig class above to customize:
-    - TARGET_URL: Your target endpoint
+    - TARGET_URL: Your target endpoint (supports http://, https://, ws://, wss://)
     - SCAN_MODE: quick (default), standard, thorough
     - AGENT_TYPE: jailbreak (default), sql, auth, all
+    - ENABLE_PARALLEL: True/False to enable parallel execution
+    - ENABLE_RATE_LIMITING: True/False to enable rate limiting
+    - RATE_LIMIT_RPS: Requests per second limit (if rate limiting enabled)
     
     # Understanding the parameters:
     - max_probes: Number of different attack types (probes) to run
     - max_generations: Number of attempts per probe prompt
-    - Quick mode: 2 probes × 2 generations = fast test (~1-2 min)
+    - Quick mode: 1 probe × 1 generation = fast test (~30 sec)
+    
+    # Production Features:
+    - Parallel execution: Run multiple probes/generations concurrently
+    - Rate limiting: Control request rate to avoid overwhelming target
+    - WebSocket support: Test WebSocket endpoints (auto-detected from URL)
+    - Request retries: Automatic retry with exponential backoff
     
     Environment Variables (optional):
     ---------------------------------
     TARGET_URL: Override target URL
     SCAN_MODE: Override scan mode
     AGENT_TYPE: Override agent selection
+    ENABLE_PARALLEL: Enable parallel execution (true/false)
+    ENABLE_RATE_LIMITING: Enable rate limiting (true/false)
+    RATE_LIMIT_RPS: Rate limit in requests per second
     
     Examples:
     ---------
@@ -623,8 +678,17 @@ if __name__ == "__main__":
     # Standard scan with all agents
     SCAN_MODE=standard AGENT_TYPE=all python scripts/test_swarm_scanner.py
     
-    # Thorough scan (comprehensive but slower)
-    SCAN_MODE=thorough AGENT_TYPE=all python scripts/test_swarm_scanner.py
+    # Thorough scan with parallel execution
+    SCAN_MODE=thorough AGENT_TYPE=all ENABLE_PARALLEL=true python scripts/test_swarm_scanner.py
+    
+    # Rate-limited scan (protect target API)
+    ENABLE_RATE_LIMITING=true RATE_LIMIT_RPS=5.0 python scripts/test_swarm_scanner.py
+    
+    # WebSocket endpoint test
+    TARGET_URL=wss://myapp.com/ws/chat python scripts/test_swarm_scanner.py
+    
+    # Production-ready scan (parallel + rate limiting)
+    SCAN_MODE=standard ENABLE_PARALLEL=true ENABLE_RATE_LIMITING=true RATE_LIMIT_RPS=10.0 python scripts/test_swarm_scanner.py
     """
     
     # Allow environment variable overrides
@@ -635,6 +699,15 @@ if __name__ == "__main__":
         TestConfig.SCAN_MODE = os.getenv("SCAN_MODE")
     if os.getenv("AGENT_TYPE"):
         TestConfig.AGENT_TYPE = os.getenv("AGENT_TYPE")
+    if os.getenv("ENABLE_PARALLEL"):
+        TestConfig.ENABLE_PARALLEL = os.getenv("ENABLE_PARALLEL").lower() in ("true", "1", "yes")
+    if os.getenv("ENABLE_RATE_LIMITING"):
+        TestConfig.ENABLE_RATE_LIMITING = os.getenv("ENABLE_RATE_LIMITING").lower() in ("true", "1", "yes")
+    if os.getenv("RATE_LIMIT_RPS"):
+        try:
+            TestConfig.RATE_LIMIT_RPS = float(os.getenv("RATE_LIMIT_RPS"))
+        except ValueError:
+            logger.warning(f"Invalid RATE_LIMIT_RPS value: {os.getenv('RATE_LIMIT_RPS')}, using default")
     
     # Run test
     exit_code = asyncio.run(main())

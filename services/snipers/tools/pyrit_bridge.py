@@ -215,18 +215,8 @@ class PayloadTransformer:
         import asyncio
 
         try:
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                # We're in an async context, need to use nest_asyncio
-                import nest_asyncio
-                nest_asyncio.apply()
-                return loop.run_until_complete(
-                    self.transform_async(payload, converter_names)
-                )
-            else:
-                return loop.run_until_complete(
-                    self.transform_async(payload, converter_names)
-                )
+            return asyncio.get_event_loop().run_until_complete(
+                self.transform_async(payload, converter_names)
+            )
         except RuntimeError:
-            # No event loop, create one
             return asyncio.run(self.transform_async(payload, converter_names))

@@ -2,13 +2,12 @@
 Converter Selection Tool
 
 Selects appropriate PyRIT converters based on pattern analysis.
-Uses structured output with create_agent and Pydantic validation.
+Uses structured output with LangChain's with_structured_output for Pydantic validation.
 """
-import json
 from typing import Any, Dict
 
-from langchain.agents import create_agent
 from langchain_core.language_models import BaseChatModel
+from langchain_core.messages import SystemMessage, HumanMessage
 
 from services.snipers.models import ConverterSelection, PatternAnalysis
 from services.snipers.agent.prompts import (
@@ -17,7 +16,7 @@ from services.snipers.agent.prompts import (
 )
 
 
-def create_converter_selection_agent(llm: BaseChatModel) -> Any:
+def create_converter_selection_agent(llm: BaseChatModel) -> BaseChatModel:
     """
     Create converter selection agent with structured Pydantic output.
 
@@ -25,35 +24,21 @@ def create_converter_selection_agent(llm: BaseChatModel) -> Any:
         llm: Language model for selection
 
     Returns:
-        Compiled agent that outputs ConverterSelection
+        LLM with structured output bound to ConverterSelection
     """
-    agent = create_agent(
-        model=llm,
-        tools=[],  # No tools needed for this agent
-        system_prompt="You are an expert in selecting attack transformation converters for exploitation.",
-        response_format=ConverterSelection,
-    )
-    return agent
+    return llm.with_structured_output(ConverterSelection)
 
 
 def select_converters_with_context(
-    agent: Any,
-    llm: BaseChatModel,
-    probe_name: str,
-    target_url: str,
-    pattern_analysis: PatternAnalysis,
-    recon_intelligence: Dict[str, Any],
+    agent: BaseChatModel, llm: BaseChatModel, context: Dict[str, Any]
 ) -> ConverterSelection:
     """
-    Select appropriate converters using the agent with structured output.
+    Select converters using the agent with structured output.
 
     Args:
-        agent: Compiled converter selection agent
-        llm: Language model
-        probe_name: Name of the probe
-        target_url: Target URL
-        pattern_analysis: PatternAnalysis result
-        recon_intelligence: Recon intelligence data
+        agent: LLM with structured output (ConverterSelection)
+        llm: Language model (unused, kept for API compatibility)
+        context: Context dict with probe_name, target_url, pattern_analysis, recon_intelligence
 
     Returns:
         ConverterSelection with validated structure
@@ -62,24 +47,32 @@ def select_converters_with_context(
         ValueError: If converter selection fails
     """
     try:
+        pattern_analysis = context.get("pattern_analysis", {})
+        if hasattr(pattern_analysis, "model_dump"):
+            pattern_analysis_str = str(pattern_analysis.model_dump())
+        else:
+            pattern_analysis_str = str(pattern_analysis)
+
         prompt = CONVERTER_SELECTION_PROMPT.format(
-            probe_name=probe_name,
-            target_url=target_url,
-            pattern_analysis=pattern_analysis.model_dump_json(indent=2),
-            recon_intelligence=format_recon_intelligence(recon_intelligence or {}),
+            probe_name=context["probe_name"],
+            target_url=context["target_url"],
+            pattern_analysis=pattern_analysis_str,
+            recon_intelligence=format_recon_intelligence(
+                context.get("recon_intelligence", {})
+            ),
         )
 
-        result = agent.invoke({"messages": [("user", prompt)]})
-        converter_selection = result.get("structured_response")
+        messages = [
+            SystemMessage(content="You are an expert in selecting attack transformation converters."),
+            HumanMessage(content=prompt)
+        ]
 
-        if not converter_selection:
-            raise ValueError("No structured response from agent")
+        result = agent.invoke(messages)
 
-        if not isinstance(converter_selection, ConverterSelection):
-            # Fallback validation with Pydantic
-            converter_selection = ConverterSelection(**converter_selection)
+        if not isinstance(result, ConverterSelection):
+            raise ValueError(f"Expected ConverterSelection, got {type(result)}")
 
-        return converter_selection
+        return result
 
     except Exception as e:
         raise ValueError(f"Converter selection failed: {str(e)}") from e

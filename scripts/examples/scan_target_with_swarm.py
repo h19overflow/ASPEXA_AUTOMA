@@ -215,7 +215,7 @@ async def main():
 
     # Handle --list-recon
     if args.list_recon:
-        recon_dir = Path(__file__).parent.parent.parent / "recon_results"
+        recon_dir = Path(__file__).parent.parent.parent / "tests" / "recon_results"
         print("\n📂 Available reconnaissance files:")
         for file_path in sorted(recon_dir.glob("*.json")):
             print(f"   {file_path.name}")
@@ -224,7 +224,7 @@ async def main():
     # Determine recon file
     if not args.recon_file:
         # Auto-detect latest recon file
-        recon_dir = Path(__file__).parent.parent.parent / "recon_results"
+        recon_dir = Path(__file__).parent.parent.parent / "tests" / "recon_results"
         recon_files = sorted(recon_dir.glob("*.json"))
         if not recon_files:
             print("❌ No reconnaissance files found")

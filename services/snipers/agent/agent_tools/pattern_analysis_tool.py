@@ -2,12 +2,12 @@
 Pattern Analysis Tool
 
 Analyzes attack patterns from example findings using COT and Step-Back prompting.
-Uses structured output with create_agent and Pydantic validation.
+Uses structured output with LangChain's with_structured_output for Pydantic validation.
 """
 from typing import Any, Dict
 
-from langchain.agents import create_agent
 from langchain_core.language_models import BaseChatModel
+from langchain_core.messages import SystemMessage, HumanMessage
 
 from services.snipers.models import PatternAnalysis
 from services.snipers.agent.prompts import (
@@ -17,7 +17,7 @@ from services.snipers.agent.prompts import (
 )
 
 
-def create_pattern_analysis_agent(llm: BaseChatModel) -> Any:
+def create_pattern_analysis_agent(llm: BaseChatModel) -> BaseChatModel:
     """
     Create pattern analysis agent with structured Pydantic output.
 
@@ -25,26 +25,20 @@ def create_pattern_analysis_agent(llm: BaseChatModel) -> Any:
         llm: Language model for analysis
 
     Returns:
-        Compiled agent that outputs PatternAnalysis
+        LLM with structured output bound to PatternAnalysis
     """
-    agent = create_agent(
-        model=llm,
-        tools=[],  # No tools needed for this agent
-        system_prompt="You are an expert security researcher analyzing vulnerability patterns.",
-        response_format=PatternAnalysis,
-    )
-    return agent
+    return llm.with_structured_output(PatternAnalysis)
 
 
 def analyze_pattern_with_context(
-    agent: Any, llm: BaseChatModel, context: Dict[str, Any]
+    agent: BaseChatModel, llm: BaseChatModel, context: Dict[str, Any]
 ) -> PatternAnalysis:
     """
     Analyze attack patterns using the agent with structured output.
 
     Args:
-        agent: Compiled pattern analysis agent
-        llm: Language model (used for fallback if agent fails)
+        agent: LLM with structured output (PatternAnalysis)
+        llm: Language model (unused, kept for API compatibility)
         context: Context dict with probe_name, example_findings, target_url, recon_intelligence
 
     Returns:
@@ -64,17 +58,17 @@ def analyze_pattern_with_context(
             ),
         )
 
-        result = agent.invoke({"messages": [("user", prompt)]})
-        pattern_analysis = result.get("structured_response")
+        messages = [
+            SystemMessage(content="You are an expert security researcher analyzing vulnerability patterns."),
+            HumanMessage(content=prompt)
+        ]
 
-        if not pattern_analysis:
-            raise ValueError("No structured response from agent")
+        result = agent.invoke(messages)
 
-        if not isinstance(pattern_analysis, PatternAnalysis):
-            # Fallback validation with Pydantic
-            pattern_analysis = PatternAnalysis(**pattern_analysis)
+        if not isinstance(result, PatternAnalysis):
+            raise ValueError(f"Expected PatternAnalysis, got {type(result)}")
 
-        return pattern_analysis
+        return result
 
     except Exception as e:
         raise ValueError(f"Pattern analysis failed: {str(e)}") from e

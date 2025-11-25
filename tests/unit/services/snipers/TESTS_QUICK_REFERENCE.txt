@@ -1,0 +1,345 @@
+================================================================================
+                    SNIPERS TESTS - QUICK REFERENCE CARD
+================================================================================
+
+RUN TESTS
+================================================================================
+# All tests with reporting
+python run_snipers_tests.py --coverage
+
+# Specific test file
+pytest tests/unit/services/snipers/test_models.py -v
+
+# Specific test class
+pytest tests/unit/services/snipers/test_models.py::TestExampleFinding -v
+
+# Specific test method
+pytest tests/unit/services/snipers/test_models.py::TestExampleFinding::test_valid_example_finding -v
+
+# With detailed logs
+pytest tests/unit/services/snipers/ -v --log-cli=DEBUG
+
+# Only PyRIT tests
+pytest tests/unit/services/snipers/test_pyrit_integration.py -v
+
+# Only edge cases
+pytest tests/unit/services/snipers/ -m edge_case -v
+
+# Only config errors
+pytest tests/unit/services/snipers/ -m config_error -v
+
+# Skip slow tests
+pytest tests/unit/services/snipers/ -m "not slow" -v
+
+# With coverage (HTML report)
+pytest tests/unit/services/snipers/ --cov=services/snipers --cov-report=html
+
+
+TEST FILES
+================================================================================
+Location: tests/unit/services/snipers/
+
+test_models.py              34 tests    Pydantic model validation
+test_parsers.py             23 tests    Garak & Recon parsing
+test_pyrit_integration.py   50 tests    PyRIT converters, adapters, executor
+test_routing.py             27 tests    Decision routing logic
+conftest.py                 -           Shared fixtures & configuration
+                           ───────
+TOTAL:                     127+ tests
+
+
+TEST CATEGORIES BY FILE
+================================================================================
+
+test_models.py:
+  - TestExampleFinding (7 tests)
+  - TestExploitAgentInput (5 tests)
+  - TestPatternAnalysis (4 tests)
+  - TestConverterSelection (3 tests)
+  - TestPayloadGeneration (3 tests)
+  - TestAttackPlan (3 tests)
+  - TestAttackResult (4 tests)
+  - TestAgentConfiguration (5 tests)
+
+test_parsers.py:
+  - TestGarakReportParser (6 tests)
+  - TestExampleExtractor (5 tests)
+  - TestReconBlueprintParser (8 tests)
+  - TestParserIntegration (4 tests)
+
+test_pyrit_integration.py:
+  - TestConverterFactory (6 tests)
+  - TestPayloadTransformer (8 tests)
+  - TestHttpTargetAdapter (6 tests)
+  - TestWebSocketTargetAdapter (6 tests)
+  - TestPyRITExecutor (11 tests)
+  - TestPyRITIntegrationErrors (6 tests)
+  - TestPyRITIntegrationEdgeCases (6 tests)
+
+test_routing.py:
+  - TestRouteAfterHumanReview (7 tests)
+  - TestRouteAfterResultReview (7 tests)
+  - TestRouteAfterRetry (6 tests)
+  - TestRoutingEdgeCases (7 tests)
+  - TestRoutingDecisionLogging (4 tests)
+  - TestRoutingPerformance (3 tests)
+
+
+GENERATED REPORTS
+================================================================================
+After running tests with coverage:
+
+tests/report.html               Visual test results with timings
+tests/coverage_html/            Line-by-line coverage report
+  ├── index.html                Coverage summary
+  ├── status.json               Coverage data
+  └── services/...              Per-file coverage
+
+tests/junit.xml                 JUnit XML format (CI/CD)
+tests/test_results.log          Detailed execution log
+
+
+EDGE CASES COVERED (60+)
+================================================================================
+Empty Values:           "" (empty string), [] (empty list), {} (empty dict)
+Null Values:            None values in optional fields
+Out of Range:           detector_score > 1.0, < 0.0
+                        confidence > 1.0
+                        attempt_number < 1
+Type Errors:            String instead of float
+                        Integer instead of list
+Missing Fields:         Required fields not provided
+Invalid Formats:        Bad URLs, malformed JSON
+Timeouts:              30s timeout for HTTP/WebSocket
+Count Validation:       Exactly 3 examples required
+Configuration:          Negative thresholds, zero timeouts
+Large Payloads:         1MB+ payloads
+Unicode/Special Chars:  Emoji, non-ASCII, special symbols
+Concurrent Execution:   Multiple simultaneous requests
+Conflicting Signals:    Both approve and reject set
+
+
+ERROR SCENARIOS COVERED (40+)
+================================================================================
+Configuration Errors:
+  ✗ Negative confidence threshold
+  ✗ Threshold > 1.0
+  ✗ Negative timeout
+  ✗ Zero timeout
+  ✗ Invalid example count (not 3)
+  ✗ Missing required fields
+  ✗ Invalid URL format
+
+Parsing Errors:
+  ✗ Empty report
+  ✗ Malformed cluster
+  ✗ Invalid confidence score
+  ✗ Missing vulnerability findings
+  ✗ Invalid field types
+
+Execution Errors:
+  ✗ Converter not found
+  ✗ Adapter initialization failure
+  ✗ Target unreachable
+  ✗ HTTP errors (400, 401, 403, 404, 500, 502, 503)
+  ✗ WebSocket disconnection
+  ✗ Response parsing failure
+
+Routing Errors:
+  ✗ Invalid decision value
+  ✗ Conflicting signals
+  ✗ Missing modification data
+  ✗ Incomplete state
+  ✗ Max retries exceeded
+
+
+LOGGING IN TESTS
+================================================================================
+# Capture logs during test
+def test_example(capture_logs):
+    # Get logs by level
+    errors = capture_logs["get_logs_by_level"]("ERROR")
+    warnings = capture_logs["get_logs_by_level"]("WARNING")
+
+    # Get all error messages
+    messages = capture_logs["get_error_messages"]()
+
+    # Assert log contains text
+    capture_logs["assert_log_contains"]("Expected text")
+
+    # Access raw log records
+    all_logs = capture_logs["records"]
+    for record in all_logs:
+        print(f"{record.levelname}: {record.getMessage()}")
+
+
+FIXTURES AVAILABLE
+================================================================================
+
+Valid Data Fixtures:
+  sample_example_finding          Valid ExampleFinding
+  sample_exploit_agent_input      Complete agent input with 3 examples
+  sample_pattern_analysis         Pattern learning output
+  sample_converter_selection      Converter selection output
+  sample_payload_generation       Generated payloads output
+  sample_attack_plan              Complete attack plan
+  sample_attack_result            Attack execution result
+  sample_garak_report             Valid Garak report JSON
+  sample_recon_blueprint          Valid Recon blueprint JSON
+
+Invalid Data Fixtures (Error Cases):
+  invalid_example_finding_missing_field
+  invalid_example_finding_wrong_type
+  invalid_example_finding_out_of_range
+  invalid_exploit_agent_input_wrong_example_count
+  invalid_exploit_agent_input_invalid_url
+  empty_garak_report
+  garak_report_missing_fields
+
+Configuration Fixtures:
+  valid_agent_config
+  invalid_agent_config_negative_threshold
+  invalid_agent_config_threshold_too_high
+  invalid_agent_config_negative_timeout
+
+Decision Fixtures:
+  human_approval_payload_approved
+  human_approval_payload_rejected
+  human_approval_payload_modified
+
+Mock Fixtures:
+  mock_converter_factory
+  mock_payload_transformer
+  mock_target_adapter
+  mock_pyrit_executor
+  mock_exploit_agent
+  mock_llm
+
+Utility Fixtures:
+  capture_logs(caplog)            Capture and analyze test logs
+
+
+PYTEST MARKERS
+================================================================================
+@pytest.mark.unit              Unit test
+@pytest.mark.integration       Integration test
+@pytest.mark.slow              Slow running test
+@pytest.mark.edge_case         Edge case test
+@pytest.mark.config_error      Configuration error test
+@pytest.mark.pyrit             PyRIT integration test
+@pytest.mark.models            Pydantic model test
+@pytest.mark.parsers           Parser test
+@pytest.mark.routing           Routing test
+
+Usage:
+  pytest -m edge_case            Run only edge cases
+  pytest -m "not slow"           Skip slow tests
+  pytest -m pyrit                Run only PyRIT tests
+
+
+TROUBLESHOOTING
+================================================================================
+
+Tests not discovered?
+  └─ pytest tests/unit/services/snipers/ --collect-only
+
+Fixture not found?
+  └─ Check conftest.py in test directory
+  └─ Verify pytest installed: pip install pytest
+
+Logs not showing?
+  └─ Add flag: --log-cli=DEBUG
+  └─ Check file: tests/test_results.log
+
+Coverage incomplete?
+  └─ Install: pip install pytest-cov
+  └─ Run: pytest --cov=services/snipers --cov-report=html
+
+Tests too slow?
+  └─ Use: pytest -m "not slow"
+  └─ Run specific file instead of all
+
+
+QUICK COMMANDS
+================================================================================
+# Run all tests
+pytest tests/unit/services/snipers/ -v
+
+# Run with coverage
+pytest tests/unit/services/snipers/ -v --cov=services/snipers --cov-report=html
+
+# Run and stop on first failure
+pytest tests/unit/services/snipers/ -x
+
+# Run last failed tests
+pytest tests/unit/services/snipers/ --lf
+
+# Show slowest tests
+pytest tests/unit/services/snipers/ --durations=10
+
+# Run with output capture
+pytest tests/unit/services/snipers/ -s
+
+# Run verbose with source
+pytest tests/unit/services/snipers/ -vv
+
+# Run specific test
+pytest tests/unit/services/snipers/test_models.py::TestExampleFinding::test_valid_example_finding -v
+
+
+PERFORMANCE TARGETS
+================================================================================
+Single Test:               < 100ms
+Entire Test Suite:         < 5 seconds
+Coverage Report:           < 2 seconds
+HTML Report:               < 1 second
+
+
+DOCUMENTATION
+================================================================================
+TEST_GUIDE.md               Complete user manual
+TEST_INVENTORY.md           Detailed test inventory
+SNIPERS_TEST_SUMMARY.md     Executive summary
+README.md                   Service overview (main README)
+
+
+STATISTICS
+================================================================================
+Total Test Files:           5
+Total Test Classes:         20+
+Total Test Methods:         127+
+Lines of Test Code:         3000+
+Edge Cases Covered:         60+
+Error Scenarios:            40+
+Fixture Categories:         10
+Configuration Files:        2
+Documentation Files:        3
+
+
+NEXT STEPS
+================================================================================
+1. Run tests:
+   python run_snipers_tests.py --coverage
+
+2. Review reports:
+   - HTML: tests/report.html
+   - Coverage: tests/coverage_html/index.html
+   - Log: tests/test_results.log
+
+3. Implement models in services/snipers/models.py
+4. Implement parsers in services/snipers/parsers.py
+5. Implement PyRIT integration in services/snipers/tools/
+6. Implement routing in services/snipers/agent/routing.py
+
+7. Run tests again to verify implementation
+
+8. Check coverage:
+   open tests/coverage_html/index.html
+
+
+================================================================================
+Last Updated: 2025-11-25
+Framework: pytest 7.0+
+Python: 3.9+
+Status: ✅ Ready to Use
+================================================================================

@@ -1,5 +1,5 @@
 """IF-05, IF-06, IF-07: Attack Plan, Warrant, and Result contracts (Polymorphic)."""
-from typing import Any, Dict, List, Literal, Union
+from typing import  List, Literal, Union
 from pydantic import Field, model_validator
 from .common import StrictBaseModel, AttackEngine, ResultStatus, ArtifactType
 

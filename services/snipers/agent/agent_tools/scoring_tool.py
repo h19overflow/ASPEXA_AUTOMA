@@ -1,20 +1,19 @@
 """
 Scoring Tool
 
-Scores attack results to determine if they were successful.
-Uses structured output with create_agent and Pydantic validation.
+Evaluates attack results using LLM-based analysis.
+Uses structured output with LangChain's with_structured_output for Pydantic validation.
 """
-import json
-from typing import Any, List
+from typing import Any, Dict
 
-from langchain.agents import create_agent
 from langchain_core.language_models import BaseChatModel
+from langchain_core.messages import SystemMessage, HumanMessage
 
-from services.snipers.models import ExampleFinding, PatternAnalysis, ScoringResult
+from services.snipers.models import ScoringResult
 from services.snipers.agent.prompts import ATTACK_SCORING_PROMPT
 
 
-def create_scoring_agent(llm: BaseChatModel) -> Any:
+def create_scoring_agent(llm: BaseChatModel) -> BaseChatModel:
     """
     Create scoring agent with structured Pydantic output.
 
@@ -22,37 +21,22 @@ def create_scoring_agent(llm: BaseChatModel) -> Any:
         llm: Language model for scoring
 
     Returns:
-        Compiled agent that outputs ScoringResult
+        LLM with structured output bound to ScoringResult
     """
-    agent = create_agent(
-        model=llm,
-        tools=[],  # No tools needed for this agent
-        system_prompt="You are an expert at evaluating whether an attack was successful based on the response.",
-        response_format=ScoringResult,
-    )
-    return agent
+    return llm.with_structured_output(ScoringResult)
 
 
 def score_attack_result(
-    agent: Any,
-    llm: BaseChatModel,
-    probe_name: str,
-    attack_payload: str,
-    target_response: str,
-    pattern_analysis: PatternAnalysis,
-    example_findings: List[ExampleFinding],
+    agent: BaseChatModel, llm: BaseChatModel, context: Dict[str, Any]
 ) -> ScoringResult:
     """
-    Score an attack result using the agent with structured output.
+    Score attack result using the agent with structured output.
 
     Args:
-        agent: Compiled scoring agent
-        llm: Language model
-        probe_name: Name of the probe
-        attack_payload: The attack payload that was sent
-        target_response: The response from the target
-        pattern_analysis: PatternAnalysis result with success indicators
-        example_findings: List of example findings for comparison
+        agent: LLM with structured output (ScoringResult)
+        llm: Language model (unused, kept for API compatibility)
+        context: Context dict with probe_name, attack_payload, target_response,
+                 pattern_analysis, success_indicators, example_outputs
 
     Returns:
         ScoringResult with validated structure
@@ -61,29 +45,44 @@ def score_attack_result(
         ValueError: If scoring fails
     """
     try:
-        success_indicators = pattern_analysis.success_indicators
-        example_outputs = [ex.output for ex in example_findings]
+        pattern_analysis = context.get("pattern_analysis", {})
+        if hasattr(pattern_analysis, "model_dump"):
+            pattern_analysis_str = str(pattern_analysis.model_dump())
+        else:
+            pattern_analysis_str = str(pattern_analysis)
+
+        success_indicators = context.get("success_indicators", [])
+        if isinstance(success_indicators, list):
+            success_indicators_str = "\n".join(f"- {ind}" for ind in success_indicators)
+        else:
+            success_indicators_str = str(success_indicators)
+
+        example_outputs = context.get("example_outputs", [])
+        if isinstance(example_outputs, list):
+            example_outputs_str = "\n".join(f"- {out}" for out in example_outputs)
+        else:
+            example_outputs_str = str(example_outputs)
 
         prompt = ATTACK_SCORING_PROMPT.format(
-            probe_name=probe_name,
-            attack_payload=attack_payload,
-            target_response=target_response,
-            pattern_analysis=pattern_analysis.model_dump_json(indent=2),
-            success_indicators=", ".join(success_indicators),
-            example_outputs="\n".join(example_outputs),
+            probe_name=context["probe_name"],
+            attack_payload=context.get("attack_payload", ""),
+            target_response=context.get("target_response", ""),
+            pattern_analysis=pattern_analysis_str,
+            success_indicators=success_indicators_str,
+            example_outputs=example_outputs_str,
         )
 
-        result = agent.invoke({"messages": [("user", prompt)]})
-        scoring_result = result.get("structured_response")
+        messages = [
+            SystemMessage(content="You are an expert at evaluating attack success."),
+            HumanMessage(content=prompt)
+        ]
 
-        if not scoring_result:
-            raise ValueError("No structured response from agent")
+        result = agent.invoke(messages)
 
-        if not isinstance(scoring_result, ScoringResult):
-            # Fallback validation with Pydantic
-            scoring_result = ScoringResult(**scoring_result)
+        if not isinstance(result, ScoringResult):
+            raise ValueError(f"Expected ScoringResult, got {type(result)}")
 
-        return scoring_result
+        return result
 
     except Exception as e:
-        raise ValueError(f"Scoring failed: {str(e)}") from e
+        raise ValueError(f"Attack scoring failed: {str(e)}") from e

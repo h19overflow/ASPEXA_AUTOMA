@@ -1,0 +1,6 @@
+name: aspexa-persistence
+runtime:
+  name: python
+  options:
+    virtualenv: ../../../.venv
+description: S3 Audit Lake infrastructure for Aspexa

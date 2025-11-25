@@ -104,7 +104,7 @@ async def test_cartographer_service():
     try:
         from services.cartographer.persistence.json_storage import list_reconnaissance_results
         
-        files = list_reconnaissance_results("recon_results")
+        files = list_reconnaissance_results("tests/recon_results")
         matching_files = [f for f in files if audit_id in f]
         
         assert len(matching_files) > 0, f"No files found for audit_id: {audit_id}"

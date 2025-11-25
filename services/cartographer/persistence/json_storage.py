@@ -255,7 +255,7 @@ def transform_deductions_to_observations(deductions_by_category: Dict[str, List[
 def save_reconnaissance_result(
     audit_id: str,
     observations: Dict[str, List[str]],
-    output_dir: str = "recon_results",
+    output_dir: str = "tests/recon_results",
     deductions: Optional[Dict[str, List[Dict[str, str]]]] = None
 ) -> str:
     """Save reconnaissance result as JSON in IF-02 format with optional deductions.
@@ -263,7 +263,7 @@ def save_reconnaissance_result(
     Args:
         audit_id: Unique audit identifier
         observations: Raw observations dictionary from reconnaissance
-        output_dir: Directory to save results (default: recon_results)
+        output_dir: Directory to save results (default: tests/recon_results)
         deductions: Structured deductions organized by category (optional)
 
     Returns:
@@ -297,7 +297,7 @@ def save_reconnaissance_result_with_deductions(
     audit_id: str,
     observations: Dict[str, List[str]],
     deductions: Dict[str, List[Dict[str, str]]],
-    output_dir: str = "recon_results"
+    output_dir: str = "tests/recon_results"
 ) -> str:
     """Convenience wrapper to save results with deductions.
 
@@ -328,7 +328,7 @@ def load_reconnaissance_result(filepath: str) -> Dict[str, Any]:
     return data
 
 
-def list_reconnaissance_results(output_dir: str = "recon_results") -> List[str]:
+def list_reconnaissance_results(output_dir: str = "tests/recon_results") -> List[str]:
     """List all reconnaissance result files.
     
     Args:
