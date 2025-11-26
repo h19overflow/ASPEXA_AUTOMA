@@ -1,316 +1,471 @@
-# 💾 Reconnaissance Persistence
+# Persistence Layer
 
 ## Overview
 
-The Cartographer service automatically saves reconnaissance results in JSON format following the **IF-02 Reconnaissance Blueprint** standard defined in `docs/data_contracts.md`.
+Aspexa uses a two-tier persistence architecture:
 
-## Features
+| Tier | Technology | Purpose |
+|------|------------|---------|
+| **Local** | SQLite | Campaign tracking, stage flags, S3 key mappings |
+| **Cloud** | S3 | Actual scan data (recon, garak, exploit results) |
 
-### Automatic Saving
-- Every reconnaissance run automatically saves results to `recon_results/`
-- Files are named: `{audit_id}_{timestamp}.json`
-- Format: Pure JSON (UTF-8 encoded)
-- Standard: IF-02 Reconnaissance Blueprint
-
-### IF-02 Format Structure
-
-```json
-{
-  "audit_id": "uuid-v4",
-  "timestamp": "2025-11-23T12:00:00Z",
-  "intelligence": {
-    "system_prompt_leak": [
-      "Extracted prompt fragments..."
-    ],
-    "detected_tools": [
-      {
-        "name": "tool_name",
-        "arguments": ["param1", "param2"]
-      }
-    ],
-    "infrastructure": {
-      "vector_db": "pinecone",
-      "model_family": "gpt-4",
-      "rate_limits": "strict",
-      "database": "PostgreSQL",
-      "embeddings": "OpenAI"
-    },
-    "auth_structure": {
-      "type": "RBAC",
-      "rules": ["Authorization rules..."],
-      "vulnerabilities": ["potential issues..."]
-    }
-  },
-  "raw_observations": {
-    "system_prompt": [...],
-    "tools": [...],
-    "authorization": [...],
-    "infrastructure": [...]
-  }
-}
-```
-
-## Usage
-
-### Automatic Persistence (Default)
-
-Reconnaissance results are automatically saved when you run reconnaissance:
-
-```python
-from services.cartographer.agent.graph import run_reconnaissance
-
-observations = await run_reconnaissance(
-    audit_id="test-001",
-    target_url="http://localhost:8080/chat",
-    auth_headers={},
-    scope={"depth": "standard", "max_turns": 10}
-)
-# Results automatically saved to: recon_results/test-001_20251123_115000.json
-```
-
-### Manual Saving
-
-You can also manually save results:
-
-```python
-from services.cartographer.persistence import save_reconnaissance_result
-
-filepath = save_reconnaissance_result(
-    audit_id="manual-001",
-    observations={
-        "system_prompt": [...],
-        "tools": [...],
-        "authorization": [...],
-        "infrastructure": [...]
-    },
-    output_dir="recon_results"  # Optional, defaults to "recon_results"
-)
-print(f"Saved to: {filepath}")
-```
-
-### Loading Results
-
-Load previously saved reconnaissance results:
-
-```python
-from services.cartographer.persistence import load_reconnaissance_result
-
-data = load_reconnaissance_result("recon_results/test-001_20251123_115000.json")
-print(data["intelligence"]["detected_tools"])
-```
-
-### Listing All Results
-
-```python
-from services.cartographer.persistence.json_storage import list_reconnaissance_results
-
-files = list_reconnaissance_results("recon_results")
-for file in files:
-    print(f"Found: {file}")
-```
-
-## File Naming Convention
-
-```
-{audit_id}_{timestamp}.json
-```
-
-**Examples:**
-- `test-001_20251123_115000.json`
-- `prod-recon-42_20251124_093045.json`
-- `security-audit-001_20251125_140530.json`
-
-## Data Transformation
-
-The persistence layer automatically transforms raw observations into structured intelligence:
-
-### Tool Extraction
-**Input:** `"fetch_customer_balance(customer_id: str)"`  
-**Output:**
-```json
-{
-  "name": "fetch_customer_balance",
-  "arguments": ["customer_id"]
-}
-```
-
-### Infrastructure Detection
-**Input:** Raw observations about tech stack  
-**Output:**
-```json
-{
-  "database": "PostgreSQL",
-  "vector_db": "FAISS",
-  "model_family": "gemini",
-  "embeddings": "OpenAI"
-}
-```
-
-### Authorization Parsing
-**Input:** Authorization rules from observations  
-**Output:**
-```json
-{
-  "type": "RBAC",
-  "rules": ["Refunds under $1000 auto-approved"],
-  "vulnerabilities": []
-}
-```
-
-## Storage Location
-
-```
-recon_results/
-├── test-001_20251123_115000.json
-├── test-002_20251123_120000.json
-└── prod-audit-001_20251124_093000.json
-```
-
-**Note:** This directory is excluded from version control via `.gitignore`
-
-## Testing
-
-### Test Persistence Module
-
-```bash
-uv run python test_persistence.py
-```
-
-This creates a mock reconnaissance result and verifies:
-- ✅ File creation
-- ✅ IF-02 format compliance
-- ✅ Data loading
-- ✅ Structure validation
-
-### Test with Real Reconnaissance
-
-```bash
-# Terminal 1: Start target agent
-cd test_target_agent
-uv run python main.py
-
-# Terminal 2: Run reconnaissance
-cd ..
-uv run python test_reconnaissance.py
-```
-
-Check `recon_results/` for the saved output.
-
-## Integration with Phase 3
-
-The saved IF-02 files can be used to:
-
-1. **Mock Reconnaissance Results**: During development, use saved files instead of live reconnaissance
-2. **Feed to Swarm Service**: Load IF-02 data to inform vulnerability scanning
-3. **Replay Attacks**: Use saved intelligence to reproduce scan conditions
-4. **Audit Trail**: Keep historical record of reconnaissance findings
-
-### Example: Loading for Swarm
-
-```python
-from services.cartographer.persistence import load_reconnaissance_result
-
-# Load saved reconnaissance
-blueprint = load_reconnaissance_result("recon_results/test-001_20251123_115000.json")
-
-# Use in scan job (IF-03)
-scan_job = {
-    "job_id": "scan-001",
-    "blueprint_context": blueprint,  # The IF-02 data
-    "safety_policy": {
-        "allowed_attack_vectors": ["injection", "jailbreak"],
-        "aggressiveness": "medium"
-    }
-}
-```
-
-## Future Enhancements
-
-### Planned Features
-- [ ] Database persistence (PostgreSQL)
-- [ ] Query interface for results
-- [ ] Deduplication across audits
-- [ ] Compression for large results
-- [ ] Export to CSV/Excel
-- [ ] Diff between reconnaissance runs
-
-### Integration Points
-- **Event Bus**: Publish IF-02 to `evt_recon_finished` topic
-- **API Gateway**: Expose results via REST API
-- **Dashboard**: Visualize intelligence trends
-- **Reporting**: Generate PDF reports from IF-02 data
-
-## Troubleshooting
-
-### Permission Errors
-
-If you get permission errors when saving:
-
-```bash
-# Ensure directory exists and is writable
-mkdir recon_results
-chmod 755 recon_results  # Linux/Mac
-```
-
-### Large Files
-
-If reconnaissance produces very large files:
-
-```python
-# Limit observations in production
-scope = {
-    "max_turns": 5,  # Reduce turns
-    "depth": "shallow"  # Use shallow depth
-}
-```
-
-### JSON Parsing Errors
-
-If tool parsing fails:
-- Check that tool observations follow format: `tool_name(param1: type, param2: type)`
-- Update `_parse_tool_observation()` in `json_storage.py` for custom formats
-
-## API Reference
-
-### `save_reconnaissance_result()`
-
-```python
-def save_reconnaissance_result(
-    audit_id: str,
-    observations: Dict[str, List[str]],
-    output_dir: str = "recon_results"
-) -> str
-```
-
-**Parameters:**
-- `audit_id`: Unique identifier for the audit
-- `observations`: Raw observations dictionary with categories
-- `output_dir`: Output directory (default: "recon_results")
-
-**Returns:** Path to saved file
-
-### `load_reconnaissance_result()`
-
-```python
-def load_reconnaissance_result(filepath: str) -> Dict[str, Any]
-```
-
-**Parameters:**
-- `filepath`: Path to JSON file
-
-**Returns:** IF-02 formatted dictionary
-
-### `list_reconnaissance_results()`
-
-```python
-def list_reconnaissance_results(output_dir: str = "recon_results") -> List[str]
-```
-
-**Parameters:**
-- `output_dir`: Directory to scan
-
-**Returns:** List of file paths
+This design provides fast local queries for campaign management while leveraging S3 for reliable scan data storage.
 
 ---
 
-**Next Steps:** See `TEST_GUIDE.md` for testing the complete reconnaissance flow with persistence.
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    LOCAL (SQLite)                           │
+│  ~/.aspexa/campaigns.db                                     │
+│                                                             │
+│  ┌───────────────────────────────────────────────────────┐  │
+│  │ campaigns table                                       │  │
+│  │  - campaign_id (PK)                                   │  │
+│  │  - name, target_url, status                           │  │
+│  │  - recon_complete, garak_complete, exploit_complete   │  │
+│  │  - recon_scan_id, garak_scan_id, exploit_scan_id      │  │
+│  │  - tags, description                                  │  │
+│  └───────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              │ scan_id → S3 key
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│                       S3 BUCKET                             │
+│                                                             │
+│  scans/                                                     │
+│  ├── recon/                                                 │
+│  │   └── {scan_id}.json    ← ReconResult                   │
+│  ├── garak/                                                 │
+│  │   └── {scan_id}.json    ← GarakResult                   │
+│  └── exploit/                                               │
+│      └── {scan_id}.json    ← ExploitResult                 │
+│                                                             │
+│  campaigns/                 (legacy audit artifacts)        │
+│  └── {audit_id}/{phase}/{filename}.json                    │
+└─────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## File Structure
+
+```
+libs/persistence/
+├── __init__.py              # Main exports (S3 + SQLite)
+├── contracts.py             # Shared exceptions
+├── s3.py                    # S3PersistenceAdapter
+├── scan_models.py           # Pydantic models for scan results
+└── sqlite/                  # Local campaign tracking
+    ├── __init__.py          # SQLite exports
+    ├── connection.py        # Connection management
+    ├── models.py            # Campaign, Stage, ScanMapping
+    └── repository.py        # CampaignRepository CRUD
+```
+
+---
+
+## Quick Start
+
+### 1. Create a Campaign
+
+```python
+from libs.persistence.sqlite import CampaignRepository
+
+repo = CampaignRepository()
+
+# Create campaign
+campaign = repo.create_campaign(
+    name="TechShop Agent Audit",
+    target_url="http://localhost:8080/chat",
+    description="Security audit of customer support chatbot",
+    tags=["production", "high-priority"]
+)
+
+print(campaign.campaign_id)  # UUID
+print(campaign.status)       # CampaignStatus.CREATED
+```
+
+### 2. Run a Scan and Link to Campaign
+
+```python
+from libs.persistence import save_scan, ScanType
+from libs.persistence.sqlite import Stage
+import json
+
+# Load your scan data
+with open("recon_results/my_scan.json") as f:
+    recon_data = json.load(f)
+
+# Save to S3
+scan_id = "recon-20251125-001"
+await save_scan(ScanType.RECON, scan_id, recon_data)
+
+# Link to campaign and set stage flag
+repo.set_stage_complete(campaign.campaign_id, Stage.RECON, scan_id)
+```
+
+### 3. Check Campaign Progress
+
+```python
+campaign = repo.get(campaign.campaign_id)
+
+print(campaign.recon_complete)   # True
+print(campaign.garak_complete)   # False
+print(campaign.exploit_complete) # False
+print(campaign.progress_summary) # "1/3 complete: Recon"
+```
+
+### 4. Retrieve Scan Data
+
+```python
+from libs.persistence import load_scan, ScanType
+
+# Get S3 keys for completed stages
+keys = repo.get_s3_keys(campaign.campaign_id)
+# {'recon': 'scans/recon/recon-20251125-001.json'}
+
+# Load typed scan result
+recon_result = await load_scan(ScanType.RECON, campaign.recon_scan_id)
+print(recon_result.intelligence.detected_tools)
+```
+
+---
+
+## Campaign Lifecycle
+
+### Stages
+
+| Stage | Flag | S3 Key Pattern | Description |
+|-------|------|----------------|-------------|
+| `Stage.RECON` | `recon_complete` | `scans/recon/{scan_id}.json` | Reconnaissance results |
+| `Stage.GARAK` | `garak_complete` | `scans/garak/{scan_id}.json` | Jailbreak scan results |
+| `Stage.EXPLOIT` | `exploit_complete` | `scans/exploit/{scan_id}.json` | Exploit execution results |
+
+### Status Transitions
+
+```
+CREATED → IN_PROGRESS → COMPLETE
+    │                       │
+    └───────→ FAILED ←──────┘
+```
+
+- **CREATED**: Campaign initialized, no stages complete
+- **IN_PROGRESS**: At least one stage complete (auto-computed)
+- **COMPLETE**: All three stages complete (auto-computed)
+- **FAILED**: Manually set when campaign fails
+
+### Stage Management
+
+```python
+# Mark stage in progress (status → IN_PROGRESS)
+repo.set_stage_in_progress(campaign_id, Stage.GARAK)
+
+# Mark stage complete and link scan
+repo.set_stage_complete(campaign_id, Stage.GARAK, "garak-scan-001")
+# Sets: garak_complete=True, garak_scan_id="garak-scan-001"
+# Auto-computes status based on all flags
+
+# Mark campaign as failed
+repo.set_failed(campaign_id, reason="Target unreachable")
+```
+
+---
+
+## API Reference
+
+### CampaignRepository
+
+#### Create Operations
+
+```python
+repo.create_campaign(
+    name: str,
+    target_url: str,
+    description: Optional[str] = None,
+    tags: Optional[List[str]] = None,
+    campaign_id: Optional[str] = None,  # Auto-generated if not provided
+) -> Campaign
+```
+
+#### Read Operations
+
+```python
+repo.get(campaign_id: str) -> Optional[Campaign]
+repo.get_by_target(target_url: str) -> List[Campaign]
+repo.list_all(
+    status: Optional[CampaignStatus] = None,
+    limit: int = 100,
+    offset: int = 0,
+) -> List[Campaign]
+repo.search(query: str, limit: int = 50) -> List[Campaign]
+```
+
+#### Stage Management
+
+```python
+repo.set_stage_complete(campaign_id: str, stage: Stage, scan_id: str) -> Campaign
+repo.set_stage_in_progress(campaign_id: str, stage: Stage) -> Campaign
+repo.set_failed(campaign_id: str, reason: Optional[str] = None) -> Campaign
+```
+
+#### Update Operations
+
+```python
+repo.update_name(campaign_id: str, name: str) -> Campaign
+repo.add_tags(campaign_id: str, tags: List[str]) -> Campaign
+```
+
+#### Delete Operations
+
+```python
+repo.delete(campaign_id: str) -> bool  # Only removes local index, not S3 data
+```
+
+#### S3 Mapping
+
+```python
+repo.get_s3_keys(campaign_id: str) -> Dict[str, str]
+# Returns: {'recon': 'scans/recon/scan-001.json', ...} for completed stages
+```
+
+---
+
+### S3 Scan Functions
+
+#### Save Scan
+
+```python
+from libs.persistence import save_scan, ScanType
+
+summary = await save_scan(
+    scan_type: ScanType,       # RECON, GARAK, or EXPLOIT
+    scan_id: str,              # Unique identifier
+    data: Union[Model, Dict],  # Pydantic model or dict
+) -> ScanResultSummary
+```
+
+#### Load Scan
+
+```python
+from libs.persistence import load_scan
+
+# With validation (returns typed model)
+result = await load_scan(ScanType.RECON, scan_id, validate=True)
+# result is ReconResult with full type hints
+
+# Without validation (returns dict)
+data = await load_scan(ScanType.RECON, scan_id, validate=False)
+```
+
+#### List Scans
+
+```python
+from libs.persistence import list_scans
+
+# All scans
+scans = await list_scans()
+
+# Filter by type
+recon_scans = await list_scans(scan_type=ScanType.RECON)
+
+# Filter by audit ID
+scans = await list_scans(audit_id_filter="exploit-2025")
+```
+
+#### Check/Delete
+
+```python
+from libs.persistence import scan_exists, delete_scan
+
+exists = await scan_exists(ScanType.RECON, scan_id)
+deleted = await delete_scan(ScanType.RECON, scan_id)
+```
+
+---
+
+## Scan Data Models
+
+### ReconResult
+
+```python
+class ReconResult:
+    audit_id: str
+    timestamp: str
+    intelligence: ReconIntelligence
+        - system_prompt_leak: List[str]
+        - detected_tools: List[DetectedTool]
+        - infrastructure: Dict[str, Any]
+        - auth_structure: Optional[AuthStructure]
+    raw_observations: Optional[RawObservations]
+    structured_deductions: Optional[StructuredDeductions]
+```
+
+### GarakResult
+
+```python
+class GarakResult:
+    summary: GarakSummary
+        - total_results: int
+        - pass_count: int
+        - fail_count: int
+        - probes_tested: List[str]
+        - failing_probes: List[str]
+    vulnerability_clusters: VulnerabilityClusters
+    vulnerable_probes: VulnerableProbes
+    vulnerability_findings: VulnerabilityFindings
+    formatted_report: Optional[str]
+    metadata: GarakMetadata
+```
+
+### ExploitResult
+
+```python
+class ExploitResult:
+    audit_id: str
+    target_url: str
+    timestamp: str
+    probes_attacked: List[ProbeAttack]
+        - probe_name: str
+        - pattern_analysis: PatternAnalysis
+        - attempts: List[ExploitAttempt]
+        - success_count: int
+        - overall_success: bool
+    total_attacks: int
+    successful_attacks: int
+    failed_attacks: int
+    execution_time_seconds: float
+```
+
+---
+
+## Configuration
+
+### SQLite Database Location
+
+Default: `~/.aspexa/campaigns.db`
+
+Override:
+```python
+from pathlib import Path
+from libs.persistence.sqlite import CampaignRepository
+
+repo = CampaignRepository(db_path=Path("/custom/path/campaigns.db"))
+```
+
+### S3 Configuration
+
+Set via environment variables:
+```bash
+S3_BUCKET_NAME=my-audit-bucket
+AWS_REGION=ap-southeast-2
+AWS_ACCESS_KEY_ID=...
+AWS_SECRET_ACCESS_KEY=...
+```
+
+Or inject custom adapter:
+```python
+from libs.persistence import save_scan, S3PersistenceAdapter
+
+adapter = S3PersistenceAdapter(
+    bucket_name="my-bucket",
+    region="us-east-1",
+)
+await save_scan(ScanType.RECON, "scan-001", data, adapter=adapter)
+```
+
+---
+
+## Complete Workflow Example
+
+```python
+import asyncio
+import json
+from libs.persistence import save_scan, load_scan, ScanType
+from libs.persistence.sqlite import CampaignRepository, Stage
+
+async def main():
+    repo = CampaignRepository()
+
+    # 1. Create campaign
+    campaign = repo.create_campaign(
+        name="Q4 Security Audit",
+        target_url="https://api.example.com/chat",
+        tags=["production", "quarterly"]
+    )
+    print(f"Created campaign: {campaign.campaign_id}")
+
+    # 2. Run recon and save results
+    with open("recon_results/example.json") as f:
+        recon_data = json.load(f)
+
+    await save_scan(ScanType.RECON, "recon-001", recon_data)
+    repo.set_stage_complete(campaign.campaign_id, Stage.RECON, "recon-001")
+    print(f"Recon complete: {campaign.progress_summary}")
+
+    # 3. Run garak scan and save results
+    with open("garak_runs/example.json") as f:
+        garak_data = json.load(f)
+
+    await save_scan(ScanType.GARAK, "garak-001", garak_data)
+    repo.set_stage_complete(campaign.campaign_id, Stage.GARAK, "garak-001")
+
+    # 4. Run exploit and save results
+    with open("exploit_results/example.json") as f:
+        exploit_data = json.load(f)
+
+    await save_scan(ScanType.EXPLOIT, "exploit-001", exploit_data)
+    repo.set_stage_complete(campaign.campaign_id, Stage.EXPLOIT, "exploit-001")
+
+    # 5. Campaign is now complete
+    campaign = repo.get(campaign.campaign_id)
+    print(f"Status: {campaign.status}")        # COMPLETE
+    print(f"Progress: {campaign.progress_summary}")  # 3/3 complete
+
+    # 6. Retrieve all S3 keys
+    keys = repo.get_s3_keys(campaign.campaign_id)
+    print(f"S3 Keys: {keys}")
+
+    # 7. Load typed results
+    recon = await load_scan(ScanType.RECON, campaign.recon_scan_id)
+    print(f"Detected tools: {len(recon.intelligence.detected_tools)}")
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+---
+
+## Error Handling
+
+```python
+from libs.persistence import (
+    PersistenceError,
+    ArtifactNotFoundError,
+    ArtifactUploadError,
+    ArtifactDownloadError,
+)
+
+try:
+    result = await load_scan(ScanType.RECON, "nonexistent-scan")
+except ArtifactNotFoundError:
+    print("Scan not found in S3")
+
+try:
+    repo.get("nonexistent-campaign")  # Returns None, doesn't raise
+    repo.set_stage_complete("bad-id", Stage.RECON, "scan")  # Raises ValueError
+except ValueError as e:
+    print(f"Campaign error: {e}")
+```
+
+---
+
+## See Also
+
+- **docs/main.md** - System overview
+- **docs/data_contracts.md** - IF-01 through IF-06 contracts
+- **services/cartographer/README.md** - Recon output format
+- **services/swarm/README.md** - Garak scan output format
+- **services/snipers/README.md** - Exploit result format

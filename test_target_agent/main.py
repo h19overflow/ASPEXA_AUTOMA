@@ -19,7 +19,7 @@ from .mock_tools import (
     get_transaction_history,
 )
 # Load environment variables
-
+load_dotenv()
 
 # FastAPI app
 app = FastAPI(

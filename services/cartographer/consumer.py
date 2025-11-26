@@ -1,4 +1,5 @@
 """Cartographer service consumer - Integrates recon agent with event bus."""
+import logging
 import re
 from datetime import datetime
 from libs.events.publisher import broker, publish_recon_finished, CMD_RECON_START
@@ -11,6 +12,9 @@ from libs.contracts.recon import (
     DetectedTool
 )
 from services.cartographer.agent.graph import run_reconnaissance
+from services.cartographer.persistence.s3_adapter import persist_recon_result
+
+logger = logging.getLogger(__name__)
 
 
 def extract_infrastructure_intel(observations: list) -> InfrastructureIntel:
@@ -177,8 +181,23 @@ async def handle_recon_request(message: dict):
             )
         )
 
-        # Publish IF-02 blueprint
-        await publish_recon_finished(blueprint.model_dump())
+        # Persist to S3 and update campaign stage
+        scan_id = f"recon-{request.audit_id}"
+        try:
+            await persist_recon_result(
+                campaign_id=request.audit_id,
+                scan_id=scan_id,
+                blueprint=blueprint.model_dump(),
+                target_url=request.target.url,
+            )
+            print(f"[Cartographer] Persisted recon to S3: {scan_id}")
+        except Exception as e:
+            logger.warning(f"Persistence failed (continuing): {e}")
+
+        # Publish IF-02 blueprint with scan_id reference
+        payload = blueprint.model_dump()
+        payload["recon_scan_id"] = scan_id
+        await publish_recon_finished(payload)
 
         print(f"[Cartographer] Published reconnaissance blueprint for audit: {request.audit_id}")
 

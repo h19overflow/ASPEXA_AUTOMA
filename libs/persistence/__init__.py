@@ -1,19 +1,24 @@
-"""S3 Persistence Layer for the Audit Lake.
+"""Persistence Layer for Audit Lake.
 
-Public API providing simplified access to artifact storage.
-Wraps S3PersistenceAdapter with environment configuration.
+Two-tier storage:
+- SQLite (local): Campaign tracking, stage flags, S3 key mappings
+- S3 (cloud): Actual scan data (recon, garak, exploit results)
 
 Usage:
-    from libs.persistence import save_artifact, load_artifact, list_audit_files
+    # Campaign management (local SQLite)
+    from libs.persistence.sqlite import CampaignRepository, Campaign, Stage
 
-    await save_artifact(
-        audit_id="audit-123",
-        phase="reconnaissance",
-        filename="blueprint_v1.json",
-        data={...}
-    )
+    repo = CampaignRepository()
+    campaign = repo.create_campaign("My Audit", "http://target.com/chat")
+    repo.set_stage_complete(campaign.campaign_id, Stage.RECON, "scan-001")
+
+    # Scan data (S3)
+    from libs.persistence import save_scan, load_scan, ScanType
+
+    await save_scan(ScanType.RECON, "scan-001", recon_data)
+    result = await load_scan(ScanType.RECON, "scan-001")
 """
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from libs.config.settings import get_settings
 
@@ -26,6 +31,22 @@ from .contracts import (
     ArtifactDownloadError,
 )
 from .s3 import S3PersistenceAdapter
+from .scan_models import (
+    ScanType,
+    ReconResult,
+    GarakResult,
+    ExploitResult,
+    ScanResultSummary,
+)
+
+# SQLite imports (re-exported for convenience)
+from .sqlite import (
+    Campaign,
+    CampaignStatus,
+    Stage,
+    ScanMapping,
+    CampaignRepository,
+)
 
 
 # Phase name mapping for convenience
@@ -151,15 +172,123 @@ async def artifact_exists(
     return await adapter.artifact_exists(audit_id, resolved_phase, filename)
 
 
+# --- Scan Result Functions ---
+
+async def save_scan(
+    scan_type: ScanType,
+    scan_id: str,
+    data: Union[ReconResult, GarakResult, ExploitResult, Dict[str, Any]],
+    adapter: Optional[S3PersistenceAdapter] = None,
+) -> ScanResultSummary:
+    """Save a scan result to S3.
+
+    Args:
+        scan_type: Type of scan (ScanType.RECON, GARAK, EXPLOIT)
+        scan_id: Unique scan identifier
+        data: Scan result (Pydantic model or dict)
+        adapter: Optional custom adapter (for testing)
+
+    Returns:
+        ScanResultSummary with storage details
+
+    Raises:
+        ArtifactUploadError: If upload fails
+    """
+    adapter = adapter or _get_adapter()
+    return await adapter.save_scan_result(scan_type, scan_id, data)
+
+
+async def load_scan(
+    scan_type: ScanType,
+    scan_id: str,
+    validate: bool = True,
+    adapter: Optional[S3PersistenceAdapter] = None,
+) -> Union[ReconResult, GarakResult, ExploitResult, Dict[str, Any]]:
+    """Load a scan result from S3.
+
+    Args:
+        scan_type: Type of scan
+        scan_id: Unique scan identifier
+        validate: If True, return typed Pydantic model; else raw dict
+        adapter: Optional custom adapter (for testing)
+
+    Returns:
+        Typed scan result or raw dict
+
+    Raises:
+        ArtifactNotFoundError: If scan doesn't exist
+    """
+    adapter = adapter or _get_adapter()
+    return await adapter.load_scan_result(scan_type, scan_id, validate)
+
+
+async def list_scans(
+    scan_type: Optional[ScanType] = None,
+    audit_id_filter: Optional[str] = None,
+    adapter: Optional[S3PersistenceAdapter] = None,
+) -> List[ScanResultSummary]:
+    """List scan results from S3.
+
+    Args:
+        scan_type: Filter by type (None = all types)
+        audit_id_filter: Filter by audit ID substring
+        adapter: Optional custom adapter (for testing)
+
+    Returns:
+        List of ScanResultSummary objects
+    """
+    adapter = adapter or _get_adapter()
+    return await adapter.list_scans(scan_type, audit_id_filter)
+
+
+async def scan_exists(
+    scan_type: ScanType,
+    scan_id: str,
+    adapter: Optional[S3PersistenceAdapter] = None,
+) -> bool:
+    """Check if a scan result exists."""
+    adapter = adapter or _get_adapter()
+    return await adapter.scan_exists(scan_type, scan_id)
+
+
+async def delete_scan(
+    scan_type: ScanType,
+    scan_id: str,
+    adapter: Optional[S3PersistenceAdapter] = None,
+) -> bool:
+    """Delete a scan result from S3."""
+    adapter = adapter or _get_adapter()
+    return await adapter.delete_scan(scan_type, scan_id)
+
+
 __all__ = [
-    # Public API functions
+    # Artifact functions (S3)
     "save_artifact",
     "load_artifact",
     "list_audit_files",
     "artifact_exists",
-    # Contracts
+    # Scan functions (S3)
+    "save_scan",
+    "load_scan",
+    "list_scans",
+    "scan_exists",
+    "delete_scan",
+    # Enums
     "AuditPhase",
+    "ScanType",
+    "CampaignStatus",
+    "Stage",
+    # Scan models
     "ArtifactMetadata",
+    "ReconResult",
+    "GarakResult",
+    "ExploitResult",
+    "ScanResultSummary",
+    # Campaign models (SQLite)
+    "Campaign",
+    "ScanMapping",
+    "CampaignRepository",
+    # Exceptions
     "PersistenceError",
     "ArtifactNotFoundError",
     "ArtifactUploadError",

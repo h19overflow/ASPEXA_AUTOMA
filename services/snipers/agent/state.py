@@ -32,6 +32,9 @@ class ExploitAgentState(TypedDict, total=False):
     recon_intelligence: Optional[Dict[str, Any]]
     vulnerability_cluster: Optional[Dict[str, Any]]
 
+    # Campaign tracking (for persistence)
+    campaign_id: Optional[str]
+
     # Agent reasoning outputs
     pattern_analysis: Optional[PatternAnalysis]
     converter_selection: Optional[ConverterSelection]
@@ -68,7 +71,8 @@ def create_initial_state(
     recon_intelligence: Optional[Dict[str, Any]] = None,
     vulnerability_cluster: Optional[Dict[str, Any]] = None,
     max_retries: int = 3,
-    thread_id: str = "default"
+    thread_id: str = "default",
+    campaign_id: Optional[str] = None,
 ) -> ExploitAgentState:
     """
     Create initial state for exploit agent workflow.
@@ -81,6 +85,7 @@ def create_initial_state(
         vulnerability_cluster: Optional vulnerability cluster data
         max_retries: Maximum retry attempts
         thread_id: Thread ID for LangGraph checkpointing
+        campaign_id: Optional campaign ID for persistence tracking
 
     Returns:
         Initialized ExploitAgentState
@@ -91,6 +96,7 @@ def create_initial_state(
         target_url=target_url,
         recon_intelligence=recon_intelligence,
         vulnerability_cluster=vulnerability_cluster,
+        campaign_id=campaign_id,
         pattern_analysis=None,
         converter_selection=None,
         payload_generation=None,

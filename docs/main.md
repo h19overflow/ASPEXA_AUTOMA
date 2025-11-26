@@ -297,6 +297,7 @@ The result: fast, accurate, comprehensive red team assessments with proof of imp
 ## See Also
 
 - **docs/code_base_structure.md** - Directory organization and module responsibilities
+- **docs/persistence.md** - Campaign tracking and S3 storage
 - **docs/Phases/PHASE1_CARTOGRAPHER.md** - Phase 1 reconnaissance details
 - **docs/Phases/PHASE2_SWARM_SCANNER.md** - Phase 2 scanning details
 - **docs/Phases/PHASE4_SNIPERS_EXPLOIT.md** - Phase 3 exploitation details

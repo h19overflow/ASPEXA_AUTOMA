@@ -6,7 +6,9 @@ from services.cartographer.prompts import RECON_SYSTEM_PROMPT
 from services.cartographer.tools.network import call_target_endpoint, NetworkError
 from services.cartographer.persistence import save_reconnaissance_result
 from services.cartographer.response_format import ReconTurn
+from dotenv import load_dotenv
 
+load_dotenv()
 
 def build_recon_graph():
     """Build and return the compiled reconnaissance agent graph."""
@@ -205,3 +207,14 @@ Generate a strategic probing question to send to the target. The question should
     
     # Return observations collected by the tools
     return tool_set.observations
+
+
+if __name__ == "__main__":
+    import asyncio
+    asyncio.run(run_reconnaissance(
+        audit_id="test",
+        target_url="http://localhost:8080/chat",
+        auth_headers={},
+        scope={"max_turns": 10, "forbidden_keywords": []},
+        special_instructions="Test special instructions"
+    ))

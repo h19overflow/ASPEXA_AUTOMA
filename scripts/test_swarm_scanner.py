@@ -24,12 +24,12 @@ Understanding Scan Parameters:
   * Each probe is a different attack type (e.g., "dan", "promptinj", "encoding")
   * Example: max_probes=2 means run up to 2 different probe types
   * Each probe has multiple prompts (attack variations)
-  
+
 - max_generations: Maximum number of ATTEMPTS per probe
   * How many times to generate outputs for each prompt in a probe
   * Example: max_generations=2 means try each prompt 2 times
   * Higher = more reliable detection but slower
-  
+
 Total Attack Count = (probes × prompts_per_probe × generations)
 Example: 2 probes × 5 prompts × 2 generations = 20 total attacks
 
@@ -85,11 +85,13 @@ from services.swarm.core.config import AgentType
 # Configure detailed logging
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     handlers=[
-        logging.FileHandler(f'swarm_test_{datetime.now().strftime("%Y%m%d_%H%M%S")}.log'),
-        logging.StreamHandler()
-    ]
+        logging.FileHandler(
+            f"swarm_test_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+        ),
+        logging.StreamHandler(),
+    ],
 )
 logger = logging.getLogger(__name__)
 
@@ -98,33 +100,43 @@ logger = logging.getLogger(__name__)
 # CONFIGURATION ENTRY POINTS
 # ============================================================================
 
+
 class TestConfig:
     """Centralized test configuration"""
-    
+
     # Target Configuration
     TARGET_URL = "http://localhost:8080/chat"  # 👈 CHANGE THIS to your target
     # Supports: http://, https://, ws://, wss://
-    
+
     # Intelligence File
-    RECON_FILE = project_root / "tests" / "recon_results" / "integration-test-001_20251124_042930.json"
-    
+    RECON_FILE = (
+        project_root
+        / "tests"
+        / "recon_results"
+        / "integration-test-001_20251124_042930.json"
+    )
+
     # Scan Configuration
-    SCAN_MODE = "quick"  # quick | standard | thorough (default: quick for simple testing)
+    SCAN_MODE = (
+        "quick"  # quick | standard | thorough (default: quick for simple testing)
+    )
     AGENT_TYPE = "jailbreak"  # jailbreak | sql | auth | all (default: jailbreak for simple testing)
-    
+
     # Production Features Configuration
-    ENABLE_PARALLEL = False  # Enable parallel execution (default: False for compatibility)
+    ENABLE_PARALLEL = (
+        False  # Enable parallel execution (default: False for compatibility)
+    )
     ENABLE_RATE_LIMITING = False  # Enable rate limiting (default: False)
     RATE_LIMIT_RPS = 10.0  # Requests per second limit (if rate limiting enabled)
-    
+
     # Scan Intensity Settings
     # max_probes = number of different attack types (probes) to run
     # max_generations = number of attempts per probe prompt
     SCAN_CONFIG = {
         "quick": {
-            "max_probes": 1,        # Run just 1 probe type for fastest testing
-            "max_generations": 1,    # Try each prompt 1 time
-            "approach": "quick",     # Use quick approach defaults
+            "max_probes": 1,  # Run just 1 probe type for fastest testing
+            "max_generations": 1,  # Try each prompt 1 time
+            "approach": "quick",  # Use quick approach defaults
             # Parallel execution settings (only used if ENABLE_PARALLEL=True)
             "max_concurrent_probes": 1,
             "max_concurrent_generations": 1,
@@ -147,12 +159,12 @@ class TestConfig:
             "max_concurrent_connections": 10,
         },
     }
-    
+
     # Request Configuration
     REQUEST_TIMEOUT = 30  # Request timeout in seconds
     MAX_RETRIES = 3  # Maximum retry attempts
     RETRY_BACKOFF = 1.0  # Exponential backoff multiplier
-    
+
     # Output Configuration
     OUTPUT_DIR = project_root / "tests" / "garak_runs"
     RESULTS_DIR = project_root / "tests" / "test_results"
@@ -162,10 +174,11 @@ class TestConfig:
 # INTELLIGENCE LOADER
 # ============================================================================
 
+
 def load_recon_intelligence(recon_file: Path) -> Dict[str, Any]:
     """
     Load and parse reconnaissance intelligence.
-    
+
     Returns structured intelligence including:
     - infrastructure: Database, model info
     - detected_tools: Tool signatures and parameters
@@ -173,30 +186,30 @@ def load_recon_intelligence(recon_file: Path) -> Dict[str, Any]:
     - system_prompt_leak: Extracted system constraints
     """
     logger.info(f"📖 Loading intelligence from: {recon_file}")
-    
+
     if not recon_file.exists():
         logger.error(f"❌ Intelligence file not found: {recon_file}")
         raise FileNotFoundError(f"Recon file missing: {recon_file}")
-    
-    with open(recon_file, 'r') as f:
+
+    with open(recon_file, "r") as f:
         data = json.load(f)
-    
-    intelligence = data.get('intelligence', {})
-    
+
+    intelligence = data.get("intelligence", {})
+
     # Extract key intelligence
     result = {
-        "infrastructure": intelligence.get('infrastructure', {}),
-        "detected_tools": intelligence.get('detected_tools', []),
-        "auth_structure": intelligence.get('auth_structure', {}),
-        "system_prompt_leaks": intelligence.get('system_prompt_leak', []),
+        "infrastructure": intelligence.get("infrastructure", {}),
+        "detected_tools": intelligence.get("detected_tools", []),
+        "auth_structure": intelligence.get("auth_structure", {}),
+        "system_prompt_leaks": intelligence.get("system_prompt_leak", []),
     }
-    
+
     # Log what we found
     logger.info(f"✓ Infrastructure: {result['infrastructure']}")
     logger.info(f"✓ Tools detected: {len(result['detected_tools'])}")
     logger.info(f"✓ Auth rules: {len(result['auth_structure'].get('rules', []))}")
     logger.info(f"✓ System leaks: {len(result['system_prompt_leaks'])}")
-    
+
     return result
 
 
@@ -204,53 +217,62 @@ def load_recon_intelligence(recon_file: Path) -> Dict[str, Any]:
 # INTELLIGENCE ANALYSIS
 # ============================================================================
 
+
 def analyze_intelligence(intel: Dict[str, Any]) -> Dict[str, Any]:
     """
     Analyze intelligence to determine attack strategy.
-    
+
     This mimics what the AI agent would think about.
     """
     logger.info("🧠 Analyzing intelligence for attack vectors...")
-    
+
     analysis = {
         "risk_level": "medium",
         "attack_surfaces": [],
         "recommended_agents": [],
         "key_findings": [],
     }
-    
+
     # Check for authorization vulnerabilities
-    auth_rules = intel.get('auth_structure', {}).get('rules', [])
-    if any('$1000' in rule for rule in auth_rules):
+    auth_rules = intel.get("auth_structure", {}).get("rules", [])
+    if any("$1000" in rule for rule in auth_rules):
         analysis["attack_surfaces"].append("authorization")
         analysis["recommended_agents"].append("auth")
-        analysis["key_findings"].append("🎯 $1000 refund threshold - potential bypass opportunity")
+        analysis["key_findings"].append(
+            "🎯 $1000 refund threshold - potential bypass opportunity"
+        )
         analysis["risk_level"] = "high"
-    
+
     # Check for tool exploitation vectors
-    tools = intel.get('detected_tools', [])
+    tools = intel.get("detected_tools", [])
     if len(tools) > 5:
         analysis["attack_surfaces"].append("tools")
         analysis["recommended_agents"].append("sql")
-        analysis["key_findings"].append(f"🎯 {len(tools)} tools detected - high attack surface")
-    
+        analysis["key_findings"].append(
+            f"🎯 {len(tools)} tools detected - high attack surface"
+        )
+
     # Check for prompt injection vectors
-    leaks = intel.get('system_prompt_leaks', [])
+    leaks = intel.get("system_prompt_leaks", [])
     if leaks:
         analysis["attack_surfaces"].append("prompt")
         analysis["recommended_agents"].append("jailbreak")
-        analysis["key_findings"].append(f"🎯 {len(leaks)} system prompt leaks - jailbreak opportunity")
+        analysis["key_findings"].append(
+            f"🎯 {len(leaks)} system prompt leaks - jailbreak opportunity"
+        )
         analysis["risk_level"] = "critical"
-    
+
     # Check infrastructure
-    infra = intel.get('infrastructure', {})
-    if 'vector_db' in infra or 'embeddings' in infra:
-        analysis["key_findings"].append(f"🎯 Vector DB detected: {infra.get('vector_db')} - injection target")
-    
+    infra = intel.get("infrastructure", {})
+    if "vector_db" in infra or "embeddings" in infra:
+        analysis["key_findings"].append(
+            f"🎯 Vector DB detected: {infra.get('vector_db')} - injection target"
+        )
+
     logger.info(f"📊 Risk Level: {analysis['risk_level'].upper()}")
-    for finding in analysis['key_findings']:
+    for finding in analysis["key_findings"]:
         logger.info(f"   {finding}")
-    
+
     return analysis
 
 
@@ -258,21 +280,22 @@ def analyze_intelligence(intel: Dict[str, Any]) -> Dict[str, Any]:
 # SCAN EXECUTION
 # ============================================================================
 
+
 async def run_aggressive_scan(
     target_url: str,
     intel: Dict[str, Any],
     config: TestConfig,
-    agent_type: str = "jailbreak"
+    agent_type: str = "jailbreak",
 ) -> Dict[str, Any]:
     """
     Execute security scan with real intelligence.
-    
+
     Args:
         target_url: Target endpoint URL
         intel: Parsed intelligence from recon
         config: Test configuration
         agent_type: Which agents to run (jailbreak|sql|auth|all)
-    
+
     Returns:
         Dictionary with results from all executed agents
     """
@@ -283,13 +306,13 @@ async def run_aggressive_scan(
     logger.info(f"   Parallel Execution: {config.ENABLE_PARALLEL}")
     if config.ENABLE_RATE_LIMITING:
         logger.info(f"   Rate Limiting: {config.RATE_LIMIT_RPS} RPS")
-    
+
     # Get scan settings
     settings = config.SCAN_CONFIG[config.SCAN_MODE]
-    
+
     # Build scan input
     audit_id = f"swarm-test-{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-    
+
     # Auto-detect connection type from URL
     # Build scan config with new production features
     scan_config = ScanConfig(
@@ -303,36 +326,38 @@ async def run_aggressive_scan(
         max_concurrent_probes=settings.get("max_concurrent_probes", 1),
         max_concurrent_generations=settings.get("max_concurrent_generations", 1),
         max_concurrent_connections=settings.get("max_concurrent_connections", 5),
-        requests_per_second=config.RATE_LIMIT_RPS if config.ENABLE_RATE_LIMITING else None, 
+        requests_per_second=config.RATE_LIMIT_RPS
+        if config.ENABLE_RATE_LIMITING
+        else None,
         request_timeout=config.REQUEST_TIMEOUT,
         max_retries=config.MAX_RETRIES,
         retry_backoff=config.RETRY_BACKOFF,
     )
-    
+
     scan_input = ScanInput(
         audit_id=audit_id,
         agent_type=agent_type,  # Will be overridden per agent
         target_url=target_url,
-        infrastructure=intel.get('infrastructure', {}),
-        detected_tools=intel.get('detected_tools', []),
+        infrastructure=intel.get("infrastructure", {}),
+        detected_tools=intel.get("detected_tools", []),
         config=scan_config,
     )
-    
+
     results = {}
-    
+
     # Run selected agents
     agents_to_run = []
     if agent_type == "all":
         agents_to_run = ["jailbreak", "auth", "sql"]
     else:
         agents_to_run = [agent_type]
-    
+
     logger.info(f"🎯 Will execute: {', '.join(agents_to_run)} agents")
-    
+
     for agent in agents_to_run:
-        logger.info(f"\n{'='*80}")
+        logger.info(f"\n{'=' * 80}")
         logger.info(f"🤖 Running {agent.upper()} Agent")
-        logger.info(f"{'='*80}")
+        logger.info(f"{'=' * 80}")
 
         # Update agent type in scan input (use proper enum values)
         if agent == "jailbreak":
@@ -352,7 +377,9 @@ async def run_aggressive_scan(
 
             # Handle None result (shouldn't happen but defensive)
             if result is None:
-                logger.error(f"❌ {agent.upper()} Agent returned None - check agent implementation")
+                logger.error(
+                    f"❌ {agent.upper()} Agent returned None - check agent implementation"
+                )
                 results[agent] = {
                     "success": False,
                     "error": "Agent returned None result",
@@ -384,7 +411,9 @@ async def run_aggressive_scan(
                     pass_count = metadata.get("pass_count", 0)
                     fail_count = metadata.get("fail_count", 0)
                     error_count = metadata.get("error_count", 0)
-                    total = metadata.get("total_results", pass_count + fail_count + error_count)
+                    total = metadata.get(
+                        "total_results", pass_count + fail_count + error_count
+                    )
 
                     logger.info(f"   📈 Scan Statistics:")
                     logger.info(f"      Total Results: {total}")
@@ -409,7 +438,9 @@ async def run_aggressive_scan(
                             category = vuln.get("category", "Unknown")
                             severity = vuln.get("severity", "unknown")
                             cluster_id = vuln.get("cluster_id", "")
-                            logger.info(f"      • [{severity.upper()}] {category} ({cluster_id})")
+                            logger.info(
+                                f"      • [{severity.upper()}] {category} ({cluster_id})"
+                            )
                             # Show evidence if available
                             evidence = vuln.get("evidence", {})
                             if evidence:
@@ -419,11 +450,13 @@ async def run_aggressive_scan(
                         else:
                             logger.info(f"      • {vuln}")
                     if len(vulnerabilities) > 5:
-                        logger.info(f"      ... and {len(vulnerabilities) - 5} more vulnerabilities")
+                        logger.info(
+                            f"      ... and {len(vulnerabilities) - 5} more vulnerabilities"
+                        )
                 else:
                     logger.info("   ✓ No vulnerabilities detected in this scan")
             else:
-                error = result.get('error', 'Unknown error')
+                error = result.get("error", "Unknown error")
                 logger.error(f"❌ {agent.upper()} Agent failed: {error}")
                 # Show any partial metadata
                 metadata = result.get("metadata", {})
@@ -445,13 +478,14 @@ async def run_aggressive_scan(
 # RESULTS ANALYSIS
 # ============================================================================
 
+
 def analyze_results(results: Dict[str, Any], config: TestConfig) -> Dict[str, Any]:
     """
     Analyze scan results and generate comprehensive summary.
     """
-    logger.info("\n" + "="*80)
+    logger.info("\n" + "=" * 80)
     logger.info("📊 RESULTS ANALYSIS")
-    logger.info("="*80)
+    logger.info("=" * 80)
 
     summary = {
         "agents_run": len(results),
@@ -481,7 +515,9 @@ def analyze_results(results: Dict[str, Any], config: TestConfig) -> Dict[str, An
             summary["vulnerabilities_by_agent"][agent_name] = vuln_count
 
             if vuln_count > 0:
-                summary["critical_findings"].append(f"{agent_name}: {vuln_count} vulnerabilities found")
+                summary["critical_findings"].append(
+                    f"{agent_name}: {vuln_count} vulnerabilities found"
+                )
 
             # Extract scan statistics from metadata
             metadata = result.get("metadata", {})
@@ -503,9 +539,11 @@ def analyze_results(results: Dict[str, Any], config: TestConfig) -> Dict[str, An
     logger.info(f"❌ Failed: {summary['agents_failed']}/{summary['agents_run']}")
 
     # Aggregate statistics
-    total_probes = (summary["total_probes_passed"] +
-                   summary["total_probes_failed"] +
-                   summary["total_probes_errored"])
+    total_probes = (
+        summary["total_probes_passed"]
+        + summary["total_probes_failed"]
+        + summary["total_probes_errored"]
+    )
 
     if total_probes > 0:
         logger.info(f"\n📈 AGGREGATE STATISTICS:")
@@ -530,7 +568,11 @@ def analyze_results(results: Dict[str, Any], config: TestConfig) -> Dict[str, An
         reports = list(config.OUTPUT_DIR.glob("swarm-test-*.jsonl"))
         if not reports:
             # Also check for any recent jsonl files
-            reports = sorted(config.OUTPUT_DIR.glob("*.jsonl"), key=lambda p: p.stat().st_mtime, reverse=True)[:5]
+            reports = sorted(
+                config.OUTPUT_DIR.glob("*.jsonl"),
+                key=lambda p: p.stat().st_mtime,
+                reverse=True,
+            )[:5]
 
         # Add any we found from results
         all_report_paths = set(summary["report_paths"])
@@ -548,10 +590,11 @@ def analyze_results(results: Dict[str, Any], config: TestConfig) -> Dict[str, An
 # MAIN TEST FUNCTION
 # ============================================================================
 
+
 async def main():
     """
     Main test execution flow.
-    
+
     Steps:
     1. Load recon intelligence
     2. Analyze intelligence for attack vectors
@@ -560,56 +603,59 @@ async def main():
     5. Analyze and report results
     """
     config = TestConfig()
-    
-    logger.info("="*80)
+
+    logger.info("=" * 80)
     logger.info("🐝 SWARM SCANNER TEST")
-    logger.info("="*80)
+    logger.info("=" * 80)
     logger.info(f"Started: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     logger.info(f"Target: {config.TARGET_URL}")
     logger.info(f"Mode: {config.SCAN_MODE}")
     logger.info(f"Agent: {config.AGENT_TYPE}")
-    logger.info("="*80 + "\n")
-    
+    logger.info("=" * 80 + "\n")
+
     try:
         # Step 1: Load intelligence
         logger.info("📖 STEP 1: Loading reconnaissance intelligence")
         intel = load_recon_intelligence(config.RECON_FILE)
-        
+
         # Step 2: Analyze intelligence
         logger.info("\n🧠 STEP 2: Analyzing intelligence")
         analyze_intelligence(intel)  # Logs analysis results
-        
+
         # Step 3: Execute scan
         logger.info("\n🚀 STEP 3: Executing security scan")
         results = await run_aggressive_scan(
-            config.TARGET_URL,
-            intel,
-            config,
-            config.AGENT_TYPE
+            config.TARGET_URL, intel, config, config.AGENT_TYPE
         )
-        
+
         # Step 4: Analyze results
         logger.info("\n📊 STEP 4: Analyzing results")
         summary = analyze_results(results, config)
-        
+
         # Final summary
-        logger.info("\n" + "="*80)
+        logger.info("\n" + "=" * 80)
         logger.info("✅ TEST COMPLETED")
-        logger.info("="*80)
+        logger.info("=" * 80)
         logger.info(f"Finished: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         logger.info(f"Agents executed: {summary['agents_run']}")
-        logger.info(f"Success rate: {summary['agents_succeeded']}/{summary['agents_run']}")
+        logger.info(
+            f"Success rate: {summary['agents_succeeded']}/{summary['agents_run']}"
+        )
         logger.info(f"Total vulnerabilities: {summary['total_vulnerabilities']}")
 
         # Show probe statistics
-        total_probes = (summary.get('total_probes_passed', 0) +
-                       summary.get('total_probes_failed', 0) +
-                       summary.get('total_probes_errored', 0))
+        total_probes = (
+            summary.get("total_probes_passed", 0)
+            + summary.get("total_probes_failed", 0)
+            + summary.get("total_probes_errored", 0)
+        )
         if total_probes > 0:
-            logger.info(f"Probe results: {total_probes} total "
-                       f"({summary.get('total_probes_passed', 0)} pass, "
-                       f"{summary.get('total_probes_failed', 0)} fail, "
-                       f"{summary.get('total_probes_errored', 0)} error)")
+            logger.info(
+                f"Probe results: {total_probes} total "
+                f"({summary.get('total_probes_passed', 0)} pass, "
+                f"{summary.get('total_probes_failed', 0)} fail, "
+                f"{summary.get('total_probes_errored', 0)} error)"
+            )
 
         if summary["report_paths"]:
             logger.info("\n📋 Check reports at:")
@@ -617,11 +663,11 @@ async def main():
                 logger.info(f"   {path}")
 
         # Return code based on results
-        if summary['agents_failed'] > 0:
+        if summary["agents_failed"] > 0:
             logger.warning("Some agents failed - check logs for details")
             return 1
         return 0
-    
+
     except FileNotFoundError as e:
         logger.error(f"❌ File not found: {e}")
         return 1
@@ -690,9 +736,10 @@ if __name__ == "__main__":
     # Production-ready scan (parallel + rate limiting)
     SCAN_MODE=standard ENABLE_PARALLEL=true ENABLE_RATE_LIMITING=true RATE_LIMIT_RPS=10.0 python scripts/test_swarm_scanner.py
     """
-    
+
     # Allow environment variable overrides
     import os
+
     if os.getenv("TARGET_URL"):
         TestConfig.TARGET_URL = os.getenv("TARGET_URL")
     if os.getenv("SCAN_MODE"):
@@ -700,15 +747,25 @@ if __name__ == "__main__":
     if os.getenv("AGENT_TYPE"):
         TestConfig.AGENT_TYPE = os.getenv("AGENT_TYPE")
     if os.getenv("ENABLE_PARALLEL"):
-        TestConfig.ENABLE_PARALLEL = os.getenv("ENABLE_PARALLEL").lower() in ("true", "1", "yes")
+        TestConfig.ENABLE_PARALLEL = os.getenv("ENABLE_PARALLEL").lower() in (
+            "true",
+            "1",
+            "yes",
+        )
     if os.getenv("ENABLE_RATE_LIMITING"):
-        TestConfig.ENABLE_RATE_LIMITING = os.getenv("ENABLE_RATE_LIMITING").lower() in ("true", "1", "yes")
+        TestConfig.ENABLE_RATE_LIMITING = os.getenv("ENABLE_RATE_LIMITING").lower() in (
+            "true",
+            "1",
+            "yes",
+        )
     if os.getenv("RATE_LIMIT_RPS"):
         try:
             TestConfig.RATE_LIMIT_RPS = float(os.getenv("RATE_LIMIT_RPS"))
         except ValueError:
-            logger.warning(f"Invalid RATE_LIMIT_RPS value: {os.getenv('RATE_LIMIT_RPS')}, using default")
-    
+            logger.warning(
+                f"Invalid RATE_LIMIT_RPS value: {os.getenv('RATE_LIMIT_RPS')}, using default"
+            )
+
     # Run test
     exit_code = asyncio.run(main())
     sys.exit(exit_code)
