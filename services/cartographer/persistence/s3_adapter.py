@@ -46,35 +46,3 @@ async def persist_recon_result(
     if campaign:
         repo.set_stage_complete(campaign_id, Stage.RECON, scan_id)
         logger.info(f"Campaign {campaign_id}: RECON stage complete")
-
-
-async def persist_with_fallback(
-    campaign_id: str,
-    scan_id: str,
-    blueprint: dict,
-    local_save_func,
-    target_url: Optional[str] = None,
-) -> bool:
-    """Persist to S3 with local fallback on failure.
-
-    Args:
-        campaign_id: Campaign identifier
-        scan_id: Unique scan identifier
-        blueprint: Recon blueprint data
-        local_save_func: Fallback function for local storage
-        target_url: Target URL for auto-campaign creation
-
-    Returns:
-        True if S3 save succeeded, False if fell back to local
-    """
-    try:
-        await persist_recon_result(campaign_id, scan_id, blueprint, target_url)
-        return True
-    except ArtifactUploadError as e:
-        logger.warning(f"S3 upload failed, using local fallback: {e}")
-        local_save_func(blueprint)
-        return False
-    except Exception as e:
-        logger.error(f"Persistence error: {e}")
-        local_save_func(blueprint)
-        return False

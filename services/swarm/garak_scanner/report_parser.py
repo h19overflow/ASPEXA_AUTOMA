@@ -1,13 +1,13 @@
 """
 Report parsing and formatting functions.
+
+All functions work with in-memory data (lists of dicts) - no local file I/O.
+Results are persisted to S3 via the persistence layer.
 """
-import json
 import logging
 import uuid
 from collections import defaultdict
-from pathlib import Path
-from typing import Dict, List
-from typing import Any
+from typing import Dict, List, Any
 
 from libs.contracts.scanning import VulnerabilityCluster, Evidence
 from .utils import get_category_for_probe, get_severity
@@ -31,9 +31,9 @@ def format_scan_results(results: List[dict]) -> str:
     lines.append("=" * 80)
     lines.append("")
     lines.append(f"Total Probes: {total}")
-    lines.append(f"  ✓ Passed:   {passes}")
-    lines.append(f"  ✗ Failed:   {failures}")
-    lines.append(f"  ! Errors:   {errors}")
+    lines.append(f"  Passed:   {passes}")
+    lines.append(f"  Failed:   {failures}")
+    lines.append(f"  Errors:   {errors}")
     lines.append("")
 
     # Group by probe
@@ -53,9 +53,9 @@ def format_scan_results(results: List[dict]) -> str:
         lines.append(f"  {probe_name}")
         lines.append(f"    Pass: {probe_passes}, Fail: {probe_failures}, Error: {probe_errors}")
 
-        failures = [r for r in probe_results if r.get("status") == "fail"]
-        if failures:
-            for i, failure in enumerate(failures[:3], 1):  # Show up to 3 failures
+        failures_list = [r for r in probe_results if r.get("status") == "fail"]
+        if failures_list:
+            for i, failure in enumerate(failures_list[:3], 1):  # Show up to 3 failures
                 detector = failure.get("detector_name", "unknown")
                 score = failure.get("detector_score", 0.0)
                 reason = failure.get("detection_reason", "Unknown")
@@ -71,8 +71,8 @@ def format_scan_results(results: List[dict]) -> str:
                     det_summary = ", ".join(f"{k.split('.')[-1]}:{max(v):.2f}" for k, v in all_det.items())
                     lines.append(f"          All scores: {det_summary}")
 
-            if len(failures) > 3:
-                lines.append(f"      ... and {len(failures) - 3} more failures")
+            if len(failures_list) > 3:
+                lines.append(f"      ... and {len(failures_list) - 3} more failures")
 
     lines.append("")
     lines.append("=" * 80)
@@ -82,41 +82,34 @@ def format_scan_results(results: List[dict]) -> str:
     return "\n".join(lines)
 
 
-def parse_garak_report(
-    report_path: Path,
+def parse_results_to_clusters(
+    results: List[dict],
     audit_id: str,
     affected_component: str = "unknown"
 ) -> List[VulnerabilityCluster]:
-    """Convert Garak JSONL report into IF-04 vulnerability clusters."""
-    if not report_path.exists():
-        raise FileNotFoundError(f"Report file not found: {report_path}")
+    """Convert probe results into IF-04 vulnerability clusters.
 
+    Args:
+        results: List of probe result dicts (in-memory)
+        audit_id: Audit identifier
+        affected_component: Component being tested
+
+    Returns:
+        List of VulnerabilityCluster objects
+    """
     failure_groups: Dict[str, List[dict]] = defaultdict(list)
-    all_records: List[dict] = []
 
-    with open(report_path, "r") as f:
-        for line in f:
-            if not line.strip():
-                continue
+    for record in results:
+        status = record.get("status", "pass")
+        if status == "fail":
+            probe_name = record.get("probe_name", "unknown")
+            failure_groups[probe_name].append(record)
 
-            try:
-                record = json.loads(line)
-            except json.JSONDecodeError:
-                continue
-
-            all_records.append(record)
-
-            # Group failures by probe
-            status = record.get("status", "pass")
-            if status == "fail":
-                probe_name = record.get("probe_name", "unknown")
-                failure_groups[probe_name].append(record)
-
-    # Log comprehensive summary
-    total_probes = len(all_records)
-    pass_count = sum(1 for r in all_records if r.get("status") == "pass")
-    fail_count = sum(1 for r in all_records if r.get("status") == "fail")
-    error_count = sum(1 for r in all_records if r.get("status") == "error")
+    # Log summary
+    total_probes = len(results)
+    pass_count = sum(1 for r in results if r.get("status") == "pass")
+    fail_count = sum(1 for r in results if r.get("status") == "fail")
+    error_count = sum(1 for r in results if r.get("status") == "error")
 
     logger.info(f"Report summary: {total_probes} total results - "
                 f"{pass_count} pass, {fail_count} fail, {error_count} error")
@@ -150,45 +143,33 @@ def parse_garak_report(
     return clusters
 
 
-def get_report_summary(report_path: Path) -> Dict[str, Any]:
-    """Get summary statistics from a Garak report file.
+def get_results_summary(results: List[dict]) -> Dict[str, Any]:
+    """Get summary statistics from probe results.
 
-    Returns dict with:
-    - total_results: Total number of probe results
-    - pass_count: Number of passed probes
-    - fail_count: Number of failed probes
-    - error_count: Number of errored probes
-    - probes_tested: List of unique probe names
-    - failing_probes: List of probe names that had failures
+    Args:
+        results: List of probe result dicts (in-memory)
+
+    Returns:
+        Dict with summary statistics
     """
-    if not report_path.exists():
-        return {"error": f"Report file not found: {report_path}"}
-
     probes_tested = set()
     failing_probes = set()
     pass_count = 0
     fail_count = 0
     error_count = 0
 
-    with open(report_path, "r") as f:
-        for line in f:
-            if not line.strip():
-                continue
-            try:
-                record = json.loads(line)
-                probe_name = record.get("probe_name", "unknown")
-                probes_tested.add(probe_name)
+    for record in results:
+        probe_name = record.get("probe_name", "unknown")
+        probes_tested.add(probe_name)
 
-                status = record.get("status", "pass")
-                if status == "pass":
-                    pass_count += 1
-                elif status == "fail":
-                    fail_count += 1
-                    failing_probes.add(probe_name)
-                else:
-                    error_count += 1
-            except json.JSONDecodeError:
-                continue
+        status = record.get("status", "pass")
+        if status == "pass":
+            pass_count += 1
+        elif status == "fail":
+            fail_count += 1
+            failing_probes.add(probe_name)
+        else:
+            error_count += 1
 
     return {
         "total_results": pass_count + fail_count + error_count,
@@ -200,30 +181,29 @@ def get_report_summary(report_path: Path) -> Dict[str, Any]:
     }
 
 
-def generate_comprehensive_report(
-    report_path: Path,
+def generate_comprehensive_report_from_results(
+    results: List[dict],
     audit_id: str = "audit-001",
     affected_component: str = "unknown",
-    output_path: Path = None
 ) -> Dict[str, Any]:
-    """Generate comprehensive report with all three analyses and save to JSON.
+    """Generate comprehensive report from in-memory results.
 
-    Combines summary statistics, vulnerability clusters, and formatted report
-    into a single JSON file for frontend consumption.
+    Args:
+        results: List of probe result dicts
+        audit_id: Audit identifier
+        affected_component: Component being tested
+
+    Returns:
+        Comprehensive report dict ready for S3 persistence
     """
-    if output_path is None:
-        output_path = report_path.parent / f"{report_path.stem}_report.json"
-
     # Step 1: Summary
-    summary = get_report_summary(report_path)
+    summary = get_results_summary(results)
 
     # Step 2: Vulnerability clusters (failures)
-    clusters = parse_garak_report(report_path, audit_id, affected_component)
+    clusters = parse_results_to_clusters(results, audit_id, affected_component)
 
     # Step 3: Formatted report
-    with open(report_path, "r") as f:
-        all_results = [json.loads(line) for line in f if line.strip()]
-    formatted_report = format_scan_results(all_results)
+    formatted_report = format_scan_results(results)
 
     # Serialize clusters to dicts for JSON
     clusters_data = []
@@ -241,12 +221,12 @@ def generate_comprehensive_report(
             }
         })
 
-    # Extract vulnerability findings (probes that found vulnerabilities - status="fail")
-    vulnerable_probes = []  # Probes that found vulnerabilities
-    vulnerability_results = []  # All individual vulnerability findings
+    # Extract vulnerability findings
+    vulnerable_probes = []
+    vulnerability_results = []
     failure_groups: Dict[str, List[dict]] = defaultdict(list)
 
-    for result in all_results:
+    for result in results:
         status = result.get("status", "pass")
         probe_name = result.get("probe_name", "unknown")
         if status == "fail":
@@ -261,7 +241,6 @@ def generate_comprehensive_report(
             "audit_id": audit_id,
         })
 
-        # Add all vulnerability findings for this probe
         for result in failures:
             vulnerability_results.append({
                 "probe_name": result.get("probe_name", "unknown"),
@@ -275,7 +254,6 @@ def generate_comprehensive_report(
                 "audit_id": audit_id,
             })
 
-    # Combine into comprehensive report
     comprehensive_report = {
         "summary": summary,
         "vulnerability_clusters": {
@@ -292,7 +270,6 @@ def generate_comprehensive_report(
         },
         "formatted_report": formatted_report,
         "metadata": {
-            "report_path": str(report_path),
             "audit_id": audit_id,
             "affected_component": affected_component,
             "total_vulnerability_clusters": len(clusters_data),
@@ -301,28 +278,6 @@ def generate_comprehensive_report(
         }
     }
 
-    # Write to JSON file
-    with open(output_path, "w") as f:
-        json.dump(comprehensive_report, f, indent=2)
-
-    logger.info(f"Comprehensive report written to {output_path}")
+    logger.info(f"Generated comprehensive report: {len(clusters_data)} clusters, "
+                f"{len(vulnerable_probes)} vulnerable probes")
     return comprehensive_report
-
-
-if __name__ == "__main__":
-    report_path = Path("C:/Users/User/Projects/Aspexa_Automa/garak_runs/simple-scan-001_agent_jailbreak.jsonl")
-
-    # Generate and save comprehensive report
-    report = generate_comprehensive_report(
-        report_path,
-        audit_id="audit-001",
-        affected_component="agent-jailbreak"
-    )
-
-    print("\n✓ Comprehensive report generated successfully!")
-    print(f"Total probes executed: {report['summary']['total_results']}")
-    print(f"Vulnerabilities found: {report['summary']['fail_count']}")
-    print(f"Vulnerability clusters: {report['metadata']['total_vulnerability_clusters']}")
-    print(f"Vulnerable probes: {report['metadata']['total_vulnerable_probes']}")
-    print(f"Individual vulnerability findings: {report['metadata']['total_vulnerability_findings']}")
-    print(f"\nOutput file: {report_path.parent / f'{report_path.stem}_report.json'}")

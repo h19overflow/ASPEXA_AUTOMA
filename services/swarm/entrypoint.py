@@ -2,9 +2,7 @@
 
 Exposes scanning logic for direct invocation via API gateway.
 """
-import json
 import logging
-from pathlib import Path
 from typing import Any, AsyncGenerator, Dict, List, Optional
 
 from libs.contracts.scanning import ScanJobDispatch, SafetyPolicy, ScanConfigContract
@@ -133,34 +131,28 @@ async def _run_single_agent(
         return {"status": "failed", "error": result.get("error", "Unknown")}
 
     vulnerabilities = result.get("vulnerabilities", [])
-    report_path = result.get("report_path")
     scan_id = f"garak-{blueprint.audit_id}-{agent_type}"
     persisted = False
 
-    if report_path:
-        try:
-            report_json_path = Path(report_path.replace(".jsonl", "_report.json"))
-            if report_json_path.exists():
-                with open(report_json_path, "r") as f:
-                    garak_report = json.load(f)
-            else:
-                garak_report = {
-                    "summary": result.get("metadata", {}),
-                    "vulnerabilities": vulnerabilities,
-                    "probes_executed": result.get("probes_executed", []),
-                    "metadata": {"audit_id": blueprint.audit_id, "agent_type": agent_type},
-                }
+    # Build report from in-memory results (no local file I/O)
+    try:
+        garak_report = {
+            "summary": result.get("metadata", {}),
+            "vulnerabilities": vulnerabilities,
+            "probes_executed": result.get("probes_executed", []),
+            "metadata": {"audit_id": blueprint.audit_id, "agent_type": agent_type},
+        }
 
-            await persist_garak_result(
-                campaign_id=blueprint.audit_id,
-                scan_id=scan_id,
-                garak_report=garak_report,
-                target_url=scan_context.target_url,
-            )
-            persisted = True
-            logger.info(f"[{agent_type}] Persisted results: {scan_id}")
-        except Exception as e:
-            logger.warning(f"[{agent_type}] Persistence failed: {e}")
+        await persist_garak_result(
+            campaign_id=blueprint.audit_id,
+            scan_id=scan_id,
+            garak_report=garak_report,
+            target_url=scan_context.target_url,
+        )
+        persisted = True
+        logger.info(f"[{agent_type}] Persisted results: {scan_id}")
+    except Exception as e:
+        logger.warning(f"[{agent_type}] Persistence failed: {e}")
 
     return {
         "status": "success",

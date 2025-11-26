@@ -3,9 +3,7 @@ Purpose: FastStream consumer for Swarm scanning service (Trinity fan-out)
 Role: Event handler for cmd_scan_start, orchestrates agents
 Dependencies: libs.events, libs.contracts, services.swarm.agents
 """
-import json
 import logging
-from pathlib import Path
 
 from libs.events.publisher import broker, CMD_SCAN_START
 from libs.contracts.scanning import ScanJobDispatch
@@ -71,40 +69,32 @@ async def handle_scan_request(message: dict, agent_type: str):
 
         # Extract structured vulnerabilities from result
         vulnerabilities = result.get("vulnerabilities", [])
-        report_path = result.get("report_path")
 
         if vulnerabilities:
             logger.info(f"[{agent_type}] Found {len(vulnerabilities)} vulnerabilities")
 
-        # Persist garak results to S3
-        if report_path:
-            try:
-                report_json_path = Path(report_path.replace(".jsonl", "_report.json"))
-                if report_json_path.exists():
-                    with open(report_json_path, "r") as f:
-                        garak_report = json.load(f)
-                else:
-                    # Build minimal report from result
-                    garak_report = {
-                        "summary": result.get("metadata", {}),
-                        "vulnerabilities": vulnerabilities,
-                        "probes_executed": result.get("probes_executed", []),
-                        "metadata": {
-                            "audit_id": blueprint.audit_id,
-                            "agent_type": agent_type,
-                        }
-                    }
+        # Persist garak results to S3 (no local file I/O)
+        try:
+            garak_report = {
+                "summary": result.get("metadata", {}),
+                "vulnerabilities": vulnerabilities,
+                "probes_executed": result.get("probes_executed", []),
+                "metadata": {
+                    "audit_id": blueprint.audit_id,
+                    "agent_type": agent_type,
+                }
+            }
 
-                scan_id = f"garak-{blueprint.audit_id}-{agent_type}"
-                await persist_garak_result(
-                    campaign_id=blueprint.audit_id,
-                    scan_id=scan_id,
-                    garak_report=garak_report,
-                    target_url=scan_context.target_url,
-                )
-                logger.info(f"[{agent_type}] Persisted garak results to S3: {scan_id}")
-            except Exception as e:
-                logger.warning(f"[{agent_type}] Persistence failed (continuing): {e}")
+            scan_id = f"garak-{blueprint.audit_id}-{agent_type}"
+            await persist_garak_result(
+                campaign_id=blueprint.audit_id,
+                scan_id=scan_id,
+                garak_report=garak_report,
+                target_url=scan_context.target_url,
+            )
+            logger.info(f"[{agent_type}] Persisted garak results to S3: {scan_id}")
+        except Exception as e:
+            logger.warning(f"[{agent_type}] Persistence failed (continuing): {e}")
 
     except Exception as e:
         logger.error(f"[{agent_type}] Error: {e}")

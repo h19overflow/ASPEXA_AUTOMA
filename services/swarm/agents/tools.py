@@ -4,7 +4,6 @@ LangChain tools for scanning agents.
 import asyncio
 import json
 import logging
-from pathlib import Path
 from typing import List, Dict, Any, Optional
 
 from langchain_core.tools import tool
@@ -16,7 +15,10 @@ from services.swarm.core.config import (
     PROBE_CATEGORIES,
 )
 from services.swarm.garak_scanner.scanner import get_scanner
-from services.swarm.garak_scanner.report_parser import parse_garak_report, get_report_summary
+from services.swarm.garak_scanner.report_parser import (
+    parse_results_to_clusters,
+    get_results_summary,
+)
 from services.swarm.core.schema import ScanAnalysisResult, AgentScanResult
 from services.swarm.core.utils import get_decision_logger
 
@@ -341,15 +343,14 @@ def execute_scan(
         
         results = _run_async_scan(scanner, probe_list, generations)
 
-        # Save results
-        report_path = Path("garak_runs") / f"{audit_id}_{agent_type}.jsonl"
-        scanner.save_results(results, report_path)
+        # Convert results to dicts for in-memory processing (no local file I/O)
+        results_dicts = scanner.results_to_dicts(results)
 
-        # Parse into vulnerability clusters
-        clusters = parse_garak_report(report_path, audit_id, affected_component=agent_type)
+        # Parse into vulnerability clusters (in-memory)
+        clusters = parse_results_to_clusters(results_dicts, audit_id, affected_component=agent_type)
 
-        # Get summary statistics for metadata
-        report_summary = get_report_summary(report_path)
+        # Get summary statistics from in-memory results
+        report_summary = get_results_summary(results_dicts)
 
         # Get HTTP request stats if available
         http_stats = {}
@@ -372,7 +373,7 @@ def execute_scan(
             vulnerabilities=clusters,
             probes_executed=probe_list,
             generations_used=generations,
-            report_path=str(report_path),
+            report_path=None,  # No local file - results persisted to S3
             metadata=metadata,
         )
 
@@ -391,7 +392,6 @@ def execute_scan(
                     "pass_count": report_summary.get('pass_count', 0),
                     "fail_count": report_summary.get('fail_count', 0),
                     "error_count": report_summary.get('error_count', 0),
-                    "report_path": str(report_path),
                     "http_stats": http_stats,
                 },
                 agent_type=agent_type

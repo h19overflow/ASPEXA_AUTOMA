@@ -1,15 +1,22 @@
 """HTTP entrypoint for Cartographer service.
 
-Exposes reconnaissance logic for direct invocation via API gateway.
+Purpose: Exposes reconnaissance logic for direct invocation via API gateway
+Role: HTTP API handler - synchronous and streaming execution
+Dependencies: libs.contracts.recon, agent.graph, persistence, intelligence
 """
+
 import logging
 from datetime import datetime
 from typing import Any, Dict, AsyncGenerator
 
 from libs.contracts.recon import ReconRequest, ReconBlueprint, Intelligence
-from services.cartographer.agent.graph import run_reconnaissance, run_reconnaissance_streaming
+
+from services.cartographer.agent.graph import (
+    run_reconnaissance,
+    run_reconnaissance_streaming,
+)
 from services.cartographer.persistence.s3_adapter import persist_recon_result
-from services.cartographer.consumer import (
+from services.cartographer.intelligence import (
     extract_infrastructure_intel,
     extract_auth_structure,
     extract_detected_tools,

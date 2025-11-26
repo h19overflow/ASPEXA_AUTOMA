@@ -6,7 +6,6 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from services.cartographer.tools.definitions import ReconToolSet
 from services.cartographer.prompts import RECON_SYSTEM_PROMPT
 from services.cartographer.tools.network import call_target_endpoint, NetworkError
-from services.cartographer.persistence import save_reconnaissance_result
 from services.cartographer.response_format import ReconTurn
 from dotenv import load_dotenv
 
@@ -205,19 +204,8 @@ Generate a strategic probing question to send to the target. The question should
         print(f"[Cartographer] Error during reconnaissance: {e}")
         import traceback
         traceback.print_exc()
-    
-    # Save reconnaissance results to JSON
-    try:
-        saved_path = save_reconnaissance_result(
-            audit_id,
-            tool_set.observations,
-            deductions=all_deductions if all_deductions else None
-        )
-        print(f"[Cartographer] Results saved to: {saved_path}")
-    except Exception as e:
-        print(f"[Cartographer] Warning: Could not save results: {e}")
-    
-    # Return observations collected by the tools
+
+    # Return observations collected by the tools (persistence handled by entrypoint via S3)
     return tool_set.observations
 
 

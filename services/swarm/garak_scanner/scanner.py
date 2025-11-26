@@ -3,11 +3,9 @@ Core GarakScanner class for security scanning.
 """
 import asyncio
 import importlib
-import json
 import logging
 import time
-from pathlib import Path
-from typing import List, Optional, Union, Dict, Any
+from typing import List, Optional, Dict, Any, Union
 
 from garak.attempt import Attempt, Message, Turn, Conversation
 
@@ -22,7 +20,7 @@ from .detectors import get_detector_triggers, run_detectors_on_attempt
 from .http_generator import HttpGenerator
 from .websocket_generator import WebSocketGenerator
 from .rate_limiter import RateLimiter
-from .report_parser import generate_comprehensive_report
+# Report parsing now done in-memory via report_parser module
 
 logger = logging.getLogger(__name__)
 
@@ -584,56 +582,29 @@ class GarakScanner:
             detection_reason=detection_reason
         )
 
-    def save_results(
-        self,
-        results: List[ProbeResult],
-        output_path: Path,
-        audit_id: str = "audit-default",
-        affected_component: str = "unknown"
-    ):
-        """Save scan results to JSONL format and generate comprehensive JSON report.
+    def results_to_dicts(self, results: List[ProbeResult]) -> List[dict]:
+        """Convert ProbeResult objects to dicts for in-memory processing.
 
         Args:
             results: List of ProbeResult objects from scanning
-            output_path: Path to save raw JSONL results
-            audit_id: Audit identifier for report metadata
-            affected_component: Component being audited for report metadata
+
+        Returns:
+            List of result dicts ready for report parsing
         """
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-
-        # Step 1: Save raw JSONL results
-        with open(output_path, "w") as f:
-            for result in results:
-                record = {
-                    "probe_name": result.probe_name,
-                    "probe_description": result.probe_description,
-                    "category": result.category,
-                    "prompt": result.prompt,
-                    "output": result.output,
-                    "status": result.status,
-                    "detector_name": result.detector_name,
-                    "detector_score": result.detector_score,
-                    "detection_reason": result.detection_reason,
-                }
-                f.write(json.dumps(record) + "\n")
-
-        logger.info(f"Saved {len(results)} results to {output_path}")
-
-        # Step 2: Generate comprehensive report
-        try:
-            report_output_path = output_path.parent / f"{output_path.stem}_report.json"
-            report = generate_comprehensive_report(
-                report_path=output_path,
-                audit_id=audit_id,
-                affected_component=affected_component,
-                output_path=report_output_path
-            )
-            logger.info(f"Generated comprehensive report: {report_output_path}")
-            logger.info(f"Report summary: {report['metadata']['total_vulnerability_clusters']} vulnerability clusters, "
-                       f"{report['metadata']['total_vulnerable_probes']} vulnerable probes, "
-                       f"{report['metadata']['total_vulnerability_findings']} vulnerability findings")
-        except Exception as e:
-            logger.error(f"Failed to generate comprehensive report: {e}")
+        return [
+            {
+                "probe_name": result.probe_name,
+                "probe_description": result.probe_description,
+                "category": result.category,
+                "prompt": result.prompt,
+                "output": result.output,
+                "status": result.status,
+                "detector_name": result.detector_name,
+                "detector_score": result.detector_score,
+                "detection_reason": result.detection_reason,
+            }
+            for result in results
+        ]
 
 
 _scanner: Optional[GarakScanner] = None

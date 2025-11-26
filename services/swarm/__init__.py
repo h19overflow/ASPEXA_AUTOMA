@@ -1,7 +1,30 @@
-"""Swarm scanning service - Intelligent security scanning for LLM applications."""
+"""Swarm scanning service - Intelligent security scanning for LLM applications.
 
-# Don't auto-import main to avoid triggering consumer registration
-# Import main explicitly when needed: from services.swarm.main import main
+Purpose: Executes targeted security scans against LLM agents using Garak probes
+Role: Trinity agents (SQL, AUTH, JAILBREAK) analyze recon and execute vulnerability scans
+Dependencies: garak, langchain, libs.contracts.scanning, libs.events
 
-__all__ = []
+Architecture:
+    - agents/: LangChain-based intelligent agents for scan orchestration
+    - core/: Configuration, schemas, utilities, and event consumers
+    - garak_scanner/: Garak probe integration and result parsing
+    - persistence/: S3 storage for scan results
+
+Public API:
+    - execute_scan: Synchronous scan execution
+    - execute_scan_streaming: Async streaming scan with real-time events
+    - execute_scan_for_campaign: Scan execution by campaign ID
+"""
+
+from .entrypoint import (
+    execute_scan,
+    execute_scan_streaming,
+    execute_scan_for_campaign,
+)
+
+__all__ = [
+    "execute_scan",
+    "execute_scan_streaming",
+    "execute_scan_for_campaign",
+]
 
