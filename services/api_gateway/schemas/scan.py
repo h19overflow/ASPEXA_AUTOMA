@@ -1,6 +1,94 @@
 """Scanning endpoint schemas."""
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, Field, model_validator
 from typing import Any, Dict, List, Optional
+
+
+class ScanConfigRequest(BaseModel):
+    """User-configurable scan parameters for API requests."""
+
+    approach: str = Field(
+        default="standard",
+        description="Scan intensity: quick, standard, or thorough"
+    )
+    generations: Optional[int] = Field(
+        default=None,
+        ge=1,
+        le=50,
+        description="Override: number of attempts per probe (1-50). None = use approach default"
+    )
+    custom_probes: Optional[List[str]] = Field(
+        default=None,
+        description="Override: specific probe names to run instead of defaults"
+    )
+    allow_agent_override: bool = Field(
+        default=True,
+        description="Allow agent to adjust probe count based on recon intelligence"
+    )
+    max_probes: int = Field(
+        default=10,
+        ge=1,
+        le=20,
+        description="Maximum number of probes agent can run (1-20)"
+    )
+    max_generations: int = Field(
+        default=15,
+        ge=1,
+        le=50,
+        description="Maximum generations agent can use per probe (1-50)"
+    )
+    # Parallel execution controls
+    enable_parallel_execution: bool = Field(
+        default=False,
+        description="Enable parallel execution of probes and generations (master switch)"
+    )
+    max_concurrent_probes: int = Field(
+        default=1,
+        ge=1,
+        le=10,
+        description="Maximum number of probes to run concurrently (1-10)"
+    )
+    max_concurrent_generations: int = Field(
+        default=1,
+        ge=1,
+        le=5,
+        description="Maximum generations per probe to run concurrently (1-5)"
+    )
+    # Rate limiting
+    requests_per_second: Optional[float] = Field(
+        default=None,
+        gt=0.0,
+        description="Rate limit in requests per second (None = unlimited)"
+    )
+    max_concurrent_connections: int = Field(
+        default=5,
+        ge=1,
+        le=50,
+        description="Maximum concurrent connections to target API (1-50)"
+    )
+    # Request configuration
+    request_timeout: int = Field(
+        default=30,
+        ge=1,
+        le=300,
+        description="Request timeout in seconds (1-300)"
+    )
+    max_retries: int = Field(
+        default=3,
+        ge=0,
+        le=10,
+        description="Maximum retry attempts on failure (0-10)"
+    )
+    retry_backoff: float = Field(
+        default=1.0,
+        ge=0.1,
+        le=10.0,
+        description="Exponential backoff multiplier for retries (0.1-10.0)"
+    )
+    # Connection type
+    connection_type: str = Field(
+        default="http",
+        description="Connection protocol: 'http' or 'websocket'"
+    )
 
 
 class ScanStartRequest(BaseModel):
@@ -15,6 +103,16 @@ class ScanStartRequest(BaseModel):
     allowed_attack_vectors: List[str] = []
     blocked_attack_vectors: List[str] = []
     aggressiveness: str = "moderate"
+    # Target URL
+    target_url: Optional[str] = Field(
+        default=None,
+        description="Target LLM endpoint URL. Required for manual scans, optional for campaign scans."
+    )
+    # Scan configuration
+    config: Optional[ScanConfigRequest] = Field(
+        default=None,
+        description="Optional scan configuration. If not provided, defaults are used."
+    )
 
     @model_validator(mode="after")
     def check_input_provided(self):

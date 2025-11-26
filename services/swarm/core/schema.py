@@ -191,14 +191,14 @@ class ScanContext(StrictBaseModel):
         default_target_url: str = "https://api.target.local/v1/chat"
     ) -> "ScanContext":
         """Build ScanContext from ScanJobDispatch and ReconBlueprint.
-        
+
         This is the unified builder that replaces all the manual extraction
         and transformation logic in consumer.py.
         """
         # Extract infrastructure from intelligence
         infrastructure = {}
         detected_tools = []
-        
+
         if blueprint.intelligence:
             if blueprint.intelligence.infrastructure:
                 infra = blueprint.intelligence.infrastructure
@@ -208,25 +208,37 @@ class ScanContext(StrictBaseModel):
                     "rate_limits": infra.rate_limits,
                     "database": getattr(infra, "database", None),
                 }
-            
+
             if blueprint.intelligence.detected_tools:
                 detected_tools = [t.model_dump() for t in blueprint.intelligence.detected_tools]
-        
-        # Build scan config from request
-        # Use proper field access instead of getattr()
+
+        # Build scan config from request.scan_config (the proper contract field)
+        req_cfg = request.scan_config
         scan_config = ScanConfig(
-            approach=getattr(request, "approach", ScanApproach.STANDARD),
-            generations=getattr(request, "generations", None),
-            custom_probes=getattr(request, "custom_probes", None),
-            allow_agent_override=getattr(request, "allow_agent_override", True),
-            max_probes=getattr(request, "max_probes", 10),
-            max_generations=getattr(request, "max_generations", 15),
+            approach=req_cfg.approach,
+            generations=req_cfg.generations,
+            custom_probes=req_cfg.custom_probes or None,
+            allow_agent_override=req_cfg.allow_agent_override,
+            max_probes=req_cfg.max_probes,
+            max_generations=req_cfg.max_generations,
+            enable_parallel_execution=req_cfg.enable_parallel_execution,
+            max_concurrent_probes=req_cfg.max_concurrent_probes,
+            max_concurrent_generations=req_cfg.max_concurrent_generations,
+            requests_per_second=req_cfg.requests_per_second,
+            max_concurrent_connections=req_cfg.max_concurrent_connections,
+            request_timeout=req_cfg.request_timeout,
+            max_retries=req_cfg.max_retries,
+            retry_backoff=req_cfg.retry_backoff,
+            connection_type=req_cfg.connection_type,
         )
-        
+
+        # Use target_url from request if provided, otherwise fall back to default
+        resolved_target_url = request.target_url if request.target_url else default_target_url
+
         return cls(
             audit_id=blueprint.audit_id,
             agent_type=agent_type,
-            target_url=getattr(request, "target_url", default_target_url),
+            target_url=resolved_target_url,
             infrastructure=infrastructure,
             detected_tools=detected_tools,
             config=scan_config,

@@ -7,7 +7,7 @@ import logging
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from libs.contracts.scanning import ScanJobDispatch, SafetyPolicy
+from libs.contracts.scanning import ScanJobDispatch, SafetyPolicy, ScanConfigContract
 from libs.contracts.recon import ReconBlueprint
 from libs.persistence import load_scan, ScanType, CampaignRepository
 from services.swarm.agents.base import run_scanning_agent
@@ -28,6 +28,8 @@ async def execute_scan_for_campaign(
     campaign_id: str,
     agent_types: Optional[List[str]] = None,
     safety_policy: Optional[SafetyPolicy] = None,
+    scan_config: Optional[ScanConfigContract] = None,
+    target_url: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Execute scan by loading recon from S3 automatically.
 
@@ -35,6 +37,8 @@ async def execute_scan_for_campaign(
         campaign_id: Campaign ID to load recon for
         agent_types: Agent types to run
         safety_policy: Optional safety constraints
+        scan_config: Optional scan configuration parameters
+        target_url: Optional target URL override
 
     Returns:
         Dict with results per agent type
@@ -53,10 +57,15 @@ async def execute_scan_for_campaign(
     except Exception as e:
         return {"status": "error", "error": f"Failed to load recon: {e}"}
 
+    # Try to get target_url from campaign if not provided
+    resolved_target_url = target_url or getattr(campaign, "target_url", None)
+
     request = ScanJobDispatch(
         job_id=campaign_id,
         blueprint_context=recon_data,
         safety_policy=safety_policy or SafetyPolicy(aggressiveness="moderate"),
+        scan_config=scan_config or ScanConfigContract(),
+        target_url=resolved_target_url,
     )
 
     return await execute_scan(request, agent_types)
