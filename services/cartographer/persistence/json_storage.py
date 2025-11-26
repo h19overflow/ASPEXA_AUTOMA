@@ -252,6 +252,17 @@ def transform_deductions_to_observations(deductions_by_category: Dict[str, List[
     return observations
 
 
+def _sanitize_filename(name: str) -> str:
+    """Sanitize a string for use in filenames.
+
+    Replaces problematic characters with underscores.
+    """
+    # Replace path separators and other problematic chars
+    for char in ['\\', '/', ':', '*', '?', '"', '<', '>', '|']:
+        name = name.replace(char, '_')
+    return name
+
+
 def save_reconnaissance_result(
     audit_id: str,
     observations: Dict[str, List[str]],
@@ -280,9 +291,10 @@ def save_reconnaissance_result(
     if deductions:
         if02_data["structured_deductions"] = deductions
 
-    # Generate filename with timestamp
+    # Generate filename with timestamp (sanitize audit_id for safe filenames)
     timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
-    filename = f"{audit_id}_{timestamp}.json"
+    safe_audit_id = _sanitize_filename(audit_id)
+    filename = f"{safe_audit_id}_{timestamp}.json"
     filepath = output_path / filename
 
     # Save to file

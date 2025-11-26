@@ -5,7 +5,7 @@ Exposes scanning logic for direct invocation via API gateway.
 import json
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, AsyncGenerator, Dict, List, Optional
 
 from libs.contracts.scanning import ScanJobDispatch, SafetyPolicy, ScanConfigContract
 from libs.contracts.recon import ReconBlueprint
@@ -168,3 +168,126 @@ async def _run_single_agent(
         "vulnerabilities_found": len(vulnerabilities),
         "persisted": persisted,
     }
+
+
+async def execute_scan_streaming(
+    request: ScanJobDispatch,
+    agent_types: Optional[List[str]] = None,
+) -> AsyncGenerator[Dict[str, Any], None]:
+    """Execute scanning with streaming progress events.
+
+    Yields events during execution for real-time UI updates.
+    """
+    if agent_types is None:
+        agent_types = [AgentType.SQL.value, AgentType.AUTH.value, AgentType.JAILBREAK.value]
+
+    yield {"type": "log", "message": f"Starting scan with {len(agent_types)} agents"}
+
+    try:
+        blueprint = ReconBlueprint(**request.blueprint_context)
+    except Exception as e:
+        yield {"type": "log", "level": "error", "message": f"Invalid blueprint: {e}"}
+        return
+
+    yield {"type": "log", "message": f"Audit ID: {blueprint.audit_id}"}
+
+    results: Dict[str, Any] = {"audit_id": blueprint.audit_id, "agents": {}}
+
+    for idx, agent_type in enumerate(agent_types):
+        yield {
+            "type": "agent_start",
+            "agent": agent_type,
+            "index": idx + 1,
+            "total": len(agent_types),
+        }
+
+        # Check safety policy
+        if request.safety_policy and request.safety_policy.blocked_attack_vectors:
+            blocked = request.safety_policy.blocked_attack_vectors
+            try:
+                agent_enum = AgentType(agent_type)
+                if any(v in blocked for v in AGENT_VECTORS.get(agent_enum, [])):
+                    yield {
+                        "type": "agent_blocked",
+                        "agent": agent_type,
+                        "reason": "safety_policy",
+                    }
+                    results["agents"][agent_type] = {"status": "blocked", "reason": "safety_policy"}
+                    continue
+            except ValueError:
+                pass
+
+        yield {"type": "log", "message": f"[{agent_type}] Building scan context..."}
+
+        try:
+            scan_context = ScanContext.from_scan_job(
+                request=request,
+                blueprint=blueprint,
+                agent_type=agent_type,
+                default_target_url="https://api.target.local/v1/chat",
+            )
+        except Exception as e:
+            yield {"type": "log", "level": "error", "message": f"[{agent_type}] Context error: {e}"}
+            results["agents"][agent_type] = {"status": "error", "error": str(e)}
+            continue
+
+        yield {"type": "log", "message": f"[{agent_type}] Target: {scan_context.target_url}"}
+        yield {"type": "log", "message": f"[{agent_type}] Running probes..."}
+
+        try:
+            result = await run_scanning_agent(agent_type, scan_context.to_scan_input())
+
+            if result.get("success"):
+                vulns = result.get("vulnerabilities", [])
+                probes = result.get("probes_executed", [])
+
+                yield {
+                    "type": "agent_complete",
+                    "agent": agent_type,
+                    "status": "success",
+                    "vulnerabilities": len(vulns),
+                    "probes": len(probes),
+                }
+
+                # Emit individual probe results
+                for probe in probes:
+                    yield {
+                        "type": "probe",
+                        "agent": agent_type,
+                        "probe": probe,
+                        "status": "executed",
+                    }
+
+                # Emit vulnerabilities found
+                for vuln in vulns:
+                    yield {
+                        "type": "vulnerability",
+                        "agent": agent_type,
+                        "category": vuln.get("category", "unknown"),
+                        "severity": vuln.get("severity", "unknown"),
+                    }
+
+                scan_id = f"garak-{blueprint.audit_id}-{agent_type}"
+                results["agents"][agent_type] = {
+                    "status": "success",
+                    "scan_id": scan_id,
+                    "vulnerabilities_found": len(vulns),
+                }
+            else:
+                yield {
+                    "type": "agent_complete",
+                    "agent": agent_type,
+                    "status": "failed",
+                    "error": result.get("error", "Unknown"),
+                }
+                results["agents"][agent_type] = {
+                    "status": "failed",
+                    "error": result.get("error", "Unknown"),
+                }
+
+        except Exception as e:
+            yield {"type": "log", "level": "error", "message": f"[{agent_type}] Error: {e}"}
+            results["agents"][agent_type] = {"status": "error", "error": str(e)}
+
+    yield {"type": "log", "message": "Scan complete"}
+    yield {"type": "complete", "data": results}

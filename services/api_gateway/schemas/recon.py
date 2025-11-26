@@ -1,6 +1,6 @@
 """Reconnaissance endpoint schemas."""
 from pydantic import BaseModel
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 
 class ReconStartRequest(BaseModel):
@@ -11,3 +11,4 @@ class ReconStartRequest(BaseModel):
     depth: str = "standard"
     max_turns: int = 10
     forbidden_keywords: List[str] = []
+    special_instructions: Optional[str] = None

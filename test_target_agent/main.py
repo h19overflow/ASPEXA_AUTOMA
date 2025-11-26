@@ -209,8 +209,8 @@ if __name__ == "__main__":
         print("   Please set it before running the server.")
     
     print("🚀 Starting TechShop Customer Service Agent...")
-    print("📍 Server will be available at: http://localhost:8080")
-    print("📖 API docs available at: http://localhost:8080/docs")
-    print("🔍 Test with Cartographer at: http://localhost:8080/chat")
+    print("📍 Server will be available at: http://localhost:8082")
+    print("📖 API docs available at: http://localhost:8082/docs")
+    print("🔍 Test with Cartographer at: http://localhost:8082/chat")
     
-    uvicorn.run(app, host="0.0.0.0", port=8080)
+    uvicorn.run(app, host="0.0.0.0", port=8082)

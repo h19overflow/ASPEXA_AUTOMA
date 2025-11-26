@@ -3,6 +3,7 @@
 Provides REST endpoints as an alternative to event-driven consumers.
 """
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from services.api_gateway.routers import recon, scan, exploit, campaigns, scans
 
@@ -10,6 +11,16 @@ app = FastAPI(
     title="Aspexa Automa API",
     description="HTTP gateway for reconnaissance, scanning, and exploitation services",
     version="1.0.0",
+)
+
+# CORS middleware for frontend access
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allow all origins in development
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+    expose_headers=["*"],
 )
 
 # Service execution endpoints

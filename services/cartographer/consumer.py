@@ -26,20 +26,45 @@ def extract_infrastructure_intel(observations: list) -> InfrastructureIntel:
     # Combine all observations into one text for pattern matching
     combined = " ".join(observations).lower()
 
-    # Extract vector database
-    vector_patterns = ["faiss", "pinecone", "chroma", "weaviate", "qdrant"]
-    for pattern in vector_patterns:
+    # Extract vector database - expanded patterns
+    vector_patterns = [
+        ("faiss", "FAISS"),
+        ("pinecone", "Pinecone"),
+        ("chroma", "Chroma"),
+        ("weaviate", "Weaviate"),
+        ("qdrant", "Qdrant"),
+        ("milvus", "Milvus"),
+        ("pgvector", "PGVector"),
+        ("elasticsearch", "Elasticsearch"),
+        ("opensearch", "OpenSearch"),
+        ("vector store", None),  # Generic marker
+        ("vector database", None),
+    ]
+    for pattern, name in vector_patterns:
         if pattern in combined:
-            vector_db = pattern.upper() if pattern == "faiss" else pattern.capitalize()
-            break
+            if name:
+                vector_db = name
+                break
+            # For generic patterns, try to extract the actual name
+            elif not vector_db:
+                vector_db = "Vector DB (type unspecified)"
 
-    # Extract model family
+    # Extract model family - expanded patterns
     model_patterns = [
-        ("gpt-4", "gpt-4"),
-        ("gpt-3", "gpt-3.5"),
+        ("gpt-4", "GPT-4"),
+        ("gpt-3.5", "GPT-3.5"),
+        ("gpt-3", "GPT-3"),
         ("claude", "Claude"),
         ("gemini", "Gemini"),
-        ("llama", "LLaMA")
+        ("llama", "LLaMA"),
+        ("mistral", "Mistral"),
+        ("cohere", "Cohere"),
+        ("openai", "OpenAI"),
+        ("anthropic", "Anthropic"),
+        ("google", "Google AI"),
+        ("text-embedding", "OpenAI Embeddings"),
+        ("embedding-001", "Google Embeddings"),
+        ("sentence-transformer", "SentenceTransformers"),
     ]
     for pattern, name in model_patterns:
         if pattern in combined:
@@ -69,28 +94,46 @@ def extract_auth_structure(observations: list) -> AuthStructure:
 
     combined = " ".join(observations).lower()
 
-    # Detect auth type
-    if "oauth" in combined:
-        auth_type = "OAuth"
-    elif "jwt" in combined:
-        auth_type = "JWT"
-    elif "rbac" in combined or "role-based" in combined:
-        auth_type = "RBAC"
-    elif "api key" in combined:
-        auth_type = "API Key"
+    # Detect auth type - expanded patterns
+    auth_patterns = [
+        ("oauth 2.0", "OAuth 2.0"),
+        ("oauth2", "OAuth 2.0"),
+        ("oauth", "OAuth"),
+        ("jwt", "JWT"),
+        ("json web token", "JWT"),
+        ("bearer token", "Bearer Token"),
+        ("rbac", "RBAC"),
+        ("role-based", "RBAC"),
+        ("api key", "API Key"),
+        ("api-key", "API Key"),
+        ("session", "Session-based"),
+        ("cookie", "Cookie-based"),
+        ("basic auth", "Basic Auth"),
+        ("token", "Token-based"),
+    ]
+    for pattern, name in auth_patterns:
+        if pattern in combined:
+            auth_type = name
+            break
 
     # Detect vulnerabilities
     vuln_patterns = [
         "idor", "injection", "bypass", "weak", "insecure",
-        "missing", "broken", "exposed"
+        "missing", "broken", "exposed", "vulnerability", "exploit"
     ]
     for pattern in vuln_patterns:
         if pattern in combined:
             vulnerabilities.append(pattern)
-            
-    # Extract rules
+
+    # Extract rules - be more lenient with pattern matching
+    rule_prefixes = ["authorization:", "validation:", "rule:", "limit:", "threshold:", "require"]
     for obs in observations:
-        if obs.startswith("Authorization:") or obs.startswith("Validation:"):
+        obs_lower = obs.lower()
+        # Check if observation contains rule-like content
+        if any(prefix in obs_lower for prefix in rule_prefixes):
+            rules.append(obs.strip())
+        # Also capture observations mentioning approvals, limits, thresholds
+        elif any(keyword in obs_lower for keyword in ["approval", "manager", "limit", "maximum", "minimum", "threshold", "$"]):
             rules.append(obs.strip())
 
     return AuthStructure(
@@ -105,9 +148,8 @@ def extract_detected_tools(observations: list) -> list:
     tools = []
 
     for obs in observations:
-        # Look for tool signatures
-        # Pattern: "Tool: tool_name(param1: type1, param2: type2)"
-        match = re.search(r"Tool:\s*(\w+)\s*\(([^)]*)\)", obs, re.IGNORECASE)
+        # Pattern 1: "Tool: tool_name(param1: type1, param2: type2)"
+        match = re.search(r"Tool[:\s]+[`'\"]?(\w+)[`'\"]?\s*\(([^)]*)\)", obs, re.IGNORECASE)
         if match:
             tool_name = match.group(1)
             params_str = match.group(2)
@@ -124,6 +166,30 @@ def extract_detected_tools(observations: list) -> list:
                 name=tool_name,
                 arguments=params
             ))
+            continue
+
+        # Pattern 2: "tool_name - description" or "`tool_name` - description"
+        match = re.search(r"[`'\"]?(\w+)[`'\"]?\s*[-–:]\s*(?:Tool|capable|can|will)", obs, re.IGNORECASE)
+        if match:
+            tool_name = match.group(1)
+            if tool_name.lower() not in ["the", "a", "an", "i", "it", "this", "that"]:
+                tools.append(DetectedTool(name=tool_name, arguments=[]))
+                continue
+
+        # Pattern 3: Look for function-like mentions "function_name()" or "function_name"
+        matches = re.findall(r"[`'\"](\w+)[`'\"]?\s*(?:\([^)]*\))?", obs)
+        for fn_name in matches:
+            # Filter out common non-tool words
+            if fn_name.lower() not in ["tool", "the", "a", "an", "i", "it", "this", "that", "is", "are", "was", "were", "be"]:
+                if len(fn_name) > 2 and "_" in fn_name:  # Likely a function name
+                    tools.append(DetectedTool(name=fn_name, arguments=[]))
+
+        # Pattern 4: "requires" followed by parameters
+        if "require" in obs.lower():
+            # Look for parameters mentioned after requires
+            param_match = re.findall(r"(?:requires?|needs?|takes?)\s+(?:the\s+)?(\w+(?:_\w+)*)", obs, re.IGNORECASE)
+            # These are parameters, not tools - store them for existing tools
+            pass
 
     # Remove duplicates
     seen = set()
