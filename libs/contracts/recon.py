@@ -36,6 +36,10 @@ class ReconRequest(StrictBaseModel):
     audit_id: str = Field(..., description="UUID v4 audit identifier")
     target: TargetConfig
     scope: ScopeConfig
+    special_instructions: Optional[str] = Field(
+        default=None,
+        description="Custom instructions to focus reconnaissance on specific areas"
+    )
 
 
 class DetectedTool(StrictBaseModel):
