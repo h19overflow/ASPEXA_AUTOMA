@@ -7,6 +7,7 @@ Results are persisted to S3 via the persistence layer.
 import logging
 import uuid
 from collections import defaultdict
+from datetime import datetime, timezone
 from typing import Dict, List, Any
 
 from libs.contracts.scanning import VulnerabilityCluster, Evidence
@@ -255,6 +256,8 @@ def generate_comprehensive_report_from_results(
             })
 
     comprehensive_report = {
+        "audit_id": audit_id,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         "summary": summary,
         "vulnerability_clusters": {
             "clusters": clusters_data,
@@ -270,6 +273,7 @@ def generate_comprehensive_report_from_results(
         },
         "formatted_report": formatted_report,
         "metadata": {
+            "report_path": "",  # S3 path set during persistence
             "audit_id": audit_id,
             "affected_component": affected_component,
             "total_vulnerability_clusters": len(clusters_data),

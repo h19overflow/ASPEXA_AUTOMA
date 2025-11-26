@@ -3,6 +3,7 @@
 Exposes scanning logic for direct invocation via API gateway.
 """
 import logging
+from datetime import datetime, timezone
 from typing import Any, AsyncGenerator, Dict, List, Optional
 
 from libs.contracts.scanning import ScanJobDispatch, SafetyPolicy, ScanConfigContract
@@ -137,10 +138,16 @@ async def _run_single_agent(
     # Build report from in-memory results (no local file I/O)
     try:
         garak_report = {
+            "audit_id": blueprint.audit_id,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "summary": result.get("metadata", {}),
             "vulnerabilities": vulnerabilities,
             "probes_executed": result.get("probes_executed", []),
-            "metadata": {"audit_id": blueprint.audit_id, "agent_type": agent_type},
+            "metadata": {
+                "report_path": "",
+                "audit_id": blueprint.audit_id,
+                "agent_type": agent_type,
+            },
         }
 
         await persist_garak_result(
@@ -260,10 +267,38 @@ async def execute_scan_streaming(
                     }
 
                 scan_id = f"garak-{blueprint.audit_id}-{agent_type}"
+                persisted = False
+
+                # Persist results to S3
+                try:
+                    garak_report = {
+                        "audit_id": blueprint.audit_id,
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                        "summary": result.get("metadata", {}),
+                        "vulnerabilities": vulns,
+                        "probes_executed": probes,
+                        "metadata": {
+                            "report_path": "",
+                            "audit_id": blueprint.audit_id,
+                            "agent_type": agent_type,
+                        },
+                    }
+                    await persist_garak_result(
+                        campaign_id=blueprint.audit_id,
+                        scan_id=scan_id,
+                        garak_report=garak_report,
+                        target_url=scan_context.target_url,
+                    )
+                    persisted = True
+                    yield {"type": "log", "message": f"[{agent_type}] Persisted to S3: {scan_id}"}
+                except Exception as e:
+                    yield {"type": "log", "level": "warning", "message": f"[{agent_type}] Persistence failed: {e}"}
+
                 results["agents"][agent_type] = {
                     "status": "success",
                     "scan_id": scan_id,
                     "vulnerabilities_found": len(vulns),
+                    "persisted": persisted,
                 }
             else:
                 yield {

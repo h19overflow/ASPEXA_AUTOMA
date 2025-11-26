@@ -157,6 +157,8 @@ class GarakMetadata(StrictBaseModel):
 
 class GarakResult(StrictBaseModel):
     """Complete Garak jailbreak scan result."""
+    audit_id: str
+    timestamp: str
     summary: GarakSummary
     vulnerability_clusters: VulnerabilityClusters
     vulnerable_probes: VulnerableProbes

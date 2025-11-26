@@ -257,11 +257,16 @@ class S3PersistenceAdapter:
         # Convert Pydantic model to dict if needed
         if isinstance(data, BaseModel):
             body = data.model_dump_json(indent=2)
-            audit_id = getattr(data, "audit_id", scan_id)
+            audit_id = getattr(data, "audit_id", None)
+            if not audit_id:
+                # Fallback for models with audit_id in metadata (e.g., old GarakResult)
+                metadata = getattr(data, "metadata", None)
+                audit_id = getattr(metadata, "audit_id", scan_id) if metadata else scan_id
             timestamp = getattr(data, "timestamp", "")
         else:
             body = json.dumps(data, indent=2, default=str)
-            audit_id = data.get("audit_id", scan_id)
+            # Check top-level first, then metadata (for garak backwards compat)
+            audit_id = data.get("audit_id") or data.get("metadata", {}).get("audit_id", scan_id)
             timestamp = data.get("timestamp", "")
 
         try:
@@ -369,9 +374,11 @@ class S3PersistenceAdapter:
                 if audit_id_filter:
                     try:
                         data = await self.load_scan_result(st, scan_id, validate=False)
-                        if audit_id_filter not in data.get("audit_id", ""):
+                        # Check top-level first, then metadata (for garak backwards compat)
+                        file_audit_id = data.get("audit_id") or data.get("metadata", {}).get("audit_id", "")
+                        if audit_id_filter not in file_audit_id:
                             continue
-                        audit_id = data.get("audit_id", scan_id)
+                        audit_id = file_audit_id or scan_id
                         timestamp = data.get("timestamp", "")
                     except Exception:
                         continue

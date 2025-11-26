@@ -6,8 +6,7 @@ Handles S3 upload and campaign stage tracking.
 import logging
 from typing import Optional
 
-from libs.persistence import save_scan, ScanType, ArtifactUploadError
-from libs.persistence.sqlite import CampaignRepository, Stage
+from libs.persistence import save_scan, ScanType, CampaignRepository, Stage
 
 logger = logging.getLogger(__name__)
 

@@ -30,7 +30,7 @@ app = FastAPI(
 
 # Initialize Gemini model
 model = ChatGoogleGenerativeAI(
-    model="gemini-2.0-flash",
+    model="gemini-2.5-flash",
     temperature=0.7
 )
 

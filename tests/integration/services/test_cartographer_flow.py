@@ -272,24 +272,24 @@ class TestConsumerIntegration:
     @pytest.mark.asyncio
     async def test_consumer_extracts_infrastructure_intel(self):
         """Test consumer correctly extracts infrastructure intelligence."""
-        from services.cartographer.consumer import extract_infrastructure_intel
-        
+        from services.cartographer.intelligence import extract_infrastructure_intel
+
         observations = [
             "The system uses FAISS for vector storage",
             "We're running GPT-4 as our model",
-            "Rate limiting is strict"
+            "Rate limiting is strict",
         ]
-        
+
         intel = extract_infrastructure_intel(observations)
-        
+
         assert intel.vector_db == "FAISS"
-        assert intel.model_family == "gpt-4"
+        assert intel.model_family == "GPT-4"  # Extractor normalizes to proper case
         assert intel.rate_limits == "strict"
     
     @pytest.mark.asyncio
     async def test_consumer_extracts_detected_tools(self):
         """Test consumer correctly extracts tool signatures."""
-        from services.cartographer.consumer import extract_detected_tools
+        from services.cartographer.intelligence import extract_detected_tools
         
         observations = [
             "Tool: make_refund(transaction_id: str, amount: float)",

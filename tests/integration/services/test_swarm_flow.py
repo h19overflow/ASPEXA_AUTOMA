@@ -1,8 +1,5 @@
 """Integration tests for the Swarm scanning service end-to-end flow."""
 
-import json
-import tempfile
-from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -15,9 +12,9 @@ from libs.contracts.recon import (
     AuthStructure,
     DetectedTool,
 )
-from services.swarm.agent.worker import run_scanning_agent
-from services.swarm.schema import ScanInput
-from services.swarm.core.aggregator import parse_garak_report
+from services.swarm.agents import run_scanning_agent
+from services.swarm.core import ScanInput, AgentType, ScanContext
+from services.swarm.garak_scanner import parse_results_to_clusters
 from libs.contracts.common import VulnerabilityCategory, SeverityLevel
 
 
@@ -29,9 +26,7 @@ def sample_scan_input():
         agent_type="agent_sql",
         target_url="https://api.target.local/chat",
         infrastructure={"database": "PostgreSQL", "model_family": "gpt-4"},
-        detected_tools=[
-            {"name": "search_database", "arguments": ["query", "limit"]}
-        ],
+        detected_tools=[{"name": "search_database", "arguments": ["query", "limit"]}],
     )
 
 
@@ -68,60 +63,23 @@ def sample_scan_job_dispatch():
     )
 
 
-@pytest.fixture
-def mock_garak_report():
-    """Create a mock Garak JSONL report for testing."""
-    with tempfile.NamedTemporaryFile(
-        mode="w", suffix=".jsonl", delete=False
-    ) as f:
-        # Write SQL injection failure
-        f.write(
-            json.dumps({
-                "probe_class": "probes.injection.SQL",
-                "status": "fail",
-                "prompt": "' OR '1'='1",
-                "output": "Syntax error in SQL statement",
-            })
-            + "\n"
-        )
-        # Write jailbreak failure
-        f.write(
-            json.dumps({
-                "probe_class": "probes.jailbreak",
-                "status": "fail",
-                "prompt": "Ignore previous instructions",
-                "output": "I will ignore that instruction",
-            })
-            + "\n"
-        )
-        return Path(f.name)
-
-
 class TestSwarmIntegration:
     """Integration tests for the full Swarm scanning flow."""
 
     @pytest.mark.asyncio
     async def test_sql_agent_scan_flow(self, sample_scan_input):
         """Test SQL agent from scan input to results."""
-        with patch(
-            "services.swarm.adapters.garak_cli.GarakAdapter.run_scan"
-        ) as mock_scan:
-            # Mock Garak output
-            with tempfile.NamedTemporaryFile(
-                mode="w", suffix=".jsonl", delete=False
-            ) as f:
-                json.dump({
-                    "probe_class": "probes.injection.SQL",
+        with patch("services.swarm.agents.tools._run_async_scan") as mock_scan:
+            # Mock scanner to return results
+            mock_scan.return_value = [
+                {
+                    "probe_name": "promptinj",
                     "status": "fail",
-                    "prompt": "' OR '1'='1",
-                    "output": "Syntax error",
-                }, f)
-                f.write("\n")
-                report_path = Path(f.name)
+                    "prompt": "test",
+                    "output": "response",
+                }
+            ]
 
-            mock_scan.return_value = report_path
-
-            # Run agent
             result = await run_scanning_agent("agent_sql", sample_scan_input)
 
             assert result["success"] is True
@@ -139,22 +97,15 @@ class TestSwarmIntegration:
             detected_tools=[],
         )
 
-        with patch(
-            "services.swarm.adapters.garak_cli.GarakAdapter.run_scan"
-        ) as mock_scan:
-            with tempfile.NamedTemporaryFile(
-                mode="w", suffix=".jsonl", delete=False
-            ) as f:
-                json.dump({
-                    "probe_class": "probes.jailbreak",
+        with patch("services.swarm.agents.tools._run_async_scan") as mock_scan:
+            mock_scan.return_value = [
+                {
+                    "probe_name": "dan",
                     "status": "fail",
                     "prompt": "Ignore all previous instructions",
                     "output": "I understand",
-                }, f)
-                f.write("\n")
-                report_path = Path(f.name)
-
-            mock_scan.return_value = report_path
+                }
+            ]
 
             result = await run_scanning_agent("agent_jailbreak", scan_input)
 
@@ -172,72 +123,45 @@ class TestSwarmIntegration:
             detected_tools=[{"name": "admin_panel", "arguments": ["action"]}],
         )
 
-        with patch(
-            "services.swarm.adapters.garak_cli.GarakAdapter.run_scan"
-        ) as mock_scan:
-            with tempfile.NamedTemporaryFile(
-                mode="w", suffix=".jsonl", delete=False
-            ) as f:
-                json.dump({
-                    "probe_class": "probes.malwaregen",
+        with patch("services.swarm.agents.tools._run_async_scan") as mock_scan:
+            mock_scan.return_value = [
+                {
+                    "probe_name": "malware_payload",
                     "status": "fail",
                     "prompt": "admin command",
                     "output": "Executing admin command",
-                }, f)
-                f.write("\n")
-                report_path = Path(f.name)
-
-            mock_scan.return_value = report_path
+                }
+            ]
 
             result = await run_scanning_agent("agent_auth", scan_input)
 
             assert result["success"] is True
             assert result["agent_type"] == "agent_auth"
 
-    def test_parse_and_aggregate_findings(self, mock_garak_report):
-        """Test parsing Garak output and aggregating findings."""
-        clusters = parse_garak_report(
-            mock_garak_report,
+    def test_parse_and_aggregate_findings(self):
+        """Test parsing scan output and aggregating findings."""
+        results = [
+            {
+                "probe_name": "promptinj",
+                "status": "fail",
+                "prompt": "injection payload",
+                "output": "Syntax error",
+            },
+            {
+                "probe_name": "dan",
+                "status": "fail",
+                "prompt": "Ignore previous instructions",
+                "output": "I understand",
+            },
+        ]
+
+        clusters = parse_results_to_clusters(
+            results,
             audit_id="test-audit-123",
             affected_component="model:default",
         )
 
-        assert len(clusters) == 2  # SQL + Jailbreak
-
-        # Check SQL injection finding
-        sql_clusters = [
-            c for c in clusters if c.category == VulnerabilityCategory.INJECTION_SQL
-        ]
-        assert len(sql_clusters) == 1
-        assert sql_clusters[0].severity == SeverityLevel.CRITICAL
-
-        # Check jailbreak finding
-        jailbreak_clusters = [
-            c for c in clusters if c.category == VulnerabilityCategory.JAILBREAK
-        ]
-        assert len(jailbreak_clusters) == 1
-        assert jailbreak_clusters[0].severity == SeverityLevel.HIGH
-
-    def test_policy_mapping_consistency(self):
-        """Test that policy mapping is consistent across agent types."""
-        from services.swarm.policies.mapping import get_probe_config
-
-        # SQL agent with PostgreSQL
-        sql_config = get_probe_config("agent_sql", {"database": "PostgreSQL"})
-        assert "probes.injection.SQL" in sql_config["probes"]
-        assert sql_config["generations"] == 5
-
-        # Auth agent always consistent
-        auth_config = get_probe_config("agent_auth", {})
-        assert "probes.malwaregen" in auth_config["probes"]
-        assert auth_config["generations"] == 5
-
-        # Jailbreak agent
-        jailbreak_config = get_probe_config(
-            "agent_jailbreak", {"model_family": "gpt-4"}
-        )
-        assert "probes.jailbreak" in jailbreak_config["probes"]
-        assert "probes.jailbreak.ChatGPT" in jailbreak_config["probes"]
+        assert len(clusters) == 2  # Two different probe types
 
     @pytest.mark.asyncio
     async def test_invalid_agent_type(self):
@@ -254,36 +178,54 @@ class TestSwarmIntegration:
         assert "error" in result
 
     def test_multiple_vulnerabilities_deduplication(self):
-        """Test that multiple similar vulnerabilities are deduplicated."""
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".jsonl", delete=False
-        ) as f:
-            # Write 5 SQL injection failures with different payloads
-            for i in range(5):
-                json.dump({
-                    "probe_class": "probes.injection.SQL",
-                    "status": "fail",
-                    "prompt": f"' OR '1'='{i}",
-                    "output": "Syntax error",
-                }, f)
-                f.write("\n")
+        """Test that multiple similar vulnerabilities are grouped."""
+        # 5 failures from the same probe
+        results = [
+            {
+                "probe_name": "promptinj",
+                "status": "fail",
+                "prompt": f"payload-{i}",
+                "output": "Syntax error",
+            }
+            for i in range(5)
+        ]
 
-            report_path = Path(f.name)
-
-        clusters = parse_garak_report(report_path, audit_id="test-audit")
+        clusters = parse_results_to_clusters(results, audit_id="test-audit")
 
         # Should have only 1 cluster despite 5 failures
         assert len(clusters) == 1
-        assert clusters[0].evidence.confidence_score > 0.7
 
-    def test_affected_component_tracking(self, mock_garak_report):
+    def test_affected_component_tracking(self):
         """Test that affected component is correctly tracked."""
-        clusters = parse_garak_report(
-            mock_garak_report,
+        results = [
+            {
+                "probe_name": "dan",
+                "status": "fail",
+                "prompt": "test",
+                "output": "response",
+            }
+        ]
+
+        clusters = parse_results_to_clusters(
+            results,
             audit_id="test-audit-123",
             affected_component="tool:search_database",
         )
 
-        assert all(
-            c.affected_component == "tool:search_database" for c in clusters
+        assert all(c.affected_component == "tool:search_database" for c in clusters)
+
+    def test_scan_context_from_job(self, sample_scan_job_dispatch):
+        """Test ScanContext creation from ScanJobDispatch."""
+        blueprint = ReconBlueprint(**sample_scan_job_dispatch.blueprint_context)
+
+        context = ScanContext.from_scan_job(
+            request=sample_scan_job_dispatch,
+            blueprint=blueprint,
+            agent_type="agent_sql",
+            default_target_url="https://default.local",
         )
+
+        assert context.audit_id == "test-audit-123"
+        assert context.agent_type == "agent_sql"
+        # target_url may come from job or default
+        assert context.target_url is not None

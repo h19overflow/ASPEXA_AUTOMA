@@ -2,8 +2,7 @@
 import os
 import asyncio
 from dotenv import load_dotenv
-from libs.events.publisher import app, broker
-from services.cartographer import consumer  # Import to register subscriber
+from libs.events.publisher import app
 
 
 # Load environment variables

@@ -4,6 +4,7 @@ Role: Event handler for cmd_scan_start, orchestrates agents
 Dependencies: libs.events, libs.contracts, services.swarm.agents
 """
 import logging
+from datetime import datetime, timezone
 
 from libs.events.publisher import broker, CMD_SCAN_START
 from libs.contracts.scanning import ScanJobDispatch
@@ -13,7 +14,6 @@ from services.swarm.agents.base import run_scanning_agent
 from services.swarm.core.schema import ScanContext
 from services.swarm.core.config import AgentType
 from services.swarm.persistence.s3_adapter import (
-    load_recon_for_campaign,
     persist_garak_result,
 )
 
@@ -76,10 +76,13 @@ async def handle_scan_request(message: dict, agent_type: str):
         # Persist garak results to S3 (no local file I/O)
         try:
             garak_report = {
+                "audit_id": blueprint.audit_id,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
                 "summary": result.get("metadata", {}),
                 "vulnerabilities": vulnerabilities,
                 "probes_executed": result.get("probes_executed", []),
                 "metadata": {
+                    "report_path": "",
                     "audit_id": blueprint.audit_id,
                     "agent_type": agent_type,
                 }
