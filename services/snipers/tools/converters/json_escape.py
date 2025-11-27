@@ -119,7 +119,7 @@ class JsonEscapeConverter(PromptConverter):
         return ''.join(result)
 
     def _full_unicode(self, text: str) -> str:
-        """Strategy C: Convert all characters to \\uXXXX format.
+        r"""Strategy C: Convert all characters to \uXXXX format.
         
         Maximum obfuscation while maintaining universal decodability.
         All valid JSON parsers handle unicode escape sequences.
