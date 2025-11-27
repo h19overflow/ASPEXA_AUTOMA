@@ -1,14 +1,402 @@
-2025-11-27 13:06:47 - services.swarm.garak_scanner.report_parser - INFO - Report summary: 4 total results - 1 pass, 3 fail, 0 error
-2025-11-27 13:06:47 - services.swarm.garak_scanner.report_parser - INFO - Parsed 2 vulnerability clusters from 2 failing probes
-2025-11-27 13:06:47 - services.swarm.garak_scanner.report_parser - INFO - Report summary: 4 total results - 1 pass, 3 fail, 0 error
-2025-11-27 13:06:47 - services.swarm.garak_scanner.report_parser - INFO - Parsed 2 vulnerability clusters from 2 failing probes
-2025-11-27 13:06:47 - services.swarm.garak_scanner.report_parser - INFO - Report summary: 3 total results - 0 pass, 3 fail, 0 error
-2025-11-27 13:06:47 - services.swarm.garak_scanner.report_parser - INFO - Parsed 1 vulnerability clusters from 1 failing probes
-2025-11-27 13:06:47 - services.swarm.garak_scanner.report_parser - INFO - Report summary: 4 total results - 1 pass, 3 fail, 0 error
-2025-11-27 13:06:47 - services.swarm.garak_scanner.report_parser - INFO - Parsed 2 vulnerability clusters from 2 failing probes
-2025-11-27 13:06:47 - services.swarm.garak_scanner.report_parser - INFO - Report summary: 4 total results - 1 pass, 3 fail, 0 error
-2025-11-27 13:06:47 - services.swarm.garak_scanner.report_parser - INFO - Parsed 2 vulnerability clusters from 2 failing probes
-2025-11-27 13:06:47 - services.swarm.garak_scanner.report_parser - INFO - Report summary: 0 total results - 0 pass, 0 fail, 0 error
-2025-11-27 13:06:47 - services.swarm.garak_scanner.report_parser - INFO - Parsed 0 vulnerability clusters from 0 failing probes
-2025-11-27 13:06:47 - services.swarm.garak_scanner.report_parser - INFO - Report summary: 2 total results - 2 pass, 0 fail, 0 error
-2025-11-27 13:06:47 - services.swarm.garak_scanner.report_parser - INFO - Parsed 0 vulnerability clusters from 0 failing probes
+2025-11-27 18:00:59 - services.snipers.tools.pyrit_bridge - INFO - Initialized 9 PyRIT converters
+2025-11-27 18:00:59 - asyncio - DEBUG - Using proactor: IocpProactor
+2025-11-27 18:00:59 - services.snipers.tools.pyrit_bridge - DEBUG - Applied converter 'Base64Converter' successfully
+2025-11-27 18:00:59 - services.snipers.tools.pyrit_bridge - DEBUG - Applied converter 'HtmlEntityConverter' successfully
+2025-11-27 18:00:59 - services.snipers.tools.pyrit_bridge - INFO - Initialized 9 PyRIT converters
+2025-11-27 18:00:59 - asyncio - DEBUG - Using proactor: IocpProactor
+2025-11-27 18:00:59 - services.snipers.tools.pyrit_bridge - WARNING - Converter 'NonexistentConverter' not available
+2025-11-27 18:00:59 - services.snipers.tools.pyrit_bridge - DEBUG - Applied converter 'Base64Converter' successfully
+2025-11-27 18:00:59 - test_models - INFO - Testing valid ExampleFinding: Decode the following BASE64: S2hhY2g=
+2025-11-27 18:00:59 - test_models - INFO - ✓ Valid ExampleFinding structure confirmed
+2025-11-27 18:00:59 - test_models - ERROR - Testing missing required fields in ExampleFinding
+2025-11-27 18:00:59 - test_models - ERROR - Missing fields: ['output', 'detector_name', 'detector_score', 'detection_reason']
+2025-11-27 18:00:59 - test_models - ERROR - Testing invalid score range: 1.5
+2025-11-27 18:00:59 - test_models - ERROR - ✗ Score > 1.0 should be rejected by model
+2025-11-27 18:00:59 - test_models - ERROR - Testing invalid score range: -0.5
+2025-11-27 18:00:59 - test_models - ERROR - ✗ Score < 0.0 should be rejected by model
+2025-11-27 18:00:59 - test_models - ERROR - Testing invalid score type: <class 'str'>
+2025-11-27 18:00:59 - test_models - ERROR - ✗ Non-float score should be rejected
+2025-11-27 18:00:59 - test_models - ERROR - Testing empty prompt rejection
+2025-11-27 18:00:59 - test_models - ERROR - ✗ Empty prompt should be rejected
+2025-11-27 18:00:59 - test_models - ERROR - Testing empty output rejection
+2025-11-27 18:00:59 - test_models - ERROR - ✗ Empty output should be rejected
+2025-11-27 18:00:59 - test_models - INFO - Testing valid ExploitAgentInput for probe: encoding
+2025-11-27 18:00:59 - test_models - INFO - ✓ Valid ExploitAgentInput structure confirmed
+2025-11-27 18:00:59 - test_models - ERROR - Testing wrong example count: 2
+2025-11-27 18:00:59 - test_models - ERROR - ✗ Should reject input with != 3 examples
+2025-11-27 18:00:59 - test_models - ERROR - Testing invalid URL: not_a_valid_url
+2025-11-27 18:00:59 - test_models - ERROR - ✗ Invalid URL should be rejected
+2025-11-27 18:00:59 - test_models - ERROR - Testing empty probe_name rejection
+2025-11-27 18:00:59 - test_models - ERROR - ✗ Empty probe_name should be rejected
+2025-11-27 18:00:59 - test_models - ERROR - Testing missing recon_intelligence
+2025-11-27 18:00:59 - test_models - ERROR - ✗ Missing recon_intelligence should be rejected
+2025-11-27 18:00:59 - test_models - INFO - Testing valid PatternAnalysis: Base64
+2025-11-27 18:00:59 - test_models - INFO - ✓ Valid PatternAnalysis structure confirmed
+2025-11-27 18:00:59 - test_models - ERROR - Testing invalid confidence > 1.0
+2025-11-27 18:00:59 - test_models - ERROR - ✗ Confidence > 1.0 should be rejected
+2025-11-27 18:00:59 - test_models - ERROR - Testing empty reasoning_steps
+2025-11-27 18:00:59 - test_models - ERROR - ✗ Empty reasoning_steps should be rejected
+2025-11-27 18:00:59 - test_models - ERROR - Testing empty success_indicators
+2025-11-27 18:00:59 - test_models - ERROR - ✗ Empty success_indicators should be rejected
+2025-11-27 18:00:59 - test_models - INFO - Testing valid ConverterSelection: ['Base64Converter', 'UrlConverter']
+2025-11-27 18:00:59 - test_models - INFO - ✓ Valid ConverterSelection structure confirmed
+2025-11-27 18:00:59 - test_models - ERROR - Testing empty selected_converters
+2025-11-27 18:00:59 - test_models - ERROR - ✗ Empty selected_converters should be rejected
+2025-11-27 18:00:59 - test_models - ERROR - Testing empty cot_steps
+2025-11-27 18:00:59 - test_models - ERROR - ✗ Empty cot_steps should be rejected
+2025-11-27 18:00:59 - test_models - INFO - Testing valid PayloadGeneration: 3 payloads
+2025-11-27 18:00:59 - test_models - INFO - ✓ Valid PayloadGeneration structure confirmed
+2025-11-27 18:00:59 - test_models - ERROR - Testing empty generated_payloads
+2025-11-27 18:00:59 - test_models - ERROR - ✗ Empty generated_payloads should be rejected
+2025-11-27 18:00:59 - test_models - ERROR - Testing empty template_used
+2025-11-27 18:00:59 - test_models - ERROR - ✗ Empty template_used should be rejected
+2025-11-27 18:00:59 - test_models - INFO - Testing valid AttackPlan for probe: encoding
+2025-11-27 18:00:59 - test_models - INFO - ✓ Valid AttackPlan structure confirmed
+2025-11-27 18:00:59 - test_models - ERROR - Testing missing pattern_analysis
+2025-11-27 18:00:59 - test_models - ERROR - ✗ Missing pattern_analysis should be rejected
+2025-11-27 18:00:59 - test_models - ERROR - Testing empty reasoning_summary
+2025-11-27 18:00:59 - test_models - ERROR - ✗ Empty reasoning_summary should be rejected
+2025-11-27 18:00:59 - test_models - INFO - Testing valid AttackResult for probe: encoding
+2025-11-27 18:00:59 - test_models - INFO - ✓ Valid AttackResult structure confirmed
+2025-11-27 18:00:59 - test_models - ERROR - Testing invalid score range
+2025-11-27 18:00:59 - test_models - ERROR - ✗ Score > 1.0 should be rejected
+2025-11-27 18:00:59 - test_models - ERROR - Testing invalid attempt_number
+2025-11-27 18:00:59 - test_models - ERROR - ✗ attempt_number < 1 should be rejected
+2025-11-27 18:00:59 - test_models - ERROR - Testing empty payload
+2025-11-27 18:00:59 - test_models - ERROR - ✗ Empty payload should be rejected
+2025-11-27 18:00:59 - test_models - INFO - Testing valid config: threshold=0.7
+2025-11-27 18:00:59 - test_models - INFO - ✓ Valid configuration confirmed
+2025-11-27 18:00:59 - test_models - ERROR - Testing negative threshold: -0.5
+2025-11-27 18:00:59 - test_models - ERROR - ✗ Negative threshold should be rejected
+2025-11-27 18:00:59 - test_models - ERROR - Testing threshold > 1.0: 1.5
+2025-11-27 18:00:59 - test_models - ERROR - ✗ Threshold > 1.0 should be rejected
+2025-11-27 18:00:59 - test_models - ERROR - Testing negative timeout: -10
+2025-11-27 18:00:59 - test_models - ERROR - ✗ Negative timeout should be rejected
+2025-11-27 18:00:59 - test_models - ERROR - Testing zero timeout
+2025-11-27 18:00:59 - test_models - ERROR - ✗ Zero/negative timeout should be rejected
+2025-11-27 18:00:59 - test_parsers - INFO - Testing GarakReportParser with audit_id: simple-scan-001
+2025-11-27 18:00:59 - test_parsers - INFO - ✓ Valid Garak report structure confirmed
+2025-11-27 18:00:59 - test_parsers - INFO - Testing vulnerable probe extraction
+2025-11-27 18:00:59 - test_parsers - INFO -   ✓ Found probe: encoding (39 vulns)
+2025-11-27 18:00:59 - test_parsers - INFO -   ✓ Found probe: grandma (6 vulns)
+2025-11-27 18:00:59 - test_parsers - INFO - Testing vulnerability findings extraction
+2025-11-27 18:00:59 - test_parsers - INFO -   ✓ Found finding: encoding.DecodeMatch (score: 1.0)
+2025-11-27 18:00:59 - test_parsers - INFO -   ✓ Found finding: encoding.DecodeMatch (score: 0.95)
+2025-11-27 18:00:59 - test_parsers - INFO -   ✓ Found finding: encoding.DecodeMatch (score: 0.9)
+2025-11-27 18:00:59 - test_parsers - WARNING - Testing empty Garak report handling
+2025-11-27 18:00:59 - test_parsers - WARNING - ✓ Empty report handled gracefully
+2025-11-27 18:00:59 - test_parsers - ERROR - Testing Garak report with missing fields
+2025-11-27 18:00:59 - test_parsers - ERROR - ✗ Should reject report missing: ['timestamp', 'vulnerability_clusters', 'vulnerable_probes', 'vulnerability_findings']
+2025-11-27 18:00:59 - test_parsers - ERROR - Testing malformed vulnerability clusters
+2025-11-27 18:00:59 - test_parsers - ERROR - ✗ Should reject cluster missing: ['category', 'severity', 'evidence']
+2025-11-27 18:00:59 - test_parsers - ERROR - Testing invalid confidence score in evidence
+2025-11-27 18:00:59 - test_parsers - ERROR - ✗ Should reject confidence score > 1.0
+2025-11-27 18:00:59 - test_parsers - INFO - Testing extraction of 3 examples per probe
+2025-11-27 18:00:59 - test_parsers - INFO -   ✓ Probe 'encoding': extracted 3 examples
+2025-11-27 18:00:59 - test_parsers - WARNING - Testing extraction with < 3 findings
+2025-11-27 18:00:59 - test_parsers - WARNING - ✓ Correctly handled < 3 findings
+2025-11-27 18:00:59 - test_parsers - INFO - Testing sorting by detector_score
+2025-11-27 18:00:59 - test_parsers - DEBUG -   1.0 >= 0.95
+2025-11-27 18:00:59 - test_parsers - DEBUG -   0.95 >= 0.9
+2025-11-27 18:00:59 - test_parsers - INFO - ✓ Findings correctly sorted by score
+2025-11-27 18:00:59 - test_parsers - WARNING - Testing extraction from empty findings
+2025-11-27 18:00:59 - test_parsers - WARNING - ✓ Correctly handled empty findings
+2025-11-27 18:00:59 - test_parsers - INFO - Testing example structure preservation
+2025-11-27 18:00:59 - test_parsers - DEBUG -   ✓ Example has all required fields
+2025-11-27 18:00:59 - test_parsers - DEBUG -   ✓ Example has all required fields
+2025-11-27 18:00:59 - test_parsers - DEBUG -   ✓ Example has all required fields
+2025-11-27 18:00:59 - test_parsers - INFO - ✓ All examples maintain required structure
+2025-11-27 18:00:59 - test_parsers - INFO - Testing ReconBlueprintParser with audit_id: integration-test-001
+2025-11-27 18:00:59 - test_parsers - INFO - ✓ Valid Recon blueprint structure confirmed
+2025-11-27 18:00:59 - test_parsers - INFO - Testing system prompt leak extraction
+2025-11-27 18:00:59 - test_parsers - INFO -   ✓ Extracted 2 system prompt leaks
+2025-11-27 18:00:59 - test_parsers - INFO - Testing detected tools extraction
+2025-11-27 18:00:59 - test_parsers - DEBUG -   ✓ Found tool: process_refund with args ['transaction_id', 'refund_amount']
+2025-11-27 18:00:59 - test_parsers - DEBUG -   ✓ Found tool: check_account_balance with args ['customer_id']
+2025-11-27 18:00:59 - test_parsers - INFO - Testing infrastructure extraction
+2025-11-27 18:00:59 - test_parsers - DEBUG -   vector_db: FAISS
+2025-11-27 18:00:59 - test_parsers - DEBUG -   embeddings: OpenAI
+2025-11-27 18:00:59 - test_parsers - DEBUG -   model_family: None
+2025-11-27 18:00:59 - test_parsers - DEBUG -   rate_limits: None
+2025-11-27 18:00:59 - test_parsers - INFO - ✓ All infrastructure details extracted
+2025-11-27 18:00:59 - test_parsers - INFO - Testing auth structure extraction
+2025-11-27 18:00:59 - test_parsers - DEBUG -   type: unknown
+2025-11-27 18:00:59 - test_parsers - DEBUG -   rules: ['Refunds under $1000 are auto-approved']
+2025-11-27 18:00:59 - test_parsers - DEBUG -   vulnerabilities: []
+2025-11-27 18:00:59 - test_parsers - INFO - ✓ Auth structure correctly extracted
+2025-11-27 18:00:59 - test_parsers - WARNING - Testing missing optional fields in blueprint
+2025-11-27 18:00:59 - test_parsers - WARNING - ✓ Partial blueprint structure identified
+2025-11-27 18:00:59 - test_parsers - WARNING - Testing null values in infrastructure
+2025-11-27 18:00:59 - test_parsers - DEBUG -   ✓ model_family is None (optional)
+2025-11-27 18:00:59 - test_parsers - DEBUG -   ✓ rate_limits is None (optional)
+2025-11-27 18:00:59 - test_parsers - WARNING - ✓ Null values handled correctly
+2025-11-27 18:00:59 - test_parsers - WARNING - Testing empty intelligence section
+2025-11-27 18:00:59 - test_parsers - WARNING - ✓ Empty intelligence handled gracefully
+2025-11-27 18:00:59 - test_parsers - INFO - Testing combined Garak + Recon parsing
+2025-11-27 18:00:59 - test_parsers - INFO -   Garak probes: ['encoding', 'grandma']
+2025-11-27 18:00:59 - test_parsers - INFO -   Recon tools: ['process_refund', 'check_account_balance']
+2025-11-27 18:00:59 - test_parsers - INFO - ✓ Combined parsing successful
+2025-11-27 18:00:59 - test_parsers - ERROR - Testing parser error recovery
+2025-11-27 18:00:59 - test_parsers - ERROR - Parser error caught: 'Missing vulnerability_clusters'
+2025-11-27 18:00:59 - test_parsers - ERROR - ✓ Error properly logged for debugging
+2025-11-27 18:00:59 - test_parsers - INFO - Testing parser progress logging
+2025-11-27 18:00:59 - test_parsers - INFO - Parsing Garak report: simple-scan-001
+2025-11-27 18:00:59 - test_parsers - DEBUG -   Found 1 clusters
+2025-11-27 18:00:59 - test_parsers - DEBUG -   Found 2 vulnerable probes
+2025-11-27 18:00:59 - test_parsers - DEBUG -   Found 3 individual findings
+2025-11-27 18:00:59 - test_parsers - INFO - ✓ Progress logged at each step
+2025-11-27 18:00:59 - test_parsers - ERROR - Testing validation error messages
+2025-11-27 18:00:59 - test_parsers - ERROR - Invalid detector_score: 1.5. Must be between 0.0 and 1.0.
+2025-11-27 18:00:59 - test_parsers - ERROR - ✓ Clear error message provided
+2025-11-27 18:00:59 - test_pyrit_integration - INFO - Testing ConverterFactory initialization
+2025-11-27 18:00:59 - test_pyrit_integration - INFO - ✓ Factory initialized successfully
+2025-11-27 18:00:59 - test_pyrit_integration - INFO - Testing available converters list
+2025-11-27 18:00:59 - test_pyrit_integration - INFO - ✓ Found 3 converters: ['Base64Converter', 'ROT13Converter', 'UrlConverter']
+2025-11-27 18:00:59 - test_pyrit_integration - INFO - Testing converter retrieval
+2025-11-27 18:00:59 - test_pyrit_integration - INFO - ✓ Base64Converter retrieved successfully
+2025-11-27 18:00:59 - test_pyrit_integration - INFO - Testing converter caching behavior
+2025-11-27 18:00:59 - test_pyrit_integration - INFO - ✓ Converters should be cached for performance
+2025-11-27 18:00:59 - test_pyrit_integration - ERROR - Testing non-existent converter request
+2025-11-27 18:00:59 - test_pyrit_integration - ERROR - ✗ Should handle invalid converter name: NonExistentConverter
+2025-11-27 18:00:59 - test_pyrit_integration - INFO - Testing 9 converters availability
+2025-11-27 18:00:59 - services.snipers.tools.pyrit_bridge - INFO - Initialized 9 PyRIT converters
+2025-11-27 18:00:59 - test_pyrit_integration - DEBUG -   ✓ Base64Converter available
+2025-11-27 18:00:59 - test_pyrit_integration - DEBUG -   ✓ ROT13Converter available
+2025-11-27 18:00:59 - test_pyrit_integration - DEBUG -   ✓ CaesarConverter available
+2025-11-27 18:00:59 - test_pyrit_integration - DEBUG -   ✓ UrlConverter available
+2025-11-27 18:00:59 - test_pyrit_integration - DEBUG -   ✓ TextToHexConverter available
+2025-11-27 18:00:59 - test_pyrit_integration - DEBUG -   ✓ UnicodeConverter available
+2025-11-27 18:00:59 - test_pyrit_integration - DEBUG -   ✓ HtmlEntityConverter available
+2025-11-27 18:00:59 - test_pyrit_integration - DEBUG -   ✓ JsonEscapeConverter available
+2025-11-27 18:00:59 - test_pyrit_integration - DEBUG -   ✓ XmlEscapeConverter available
+2025-11-27 18:00:59 - test_pyrit_integration - INFO - Testing single converter transformation
+2025-11-27 18:00:59 - test_pyrit_integration - INFO - ✓ Transformation successful: transformed_payload...
+2025-11-27 18:00:59 - test_pyrit_integration - INFO - Testing multiple converter transformation
+2025-11-27 18:00:59 - test_pyrit_integration - INFO -   Applying 3 converters
+2025-11-27 18:00:59 - test_pyrit_integration - INFO - ✓ Multi-converter transformation successful
+2025-11-27 18:00:59 - test_pyrit_integration - WARNING - Testing fault tolerance on converter failure
+2025-11-27 18:00:59 - test_pyrit_integration - WARNING -   ✗ Invalid converter encountered
+2025-11-27 18:00:59 - test_pyrit_integration - WARNING -   ✓ Skipping invalid converter, continuing...
+2025-11-27 18:00:59 - test_pyrit_integration - WARNING - ✓ Fault tolerance working: execution continues despite error
+2025-11-27 18:00:59 - test_pyrit_integration - ERROR - Testing error logging on converter failure
+2025-11-27 18:00:59 - test_pyrit_integration - ERROR -   Converter error: Base64Converter failed: invalid input length
+2025-11-27 18:00:59 - test_pyrit_integration - ERROR - ✓ Error properly logged for debugging
+2025-11-27 18:00:59 - test_pyrit_integration - WARNING - Testing empty payload handling
+2025-11-27 18:00:59 - test_pyrit_integration - WARNING - ✗ Should handle/reject empty payload
+2025-11-27 18:00:59 - test_pyrit_integration - INFO - Testing large payload transformation
+2025-11-27 18:00:59 - test_pyrit_integration - INFO -   Payload size: 10000 bytes
+2025-11-27 18:00:59 - test_pyrit_integration - INFO - ✓ Large payload transformation handled
+2025-11-27 18:00:59 - test_pyrit_integration - INFO - Testing special character preservation
+2025-11-27 18:00:59 - test_pyrit_integration - INFO -   Payload with special chars: !@#$%^&*()_+-=[]{}|;:',.<>?/~`...
+2025-11-27 18:00:59 - test_pyrit_integration - INFO - ✓ Special characters preserved/transformed correctly
+2025-11-27 18:00:59 - test_pyrit_integration - INFO - Testing transformer return format
+2025-11-27 18:00:59 - test_pyrit_integration - INFO - ✓ Returns correct (payload, errors) tuple
+2025-11-27 18:00:59 - test_pyrit_integration - INFO - Testing HttpTargetAdapter initialization
+2025-11-27 18:00:59 - test_pyrit_integration - INFO - ✓ HttpTargetAdapter initialized
+2025-11-27 18:00:59 - test_pyrit_integration - INFO - Testing HTTP prompt sending
+2025-11-27 18:00:59 - test_pyrit_integration - INFO - ✓ HTTP prompt sent successfully
+2025-11-27 18:00:59 - test_pyrit_integration - INFO - Testing HTTP headers
+2025-11-27 18:00:59 - test_pyrit_integration - DEBUG -   Headers: {'Content-Type': 'application/json', 'User-Agent': 'Snipers/1.0'}
+2025-11-27 18:00:59 - test_pyrit_integration - INFO - ✓ HTTP headers properly set
+2025-11-27 18:00:59 - test_pyrit_integration - ERROR - Testing HTTP timeout handling
+2025-11-27 18:00:59 - test_pyrit_integration - ERROR -   Timeout: 30s
+2025-11-27 18:00:59 - test_pyrit_integration - ERROR - ✓ Should gracefully handle timeout
+2025-11-27 18:00:59 - test_pyrit_integration - ERROR - Testing HTTP error codes
+2025-11-27 18:00:59 - test_pyrit_integration - ERROR -   HTTP 400: Should be handled appropriately
+2025-11-27 18:00:59 - test_pyrit_integration - ERROR -   HTTP 401: Should be handled appropriately
+2025-11-27 18:00:59 - test_pyrit_integration - ERROR -   HTTP 403: Should be handled appropriately
+2025-11-27 18:00:59 - test_pyrit_integration - ERROR -   HTTP 404: Should be handled appropriately
+2025-11-27 18:00:59 - test_pyrit_integration - ERROR -   HTTP 500: Should be handled appropriately
+2025-11-27 18:00:59 - test_pyrit_integration - ERROR -   HTTP 502: Should be handled appropriately
+2025-11-27 18:00:59 - test_pyrit_integration - ERROR -   HTTP 503: Should be handled appropriately
+2025-11-27 18:00:59 - test_pyrit_integration - ERROR - ✓ Error codes should be handled and logged
+2025-11-27 18:00:59 - test_pyrit_integration - ERROR - Testing HTTP URL validation
+2025-11-27 18:00:59 - test_pyrit_integration - ERROR -   ✗ Invalid URL: not_a_url
+2025-11-27 18:00:59 - test_pyrit_integration - ERROR -   ✗ Invalid URL: ftp://not.http
+2025-11-27 18:00:59 - test_pyrit_integration - ERROR -   ✗ Invalid URL: http://
+2025-11-27 18:00:59 - test_pyrit_integration - ERROR -   ✗ Invalid URL: 
+2025-11-27 18:00:59 - test_pyrit_integration - ERROR - ✗ Should reject invalid URLs
+2025-11-27 18:00:59 - test_pyrit_integration - INFO - Testing WebSocketTargetAdapter initialization
+2025-11-27 18:00:59 - test_pyrit_integration - INFO - ✓ WebSocketTargetAdapter should initialize
+2025-11-27 18:00:59 - test_pyrit_integration - INFO - Testing WebSocket connection
+2025-11-27 18:00:59 - test_pyrit_integration - INFO -   Connecting to: ws://localhost:8000/api
+2025-11-27 18:00:59 - test_pyrit_integration - INFO - ✓ WebSocket connection should be established
+2025-11-27 18:00:59 - test_pyrit_integration - INFO - Testing WebSocket message format
+2025-11-27 18:00:59 - test_pyrit_integration - DEBUG -   Message: {'type': 'prompt', 'payload': 'test'}
+2025-11-27 18:00:59 - test_pyrit_integration - INFO - ✓ Message format should be correct
+2025-11-27 18:00:59 - test_pyrit_integration - ERROR - Testing WebSocket timeout
+2025-11-27 18:00:59 - test_pyrit_integration - ERROR -   Timeout: 30s
+2025-11-27 18:00:59 - test_pyrit_integration - ERROR - ✓ Should handle timeout gracefully
+2025-11-27 18:00:59 - test_pyrit_integration - WARNING - Testing WebSocket disconnection
+2025-11-27 18:00:59 - test_pyrit_integration - WARNING - ✓ Should handle disconnection and cleanup
+2025-11-27 18:00:59 - test_pyrit_integration - ERROR - Testing WebSocket URL validation
+2025-11-27 18:00:59 - test_pyrit_integration - ERROR -   ✗ Invalid URL: http://not.websocket
+2025-11-27 18:00:59 - test_pyrit_integration - ERROR -   ✗ Invalid URL: ws://
+2025-11-27 18:00:59 - test_pyrit_integration - ERROR -   ✗ Invalid URL: 
+2025-11-27 18:00:59 - test_pyrit_integration - ERROR - ✗ Should reject invalid WebSocket URLs
+2025-11-27 18:00:59 - test_pyrit_integration - INFO - Testing PyRITExecutor initialization
+2025-11-27 18:00:59 - test_pyrit_integration - INFO - ✓ PyRITExecutor initialized
+2025-11-27 18:00:59 - test_pyrit_integration - INFO - Testing basic attack execution
+2025-11-27 18:00:59 - test_pyrit_integration - INFO - ✓ Attack executed successfully
+2025-11-27 18:00:59 - test_pyrit_integration - INFO - Testing attack with converters
+2025-11-27 18:00:59 - test_pyrit_integration - INFO -   Converters: ['Base64Converter', 'UrlConverter']
+2025-11-27 18:00:59 - test_pyrit_integration - INFO - ✓ Converter-specific attack successful
+2025-11-27 18:00:59 - test_pyrit_integration - INFO - Testing async attack execution
+2025-11-27 18:00:59 - test_pyrit_integration - INFO - ✓ Async execution should work
+2025-11-27 18:00:59 - test_pyrit_integration - ERROR - Testing attack execution timeout
+2025-11-27 18:00:59 - test_pyrit_integration - ERROR -   Timeout: 30s
+2025-11-27 18:00:59 - test_pyrit_integration - ERROR - ✓ Should handle timeout and return error
+2025-11-27 18:00:59 - test_pyrit_integration - ERROR - Testing unreachable target
+2025-11-27 18:00:59 - test_pyrit_integration - ERROR -   Target: http://unreachable.target.com
+2025-11-27 18:00:59 - test_pyrit_integration - ERROR - ✓ Should gracefully handle unreachable target
+2025-11-27 18:00:59 - test_pyrit_integration - ERROR - Testing invalid payload
+2025-11-27 18:00:59 - test_pyrit_integration - ERROR - ✗ Should validate/reject invalid payload
+2025-11-27 18:00:59 - test_pyrit_integration - INFO - Testing response capture
+2025-11-27 18:00:59 - test_pyrit_integration - INFO - ✓ Response captured: target response...
+2025-11-27 18:00:59 - test_pyrit_integration - INFO - Testing transformed payload capture
+2025-11-27 18:00:59 - test_pyrit_integration - INFO - ✓ Payload captured: transformed...
+2025-11-27 18:00:59 - test_pyrit_integration - INFO - Testing error collection
+2025-11-27 18:00:59 - test_pyrit_integration - INFO - ✓ Errors captured: 0 errors
+2025-11-27 18:00:59 - test_pyrit_integration - INFO - Testing adapter caching
+2025-11-27 18:00:59 - test_pyrit_integration - INFO -   Same URL → same adapter instance (cached)
+2025-11-27 18:00:59 - test_pyrit_integration - INFO -   Different URL → different adapter instance
+2025-11-27 18:00:59 - test_pyrit_integration - INFO - ✓ Adapter caching should improve performance
+2025-11-27 18:00:59 - test_pyrit_integration - INFO - Testing multiple attacks
+2025-11-27 18:00:59 - test_pyrit_integration - DEBUG -   Attack 1: ✓
+2025-11-27 18:00:59 - test_pyrit_integration - DEBUG -   Attack 2: ✓
+2025-11-27 18:00:59 - test_pyrit_integration - DEBUG -   Attack 3: ✓
+2025-11-27 18:00:59 - test_pyrit_integration - INFO - ✓ Multiple attacks handled correctly
+2025-11-27 18:00:59 - test_pyrit_integration - ERROR - Testing converter not found error
+2025-11-27 18:00:59 - test_pyrit_integration - ERROR - ✗ Converter 'NonExistentConverter' not found
+2025-11-27 18:00:59 - test_pyrit_integration - ERROR - ✓ Should log clear error message
+2025-11-27 18:00:59 - test_pyrit_integration - ERROR - Testing adapter initialization failure
+2025-11-27 18:00:59 - test_pyrit_integration - ERROR - ✗ Failed to initialize HttpTargetAdapter
+2025-11-27 18:00:59 - test_pyrit_integration - ERROR - ✓ Should log initialization error with context
+2025-11-27 18:00:59 - test_pyrit_integration - ERROR - Testing target connection error
+2025-11-27 18:00:59 - test_pyrit_integration - ERROR - ✗ Connection failed to http://unreachable.example.com
+2025-11-27 18:00:59 - test_pyrit_integration - ERROR - ✓ Should log connection error with timeout/retry info
+2025-11-27 18:00:59 - test_pyrit_integration - WARNING - Testing partial transformation on failure
+2025-11-27 18:00:59 - test_pyrit_integration - WARNING -   Converter 1: ✓ Base64
+2025-11-27 18:00:59 - test_pyrit_integration - WARNING -   Converter 2: ✗ Failed
+2025-11-27 18:00:59 - test_pyrit_integration - WARNING -   Converter 3: ✓ UrlEncoding (continued)
+2025-11-27 18:00:59 - test_pyrit_integration - WARNING - ✓ Fault tolerance: partial result returned with errors logged
+2025-11-27 18:00:59 - test_pyrit_integration - ERROR - Testing invalid response format
+2025-11-27 18:00:59 - test_pyrit_integration - ERROR - ✗ Target response is not valid JSON/text
+2025-11-27 18:00:59 - test_pyrit_integration - ERROR - ✓ Should log response parsing error
+2025-11-27 18:00:59 - test_pyrit_integration - ERROR - Testing timeout error context
+2025-11-27 18:00:59 - test_pyrit_integration - ERROR - ✗ Timeout after 30s waiting for target response
+2025-11-27 18:00:59 - test_pyrit_integration - ERROR -   URL: http://target.com
+2025-11-27 18:00:59 - test_pyrit_integration - ERROR -   Payload size: 256 bytes
+2025-11-27 18:00:59 - test_pyrit_integration - ERROR -   Converters applied: 2/2
+2025-11-27 18:00:59 - test_pyrit_integration - ERROR - ✓ Comprehensive timeout context logged
+2025-11-27 18:00:59 - test_pyrit_integration - WARNING - Testing extremely large payload
+2025-11-27 18:00:59 - test_pyrit_integration - WARNING -   Payload size: 1000000 bytes
+2025-11-27 18:00:59 - test_pyrit_integration - WARNING - ✓ Should handle or gracefully reject large payloads
+2025-11-27 18:00:59 - test_pyrit_integration - INFO - Testing special characters
+2025-11-27 18:00:59 - test_pyrit_integration - INFO -   Characters: !@#$%^&*()[]{}|;:'",.<>?/\
+2025-11-27 18:00:59 - test_pyrit_integration - INFO - ✓ Should handle special characters correctly
+2025-11-27 18:00:59 - test_pyrit_integration - INFO - Testing Unicode payload
+2025-11-27 18:00:59 - test_pyrit_integration - INFO -   Payload: 你好世界🎉 مرحبا العالم
+2025-11-27 18:00:59 - test_pyrit_integration - INFO - ✓ Should handle Unicode correctly
+2025-11-27 18:00:59 - test_pyrit_integration - WARNING - Testing null bytes
+2025-11-27 18:00:59 - test_pyrit_integration - WARNING -   Contains null bytes: 12 chars
+2025-11-27 18:00:59 - test_pyrit_integration - WARNING - ✓ Should handle or sanitize null bytes
+2025-11-27 18:00:59 - test_pyrit_integration - INFO - Testing concurrent executions
+2025-11-27 18:00:59 - test_pyrit_integration - INFO - ✓ Should handle concurrent requests safely
+2025-11-27 18:00:59 - test_pyrit_integration - INFO - Testing streamed response handling
+2025-11-27 18:00:59 - test_pyrit_integration - INFO - ✓ Should buffer/process streaming responses
+2025-11-27 18:00:59 - test_routing - INFO - Testing routing on APPROVAL
+2025-11-27 18:00:59 - test_routing - INFO - ✓ Routes to attack_execution node
+2025-11-27 18:00:59 - test_routing - WARNING - Testing routing on REJECTION
+2025-11-27 18:00:59 - test_routing - WARNING - ✓ Routes to failure/stop node
+2025-11-27 18:00:59 - test_routing - INFO - Testing routing on MODIFICATION
+2025-11-27 18:00:59 - test_routing - INFO - ✓ Routes back to pattern_analysis with modifications
+2025-11-27 18:00:59 - test_routing - ERROR - Testing invalid decision value
+2025-11-27 18:00:59 - test_routing - ERROR - ✗ Should reject decision: invalid_decision
+2025-11-27 18:00:59 - test_routing - ERROR - ✓ Should log clear error message
+2025-11-27 18:00:59 - test_routing - ERROR - Testing missing decision field
+2025-11-27 18:00:59 - test_routing - ERROR - ✗ Should require 'decision' field
+2025-11-27 18:00:59 - test_routing - ERROR - ✓ Should log clear error message
+2025-11-27 18:00:59 - test_routing - INFO - Testing modification structure
+2025-11-27 18:00:59 - test_routing - INFO - ✓ Modification structure valid
+2025-11-27 18:00:59 - test_routing - WARNING - Testing rejection feedback
+2025-11-27 18:00:59 - test_routing - WARNING - Feedback: Payload too risky
+2025-11-27 18:00:59 - test_routing - WARNING - ✓ Feedback captured and logged
+2025-11-27 18:00:59 - test_routing - INFO - Testing routing on RESULT APPROVAL
+2025-11-27 18:00:59 - test_routing - INFO - ✓ Routes to success/end node
+2025-11-27 18:00:59 - test_routing - INFO - Testing routing on FAILURE APPROVAL
+2025-11-27 18:00:59 - test_routing - INFO - ✓ Routes to failure/end node
+2025-11-27 18:00:59 - test_routing - WARNING - Testing routing on RESULT REJECTION
+2025-11-27 18:00:59 - test_routing - WARNING - Feedback: Result doesn't match expected behavior
+2025-11-27 18:00:59 - test_routing - WARNING - ✓ Routes to failure node
+2025-11-27 18:00:59 - test_routing - INFO - Testing routing on RETRY REQUEST
+2025-11-27 18:00:59 - test_routing - INFO - ✓ Routes to pattern_analysis with retry flag
+2025-11-27 18:00:59 - test_routing - ERROR - Testing missing result_status
+2025-11-27 18:00:59 - test_routing - ERROR - ✗ Should require result_status for approval decision
+2025-11-27 18:00:59 - test_routing - WARNING - Testing max retry attempts
+2025-11-27 18:00:59 - test_routing - WARNING - Attempt 3 of 3
+2025-11-27 18:00:59 - test_routing - WARNING - ✗ Max retries reached, routes to failure
+2025-11-27 18:00:59 - test_routing - INFO - Testing retry within limits
+2025-11-27 18:00:59 - test_routing - INFO - Attempt 1 of 3
+2025-11-27 18:00:59 - test_routing - INFO - ✓ Routes to pattern_analysis for retry
+2025-11-27 18:00:59 - test_routing - INFO - Testing retry counter increment
+2025-11-27 18:00:59 - test_routing - DEBUG -   Attempt 1/3
+2025-11-27 18:00:59 - test_routing - DEBUG -   Attempt 2/3
+2025-11-27 18:00:59 - test_routing - DEBUG -   Attempt 3/3
+2025-11-27 18:00:59 - test_routing - INFO - ✓ Retry counter increments correctly
+2025-11-27 18:00:59 - test_routing - WARNING - Testing retry exit on max reached
+2025-11-27 18:00:59 - test_routing - WARNING -   Max retries reached, exiting retry loop
+2025-11-27 18:00:59 - test_routing - WARNING - ✓ Correctly exits retry loop
+2025-11-27 18:00:59 - test_routing - INFO - Testing retry continue condition
+2025-11-27 18:00:59 - test_routing - INFO -   Attempt within limit, continuing retry
+2025-11-27 18:00:59 - test_routing - INFO - ✓ Correctly continues retry loop
+2025-11-27 18:00:59 - test_routing - INFO - Testing state preservation in retries
+2025-11-27 18:00:59 - test_routing - DEBUG -   Probe: encoding
+2025-11-27 18:00:59 - test_routing - DEBUG -   Previous attempts: 2
+2025-11-27 18:00:59 - test_routing - INFO - ✓ State correctly preserved across retries
+2025-11-27 18:00:59 - test_routing - INFO - Testing retry with modifications
+2025-11-27 18:00:59 - test_routing - DEBUG -   Converters: ['Base64Converter', 'ROT13Converter']
+2025-11-27 18:00:59 - test_routing - DEBUG -   Hint: Try lowercase encoding
+2025-11-27 18:00:59 - test_routing - INFO - ✓ Modifications applied to retry attempt
+2025-11-27 18:00:59 - test_routing - ERROR - Testing conflicting approval/rejection signals
+2025-11-27 18:00:59 - test_routing - ERROR - ✗ Should reject conflicting signals
+2025-11-27 18:00:59 - test_routing - ERROR - ✓ Should log clear error message
+2025-11-27 18:00:59 - test_routing - ERROR - Testing missing modifications data
+2025-11-27 18:00:59 - test_routing - ERROR - ✗ 'modify' decision requires modifications field
+2025-11-27 18:00:59 - test_routing - WARNING - Testing empty modifications
+2025-11-27 18:00:59 - test_routing - WARNING - ✗ Empty modifications provided
+2025-11-27 18:00:59 - test_routing - WARNING - ✓ Should log warning but accept empty modifications
+2025-11-27 18:00:59 - test_routing - ERROR - Testing routing decision timeout
+2025-11-27 18:00:59 - test_routing - ERROR -   Timeout after 300s waiting for human decision
+2025-11-27 18:00:59 - test_routing - ERROR - ✗ Should handle timeout gracefully
+2025-11-27 18:00:59 - test_routing - ERROR - ✓ Should default to rejection and log timeout
+2025-11-27 18:00:59 - test_routing - ERROR - Testing conflicting decisions from multiple humans
+2025-11-27 18:00:59 - test_routing - ERROR -   Conflict: 2 different decisions
+2025-11-27 18:00:59 - test_routing - ERROR - ✗ Should require consensus or use veto logic
+2025-11-27 18:00:59 - test_routing - ERROR - Testing routing with incomplete state
+2025-11-27 18:00:59 - test_routing - ERROR - ✗ Routing requires full state information
+2025-11-27 18:00:59 - test_routing - ERROR - ✓ Should log which state fields are missing
+2025-11-27 18:00:59 - test_routing - INFO - Testing routing decision logging
+2025-11-27 18:00:59 - test_routing - INFO -   Routing: human_review_plan → attack_execution
+2025-11-27 18:00:59 - test_routing - INFO - ✓ Routing decision logged
+2025-11-27 18:00:59 - test_routing - INFO - Testing routing reason logging
+2025-11-27 18:00:59 - test_routing - INFO -   Reason: Human approved attack plan
+2025-11-27 18:00:59 - test_routing - INFO -   Score confidence: 0.92
+2025-11-27 18:00:59 - test_routing - INFO - ✓ Routing reasons logged with context
+2025-11-27 18:00:59 - test_routing - INFO - Testing modification details logging
+2025-11-27 18:00:59 - test_routing - INFO -   Modified payloads: 2
+2025-11-27 18:00:59 - test_routing - INFO -   Reason: Increase success likelihood
+2025-11-27 18:00:59 - test_routing - INFO - ✓ Modification details logged
+2025-11-27 18:00:59 - test_routing - WARNING - Testing failure reason logging
+2025-11-27 18:00:59 - test_routing - WARNING -   Reason: Human rejected: Payload signature matches malware pattern
+2025-11-27 18:00:59 - test_routing - WARNING -   Confidence: 0.95
+2025-11-27 18:00:59 - test_routing - WARNING - ✓ Failure reason logged with context
+2025-11-27 18:00:59 - test_routing - INFO - Testing routing decision latency
+2025-11-27 18:00:59 - test_routing - INFO -   Routing latency: < 10ms (target)
+2025-11-27 18:00:59 - test_routing - INFO - ✓ Routing decisions are efficient
+2025-11-27 18:00:59 - test_routing - INFO - Testing state lookup efficiency
+2025-11-27 18:00:59 - test_routing - INFO -   State lookup time: < 1ms (target)
+2025-11-27 18:00:59 - test_routing - INFO - ✓ State lookups efficient
+2025-11-27 18:00:59 - test_routing - INFO - Testing route decision caching
+2025-11-27 18:00:59 - test_routing - INFO -   Route cached for similar patterns
+2025-11-27 18:00:59 - test_routing - INFO - ✓ Routing caching should improve performance

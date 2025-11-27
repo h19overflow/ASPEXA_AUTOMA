@@ -5,10 +5,7 @@ Provides converter factory and payload transformation using PyRIT converters.
 Maps agent's converter selection (strings) to PyRIT converter instances.
 Applies converters sequentially with fault tolerance.
 """
-import html
-import json
 import logging
-import xml.sax.saxutils as xml_utils
 from typing import Dict, List, Optional, Tuple
 
 from pyrit.prompt_converter import (
@@ -19,7 +16,12 @@ from pyrit.prompt_converter import (
     TextToHexConverter,
     UnicodeConfusableConverter,
     PromptConverter,
-    ConverterResult,
+)
+
+from services.snipers.tools.converters import (
+    HtmlEntityConverter,
+    JsonEscapeConverter,
+    XmlEscapeConverter,
 )
 
 logger = logging.getLogger(__name__)
@@ -28,57 +30,6 @@ logger = logging.getLogger(__name__)
 class ConverterFactoryError(Exception):
     """Raised when converter factory encounters an error."""
     pass
-
-
-class HtmlEntityConverter(PromptConverter):
-    """Converts special characters to HTML entities."""
-
-    async def convert_async(self, *, prompt: str, input_type: str = "text") -> ConverterResult:
-        """Convert text to HTML entities."""
-        converted = html.escape(prompt)
-        return ConverterResult(output_text=converted, output_type="text")
-
-    def input_supported(self, input_type: str) -> bool:
-        """Check if input type is supported."""
-        return input_type == "text"
-
-    def output_supported(self, output_type: str) -> bool:
-        """Check if output type is supported."""
-        return output_type == "text"
-
-
-class JsonEscapeConverter(PromptConverter):
-    """Escapes text for safe inclusion in JSON strings."""
-
-    async def convert_async(self, *, prompt: str, input_type: str = "text") -> ConverterResult:
-        """Convert text to JSON-escaped format."""
-        converted = json.dumps(prompt)[1:-1]  # Remove surrounding quotes
-        return ConverterResult(output_text=converted, output_type="text")
-
-    def input_supported(self, input_type: str) -> bool:
-        """Check if input type is supported."""
-        return input_type == "text"
-
-    def output_supported(self, output_type: str) -> bool:
-        """Check if output type is supported."""
-        return output_type == "text"
-
-
-class XmlEscapeConverter(PromptConverter):
-    """Escapes text for safe inclusion in XML content."""
-
-    async def convert_async(self, *, prompt: str, input_type: str = "text") -> ConverterResult:
-        """Convert text to XML-escaped format."""
-        converted = xml_utils.escape(prompt)
-        return ConverterResult(output_text=converted, output_type="text")
-
-    def input_supported(self, input_type: str) -> bool:
-        """Check if input type is supported."""
-        return input_type == "text"
-
-    def output_supported(self, output_type: str) -> bool:
-        """Check if output type is supported."""
-        return output_type == "text"
 
 
 class ConverterFactory:

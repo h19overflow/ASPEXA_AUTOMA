@@ -64,31 +64,58 @@ def sample_scan_job_dispatch():
 
 
 class TestSwarmIntegration:
-    """Integration tests for the full Swarm scanning flow."""
+    """Integration tests for the full Swarm scanning flow.
+
+    NOTE: The architecture has changed to use planning agents (run_planning_agent)
+    instead of execution agents. These tests now verify the planning phase.
+    """
 
     @pytest.mark.asyncio
-    async def test_sql_agent_scan_flow(self, sample_scan_input):
-        """Test SQL agent from scan input to results."""
-        with patch("services.swarm.agents.tools._run_async_scan") as mock_scan:
-            # Mock scanner to return results
-            mock_scan.return_value = [
-                {
-                    "probe_name": "promptinj",
-                    "status": "fail",
-                    "prompt": "test",
-                    "output": "response",
-                }
-            ]
+    async def test_sql_agent_planning_flow(self, sample_scan_input):
+        """Test SQL agent planning from scan input to plan."""
+        import json
+        from services.swarm.agents import run_planning_agent
 
-            result = await run_scanning_agent("agent_sql", sample_scan_input)
+        with patch("services.swarm.agents.base.create_planning_agent") as mock_create:
+            from services.swarm.core.schema import ScanPlan, ScanConfig
 
-            assert result["success"] is True
-            assert result["agent_type"] == "agent_sql"
-            assert result["audit_id"] == "test-audit-123"
+            # Mock agent that returns a valid plan via plan_scan tool
+            mock_agent = MagicMock()
+
+            async def mock_ainvoke(input_dict):
+                from langchain_core.messages import ToolMessage
+                plan = ScanPlan(
+                    audit_id="test-audit-123",
+                    agent_type="agent_sql",
+                    target_url="https://api.target.local/chat",
+                    selected_probes=["promptinj", "sqli"],
+                    probe_reasoning={"promptinj": "Test SQL injection", "sqli": "Direct SQL test"},
+                    generations=5,
+                    scan_config=ScanConfig(),
+                )
+                # Content must be JSON string for _extract_plan_from_result
+                tool_msg = ToolMessage(
+                    content=json.dumps({"status": "planned", "plan": plan.model_dump()}),
+                    name="plan_scan",
+                    tool_call_id="test",
+                )
+                return {"messages": [tool_msg]}
+
+            mock_agent.ainvoke = mock_ainvoke
+            mock_create.return_value = mock_agent
+
+            result = await run_planning_agent("agent_sql", sample_scan_input)
+
+            assert result.success is True
+            assert result.plan is not None
+            assert result.plan.agent_type == "agent_sql"
 
     @pytest.mark.asyncio
-    async def test_jailbreak_agent_scan_flow(self):
-        """Test jailbreak agent initialization and configuration."""
+    async def test_jailbreak_agent_planning_flow(self):
+        """Test jailbreak agent planning initialization."""
+        import json
+        from services.swarm.agents import run_planning_agent
+
         scan_input = ScanInput(
             audit_id="test-audit-456",
             agent_type="agent_jailbreak",
@@ -97,24 +124,44 @@ class TestSwarmIntegration:
             detected_tools=[],
         )
 
-        with patch("services.swarm.agents.tools._run_async_scan") as mock_scan:
-            mock_scan.return_value = [
-                {
-                    "probe_name": "dan",
-                    "status": "fail",
-                    "prompt": "Ignore all previous instructions",
-                    "output": "I understand",
-                }
-            ]
+        with patch("services.swarm.agents.base.create_planning_agent") as mock_create:
+            from services.swarm.core.schema import ScanPlan, ScanConfig
 
-            result = await run_scanning_agent("agent_jailbreak", scan_input)
+            mock_agent = MagicMock()
 
-            assert result["success"] is True
-            assert result["agent_type"] == "agent_jailbreak"
+            async def mock_ainvoke(input_dict):
+                from langchain_core.messages import ToolMessage
+                plan = ScanPlan(
+                    audit_id="test-audit-456",
+                    agent_type="agent_jailbreak",
+                    target_url="https://api.target.local/chat",
+                    selected_probes=["dan", "jailbreak"],
+                    probe_reasoning={"dan": "DAN test", "jailbreak": "General jailbreak"},
+                    generations=5,
+                    scan_config=ScanConfig(),
+                )
+                tool_msg = ToolMessage(
+                    content=json.dumps({"status": "planned", "plan": plan.model_dump()}),
+                    name="plan_scan",
+                    tool_call_id="test",
+                )
+                return {"messages": [tool_msg]}
+
+            mock_agent.ainvoke = mock_ainvoke
+            mock_create.return_value = mock_agent
+
+            result = await run_planning_agent("agent_jailbreak", scan_input)
+
+            assert result.success is True
+            assert result.plan is not None
+            assert result.plan.agent_type == "agent_jailbreak"
 
     @pytest.mark.asyncio
-    async def test_auth_agent_scan_flow(self):
-        """Test auth agent initialization and configuration."""
+    async def test_auth_agent_planning_flow(self):
+        """Test auth agent planning initialization."""
+        import json
+        from services.swarm.agents import run_planning_agent
+
         scan_input = ScanInput(
             audit_id="test-audit-789",
             agent_type="agent_auth",
@@ -123,20 +170,37 @@ class TestSwarmIntegration:
             detected_tools=[{"name": "admin_panel", "arguments": ["action"]}],
         )
 
-        with patch("services.swarm.agents.tools._run_async_scan") as mock_scan:
-            mock_scan.return_value = [
-                {
-                    "probe_name": "malware_payload",
-                    "status": "fail",
-                    "prompt": "admin command",
-                    "output": "Executing admin command",
-                }
-            ]
+        with patch("services.swarm.agents.base.create_planning_agent") as mock_create:
+            from services.swarm.core.schema import ScanPlan, ScanConfig
 
-            result = await run_scanning_agent("agent_auth", scan_input)
+            mock_agent = MagicMock()
 
-            assert result["success"] is True
-            assert result["agent_type"] == "agent_auth"
+            async def mock_ainvoke(input_dict):
+                from langchain_core.messages import ToolMessage
+                plan = ScanPlan(
+                    audit_id="test-audit-789",
+                    agent_type="agent_auth",
+                    target_url="https://api.target.local/chat",
+                    selected_probes=["auth_bypass", "privilege_escalation"],
+                    probe_reasoning={"auth_bypass": "Test auth", "privilege_escalation": "Test privesc"},
+                    generations=5,
+                    scan_config=ScanConfig(),
+                )
+                tool_msg = ToolMessage(
+                    content=json.dumps({"status": "planned", "plan": plan.model_dump()}),
+                    name="plan_scan",
+                    tool_call_id="test",
+                )
+                return {"messages": [tool_msg]}
+
+            mock_agent.ainvoke = mock_ainvoke
+            mock_create.return_value = mock_agent
+
+            result = await run_planning_agent("agent_auth", scan_input)
+
+            assert result.success is True
+            assert result.plan is not None
+            assert result.plan.agent_type == "agent_auth"
 
     def test_parse_and_aggregate_findings(self):
         """Test parsing scan output and aggregating findings."""

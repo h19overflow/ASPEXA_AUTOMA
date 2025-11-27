@@ -14,7 +14,7 @@ from services.snipers.tools.pyrit_bridge import (
     ConverterFactory,
     PayloadTransformer,
 )
-from services.snipers.tools.pyrit_target_adapters import (
+from libs.connectivity.adapters import (
     HttpTargetAdapter,
     WebSocketTargetAdapter,
 )
@@ -148,7 +148,7 @@ class PyRITExecutor:
                 "errors": converter_errors,
             }
 
-        except ValueError as e:
+        except ValueError:
             # Re-raise validation errors
             raise
         except Exception as e:

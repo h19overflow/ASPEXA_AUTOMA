@@ -153,24 +153,25 @@ class TestTakeNoteTool:
         assert "Recorded" in result
         assert len(tool_set.observations["infrastructure"]) == 2
     
-    def test_short_observations_skip_overlap_check(self):
-        """Test that short observations (<20 chars) skip overlap detection."""
+    def test_similar_short_observations_detected(self):
+        """Test that similar short observations are detected by SequenceMatcher."""
         tool_set = ReconToolSet()
         tools = tool_set.get_tools()
         take_note = next(t for t in tools if t.name == "take_note")
-        
+
         take_note.invoke({
             "observation": "PostgreSQL",
             "category": "infrastructure"
         })
-        
+
         result = take_note.invoke({
             "observation": "Postgres",
             "category": "infrastructure"
         })
-        
-        # Short strings don't trigger overlap check, both recorded
-        assert len(tool_set.observations["infrastructure"]) == 2
+
+        # SequenceMatcher catches similar strings regardless of length
+        assert "SIMILAR" in result
+        assert len(tool_set.observations["infrastructure"]) == 1
 
 
 class TestAnalyzeGapsTool:
