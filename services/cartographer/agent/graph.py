@@ -6,7 +6,7 @@ from langchain.agents import create_agent
 from langchain_google_genai import ChatGoogleGenerativeAI
 from services.cartographer.tools.definitions import ReconToolSet
 from services.cartographer.prompts import RECON_SYSTEM_PROMPT
-from services.cartographer.tools.network import call_target_endpoint, NetworkError
+from libs.connectivity import AsyncHttpClient, ConnectionConfig, ConnectivityError as NetworkError
 from services.cartographer.tools.health import check_target_health
 from services.cartographer.response_format import ReconTurn
 from dotenv import load_dotenv

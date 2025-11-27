@@ -12,6 +12,7 @@ from typing import List, Optional, Tuple
 import websockets
 import garak.generators.base
 
+from libs.connectivity.response import ResponseExtractor
 from services.swarm.core.utils import log_performance_metric
 
 logger = logging.getLogger(__name__)
@@ -25,7 +26,7 @@ class WebSocketGeneratorError(Exception):
 class WebSocketGenerator(garak.generators.base.Generator):
     """Generator that sends prompts to a WebSocket endpoint.
 
-    Supports multiple response formats (same as HttpGenerator):
+    Supports multiple response formats via centralized ResponseExtractor:
     - {"response": "..."} - Standard format
     - {"text": "..."} - Alternative format
     - {"output": "..."} - Alternative format
@@ -50,6 +51,7 @@ class WebSocketGenerator(garak.generators.base.Generator):
         self._connection_validated = False
         self._error_count = 0
         self._success_count = 0
+        self._extractor = ResponseExtractor()
 
     def validate_endpoint(self) -> Tuple[bool, Optional[str]]:
         """Validate that the WebSocket endpoint is reachable.
@@ -91,30 +93,10 @@ class WebSocketGenerator(garak.generators.base.Generator):
 
     def _extract_response(self, data: dict) -> str:
         """Extract response text from various API response formats.
-        
-        Reuses the same logic as HttpGenerator for consistency.
+
+        Uses centralized ResponseExtractor for consistency with HTTP clients.
         """
-        # Standard formats
-        if "response" in data:
-            return data["response"]
-        if "text" in data:
-            return data["text"]
-        if "output" in data:
-            return data["output"]
-        if "message" in data:
-            return data["message"]
-
-        # OpenAI format
-        if "choices" in data and data["choices"]:
-            choice = data["choices"][0]
-            if "message" in choice and "content" in choice["message"]:
-                return choice["message"]["content"]
-            if "text" in choice:
-                return choice["text"]
-
-        # Fallback: stringify the entire response
-        logger.warning(f"Unknown response format, returning raw: {list(data.keys())}")
-        return str(data)
+        return self._extractor.extract(data)
 
     async def _send_and_receive(self, prompt: str) -> str:
         """Send a prompt via WebSocket and receive response.

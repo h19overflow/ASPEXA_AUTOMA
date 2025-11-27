@@ -1,6 +1,8 @@
 """
 Protocol adapters for external frameworks.
 
-This module will contain adapters like GarakHttpGenerator.
+Provides framework-specific adapters that wrap centralized clients.
 """
-# Adapters will be exported here in Phase 3
+from .garak_generator import GarakHttpGenerator
+
+__all__ = ["GarakHttpGenerator"]
