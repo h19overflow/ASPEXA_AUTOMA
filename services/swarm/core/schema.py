@@ -9,8 +9,9 @@ Note: Output schemas are handled by:
   - AgentScanResult for structured agent responses
 """
 
+from datetime import datetime
 from typing import List, Dict, Any, Optional, TYPE_CHECKING
-from pydantic import Field, model_validator
+from pydantic import Field, model_validator, field_validator
 
 from libs.contracts.common import StrictBaseModel
 from libs.contracts.scanning import VulnerabilityCluster
@@ -268,6 +269,19 @@ class ScanAnalysisResult(StrictBaseModel):
     )
 
 
+class ProbeResultDetail(StrictBaseModel):
+    """Individual probe result with full details for observability."""
+    probe_name: str = Field(..., description="Name of the probe")
+    probe_description: str = Field(default="", description="Description of the probe")
+    category: str = Field(default="unknown", description="Probe category")
+    prompt: str = Field(default="", description="Attack prompt sent")
+    output: str = Field(default="", description="Target response received")
+    status: str = Field(..., description="Result status: pass, fail, or error")
+    detector_name: str = Field(default="", description="Detector that triggered")
+    detector_score: float = Field(default=0.0, description="Detector confidence score 0-1")
+    detection_reason: str = Field(default="", description="Why detector triggered")
+
+
 class AgentScanResult(StrictBaseModel):
     """Structured result from agent scan execution."""
     success: bool = Field(..., description="Whether the scan completed successfully")
@@ -281,6 +295,10 @@ class AgentScanResult(StrictBaseModel):
         default_factory=list,
         description="List of probe names that were executed"
     )
+    probe_results: List[Dict[str, Any]] = Field(
+        default_factory=list,
+        description="Detailed results for each probe execution (prompt, output, score, etc.)"
+    )
     generations_used: int = Field(default=0, description="Number of generations used")
     report_path: Optional[str] = Field(None, description="Path to scan report file")
     metadata: Dict[str, Any] = Field(
@@ -288,4 +306,94 @@ class AgentScanResult(StrictBaseModel):
         description="Additional metadata about the scan"
     )
     error: Optional[str] = Field(None, description="Error message if scan failed")
+
+
+class ScanPlan(StrictBaseModel):
+    """Agent's probe selection and configuration output.
+
+    Internal contract: Agent -> Scanner.
+    Not exposed in public API responses.
+    """
+    audit_id: str = Field(..., description="Audit identifier for tracking")
+    agent_type: str = Field(..., description="Agent that created this plan")
+    target_url: str = Field(..., description="Target endpoint URL")
+    selected_probes: List[str] = Field(
+        ...,
+        description="Probe identifiers to execute, e.g., ['dan.Dan_11_0', 'encoding.InjectBase64']"
+    )
+    probe_reasoning: Dict[str, str] = Field(
+        default_factory=dict,
+        description="Why each probe was selected, keyed by probe name"
+    )
+    generations: int = Field(
+        default=5,
+        ge=1,
+        le=20,
+        description="Number of generation attempts per prompt"
+    )
+    scan_config: ScanConfig = Field(
+        default_factory=ScanConfig,
+        description="Parallelization, timeouts, rate limits"
+    )
+    timestamp: str = Field(
+        default_factory=lambda: datetime.utcnow().isoformat(),
+        description="When the plan was created"
+    )
+
+    @field_validator("selected_probes")
+    @classmethod
+    def validate_probes_not_empty(cls, v: List[str]) -> List[str]:
+        """Ensure at least one probe is selected."""
+        if not v:
+            raise ValueError("selected_probes cannot be empty")
+        return v
+
+
+class ScanPlanResponse(StrictBaseModel):
+    """Structured response from planning agent.
+
+    Wraps ScanPlan with additional context for logging and debugging.
+    Internal use only.
+    """
+    plan: ScanPlan = Field(..., description="The scan plan to execute")
+    analysis_summary: str = Field(
+        ...,
+        description="Brief summary of target analysis"
+    )
+    estimated_prompts: int = Field(
+        default=0,
+        ge=0,
+        description="Estimated total prompts to send"
+    )
+    risk_assessment: str = Field(
+        default="standard",
+        description="Risk level: low, standard, high, critical"
+    )
+
+    @property
+    def total_operations(self) -> int:
+        """Calculate total operations: probes * prompts_per_probe * generations."""
+        avg_prompts_per_probe = 10
+        return len(self.plan.selected_probes) * avg_prompts_per_probe * self.plan.generations
+
+
+class PlanningPhaseResult(StrictBaseModel):
+    """Result of the agent planning phase.
+
+    Internal tracking model for entrypoint orchestration.
+    """
+    success: bool = Field(..., description="Whether planning succeeded")
+    plan: Optional[ScanPlan] = Field(None, description="The plan if successful")
+    error: Optional[str] = Field(None, description="Error message if failed")
+    duration_ms: int = Field(default=0, description="Planning duration in milliseconds")
+
+    @classmethod
+    def from_success(cls, plan: ScanPlan, duration_ms: int) -> "PlanningPhaseResult":
+        """Create a successful planning result."""
+        return cls(success=True, plan=plan, duration_ms=duration_ms)
+
+    @classmethod
+    def from_error(cls, error: str, duration_ms: int = 0) -> "PlanningPhaseResult":
+        """Create a failed planning result."""
+        return cls(success=False, error=error, duration_ms=duration_ms)
 

@@ -1,10 +1,15 @@
 """
 LangChain tools for scanning agents.
+
+Purpose: Define LangChain tools for agent-based vulnerability scanning
+Dependencies: langchain_core, services.swarm.core, services.swarm.garak_scanner
 """
 import asyncio
 import json
 import logging
-from typing import List, Dict, Any, Optional
+import warnings
+from contextvars import ContextVar
+from typing import List, Dict, Any, Optional, TypedDict
 
 from langchain_core.tools import tool
 
@@ -19,10 +24,54 @@ from services.swarm.garak_scanner.report_parser import (
     parse_results_to_clusters,
     get_results_summary,
 )
-from services.swarm.core.schema import ScanAnalysisResult, AgentScanResult
+from services.swarm.core.schema import ScanAnalysisResult, AgentScanResult, ScanPlan, ScanConfig
 from services.swarm.core.utils import get_decision_logger
 
 logger = logging.getLogger(__name__)
+
+
+# ============================================================================
+# Tool Context Management (Phase 2)
+# ============================================================================
+
+class ToolContext(TypedDict):
+    """Context passed to tools during agent execution.
+
+    Provides audit_id, agent_type, and target_url without global state.
+    """
+    audit_id: str
+    agent_type: str
+    target_url: str
+    headers: Dict[str, str]
+
+
+_tool_context: ContextVar[ToolContext] = ContextVar("tool_context")
+
+
+def set_tool_context(ctx: ToolContext) -> None:
+    """Set context for tool invocation.
+
+    Args:
+        ctx: ToolContext with audit_id, agent_type, target_url, headers
+    """
+    _tool_context.set(ctx)
+
+
+def _get_tool_context() -> ToolContext:
+    """Get current tool context.
+
+    Returns:
+        ToolContext if set, otherwise default empty context
+    """
+    try:
+        return _tool_context.get()
+    except LookupError:
+        return ToolContext(
+            audit_id="unknown",
+            agent_type="unknown",
+            target_url="",
+            headers={},
+        )
 
 
 def _run_async_scan(scanner, probe_list, generations):
@@ -183,6 +232,75 @@ def analyze_target(
     return result_dict
 
 
+# ============================================================================
+# Plan Scan Tool (Phase 2 - Planning Mode)
+# ============================================================================
+
+@tool
+def plan_scan(
+    probe_names: List[str],
+    probe_reasoning: Dict[str, str],
+    generations: int = 5,
+    approach: str = "standard",
+) -> Dict[str, Any]:
+    """Plan a vulnerability scan - returns configuration WITHOUT executing.
+
+    Use this tool to specify which probes should run and why.
+    The actual scan execution happens separately after planning.
+
+    Args:
+        probe_names: List of probe identifiers from get_available_probes()
+        probe_reasoning: Dictionary mapping probe name to reason for selection
+        generations: Number of generation attempts per prompt (1-20)
+        approach: Scan approach: quick, standard, thorough
+
+    Returns:
+        Dictionary containing the scan plan for execution
+    """
+    # Get context from ContextVar (set by run_planning_agent)
+    ctx = _get_tool_context()
+
+    # Cap generations at 20
+    capped_generations = min(generations, 20)
+
+    # Build ScanConfig based on approach
+    parallel_enabled = approach in ("standard", "thorough")
+    max_concurrent = 3 if approach == "thorough" else 2 if approach == "standard" else 1
+
+    scan_config = ScanConfig(
+        approach=approach,
+        enable_parallel_execution=parallel_enabled,
+        max_concurrent_probes=max_concurrent,
+        max_concurrent_generations=max_concurrent,
+        max_concurrent_connections=max_concurrent * max_concurrent + 5,
+    )
+
+    plan = ScanPlan(
+        audit_id=ctx.get("audit_id", "unknown"),
+        agent_type=ctx.get("agent_type", "unknown"),
+        target_url=ctx.get("target_url", ""),
+        selected_probes=probe_names,
+        probe_reasoning=probe_reasoning,
+        generations=capped_generations,
+        scan_config=scan_config,
+    )
+
+    logger.info(
+        f"[plan_scan] Created plan: {len(probe_names)} probes, "
+        f"{capped_generations} generations, approach={approach}"
+    )
+
+    return {
+        "status": "planned",
+        "plan": plan.model_dump(),
+        "message": f"Scan plan created with {len(probe_names)} probes, {capped_generations} generations each",
+    }
+
+
+# ============================================================================
+# Execute Scan Tool (Deprecated - Use plan_scan instead)
+# ============================================================================
+
 @tool
 def execute_scan(
     target_url: str,
@@ -193,8 +311,10 @@ def execute_scan(
     approach: str = "standard",
     config: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
-    """
-    Execute security scan with specified probes.
+    """[DEPRECATED] Execute security scan with specified probes.
+
+    DEPRECATION WARNING: This tool is deprecated. Use plan_scan() instead
+    for better streaming support. This tool will be removed in a future version.
 
     Args:
         target_url: HTTP or WebSocket endpoint to test
@@ -208,6 +328,13 @@ def execute_scan(
     Returns:
         Dictionary with scan results including vulnerabilities and summary statistics
     """
+    # Emit deprecation warning
+    warnings.warn(
+        "execute_scan is deprecated, use plan_scan instead for streaming support",
+        DeprecationWarning,
+        stacklevel=2
+    )
+    logger.warning("[DEPRECATED] execute_scan called - use plan_scan instead")
     logger.info(f"execute_scan called: target={target_url}, probes={probes}, generations={generations}")
 
     # Get decision logger
@@ -372,6 +499,7 @@ def execute_scan(
             agent_type=agent_type,
             vulnerabilities=clusters,
             probes_executed=probe_list,
+            probe_results=results_dicts,  # Include detailed probe results for streaming
             generations_used=generations,
             report_path=None,  # No local file - results persisted to S3
             metadata=metadata,
@@ -458,4 +586,8 @@ def get_available_probes(category: str = None) -> str:
 
 
 # Export all tools as a list for easy registration
+# Note: execute_scan is deprecated but kept for backward compatibility
 AGENT_TOOLS = [analyze_target, execute_scan, get_available_probes]
+
+# Planning-mode tools (Phase 2)
+PLANNING_TOOLS = [analyze_target, plan_scan, get_available_probes]

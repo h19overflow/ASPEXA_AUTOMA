@@ -11,20 +11,12 @@ Architecture:
     - persistence/: S3 storage for scan results
 
 Public API:
-    - execute_scan: Synchronous scan execution
     - execute_scan_streaming: Async streaming scan with real-time events
-    - execute_scan_for_campaign: Scan execution by campaign ID
 """
 
-from .entrypoint import (
-    execute_scan,
-    execute_scan_streaming,
-    execute_scan_for_campaign,
-)
+from .entrypoint import execute_scan_streaming
 
 __all__ = [
-    "execute_scan",
     "execute_scan_streaming",
-    "execute_scan_for_campaign",
 ]
 

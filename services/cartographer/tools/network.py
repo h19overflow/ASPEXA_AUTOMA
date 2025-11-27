@@ -2,7 +2,7 @@
 # TODO: This should be moved to a global tools file and inserted into each agent's graph.
 import aiohttp
 import asyncio
-from typing import Dict, Optional
+from typing import Dict
 
 
 class NetworkError(Exception):

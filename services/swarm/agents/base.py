@@ -1,17 +1,26 @@
 """
 Base agent functionality for scanning agents.
+
+Purpose: Create and run scanning agents with planning and execution phases
+Dependencies: langchain, services.swarm.core, services.swarm.garak_scanner
 """
 
 import json
 import logging
 import time
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 from langchain.agents import create_agent
 from langchain.agents.structured_output import ToolStrategy
+from langchain_core.messages import HumanMessage, ToolMessage
 
 from services.swarm.core.config import AgentType, get_all_probe_names, PROBE_CATEGORIES
-from services.swarm.core.schema import ScanInput, AgentScanResult
+from services.swarm.core.schema import (
+    ScanInput,
+    AgentScanResult,
+    ScanPlan,
+    PlanningPhaseResult,
+)
 from services.swarm.core.utils import (
     log_scan_start,
     log_scan_complete,
@@ -19,8 +28,8 @@ from services.swarm.core.utils import (
     log_performance_metric,
     get_decision_logger,
 )
-from .prompts import get_system_prompt
-from .tools import AGENT_TOOLS
+from .prompts import get_system_prompt, get_planning_prompt
+from .tools import AGENT_TOOLS, PLANNING_TOOLS, set_tool_context, ToolContext
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -81,12 +90,238 @@ def create_scanning_agent(
     return agent
 
 
+def create_planning_agent(
+    agent_type: str,
+    model_name: str = "google_genai:gemini-2.5-flash",
+):
+    """Create a planning-only agent for the given type.
+
+    Args:
+        agent_type: One of "agent_sql", "agent_auth", "agent_jailbreak"
+        model_name: LLM model identifier
+
+    Returns:
+        LangChain agent configured for planning (uses plan_scan, not execute_scan)
+    """
+    if agent_type not in [e.value for e in AgentType]:
+        raise ValueError(f"Unknown agent_type: {agent_type}")
+
+    system_prompt = get_planning_prompt(
+        agent_type,
+        probe_categories=", ".join(PROBE_CATEGORIES.keys()),
+        available_probes=", ".join(get_all_probe_names()),
+    )
+
+    # Planning agents don't need structured output - they use plan_scan tool
+    agent = create_agent(
+        model_name,
+        tools=PLANNING_TOOLS,
+        system_prompt=system_prompt,
+        response_format=None,
+    )
+
+    return agent
+
+
+# ============================================================================
+# Planning Phase (Phase 2)
+# ============================================================================
+
+async def run_planning_agent(
+    agent_type: str,
+    scan_input: ScanInput,
+) -> PlanningPhaseResult:
+    """Run agent in planning mode - returns ScanPlan, not execution results.
+
+    This is the new preferred method for Phase 2+. The agent analyzes the target
+    and returns a ScanPlan that can be executed separately with streaming.
+
+    Args:
+        agent_type: Which agent to run (agent_sql, agent_auth, agent_jailbreak)
+        scan_input: Context including target info and recon data
+
+    Returns:
+        PlanningPhaseResult with ScanPlan on success, error on failure
+    """
+    start_time = time.monotonic()
+
+    # Get decision logger
+    decision_logger = None
+    try:
+        decision_logger = get_decision_logger(scan_input.audit_id)
+    except Exception as e:
+        logger.warning(f"Failed to get decision logger: {e}")
+
+    try:
+        # Set tool context for plan_scan tool
+        set_tool_context(ToolContext(
+            audit_id=scan_input.audit_id,
+            agent_type=agent_type,
+            target_url=scan_input.target_url,
+            headers={},  # Headers handled separately
+        ))
+
+        logger.info(f"[run_planning_agent] Creating planning agent for {agent_type}")
+
+        # Log planning start
+        if decision_logger:
+            decision_logger.log_scan_progress(
+                progress_type="planning_start",
+                progress_data={
+                    "agent_type": agent_type,
+                    "target_url": scan_input.target_url,
+                },
+                agent_type=agent_type,
+            )
+
+        # Create planning agent
+        agent_executor = create_planning_agent(agent_type)
+
+        # Build input message for planning
+        input_message = _build_planning_input(scan_input)
+
+        logger.info(f"[run_planning_agent] Invoking planning agent (input length: {len(input_message.content)})")
+
+        # Invoke agent (fast - just planning, no execution)
+        result = await agent_executor.ainvoke({"messages": [input_message]})
+
+        # Extract plan from tool calls
+        plan = _extract_plan_from_result(result)
+
+        duration_ms = int((time.monotonic() - start_time) * 1000)
+
+        if plan:
+            logger.info(
+                f"[run_planning_agent] Planning successful: {len(plan.selected_probes)} probes, "
+                f"{plan.generations} generations, duration={duration_ms}ms"
+            )
+
+            # Log planning success
+            if decision_logger:
+                decision_logger.log_scan_progress(
+                    progress_type="planning_complete",
+                    progress_data={
+                        "probes_selected": len(plan.selected_probes),
+                        "generations": plan.generations,
+                        "duration_ms": duration_ms,
+                    },
+                    agent_type=agent_type,
+                )
+
+            return PlanningPhaseResult.from_success(plan, duration_ms)
+        else:
+            logger.warning(f"[run_planning_agent] Agent did not produce a scan plan")
+            return PlanningPhaseResult.from_error(
+                "Agent did not produce a scan plan",
+                duration_ms
+            )
+
+    except Exception as e:
+        duration_ms = int((time.monotonic() - start_time) * 1000)
+        logger.error(f"[run_planning_agent] Planning failed: {e}", exc_info=True)
+
+        # Log planning error
+        if decision_logger:
+            decision_logger.log_error(
+                error_type="planning_failed",
+                error_message=str(e),
+                error_details={"duration_ms": duration_ms},
+                agent_type=agent_type,
+            )
+
+        return PlanningPhaseResult.from_error(str(e), duration_ms)
+
+
+def _extract_plan_from_result(result: dict) -> Optional[ScanPlan]:
+    """Extract ScanPlan from LangChain agent result.
+
+    Searches through message history for plan_scan tool output.
+
+    Args:
+        result: LangChain agent result dict with "messages" key
+
+    Returns:
+        ScanPlan if found, None otherwise
+    """
+    messages = result.get("messages", [])
+
+    for message in reversed(messages):
+        # Check for ToolMessage from plan_scan
+        is_plan_scan_result = (
+            isinstance(message, ToolMessage)
+            and getattr(message, "name", None) == "plan_scan"
+        ) or (hasattr(message, "name") and message.name == "plan_scan")
+
+        if is_plan_scan_result:
+            try:
+                content = getattr(message, "content", None)
+                if content:
+                    if isinstance(content, str):
+                        parsed = json.loads(content)
+                    elif isinstance(content, dict):
+                        parsed = content
+                    else:
+                        continue
+
+                    if "plan" in parsed:
+                        return ScanPlan(**parsed["plan"])
+            except Exception as e:
+                logger.warning(f"Failed to parse plan_scan result: {e}")
+                continue
+
+    return None
+
+
+def _build_planning_input(scan_input: ScanInput) -> HumanMessage:
+    """Build input message for planning agent.
+
+    Args:
+        scan_input: Scan input context
+
+    Returns:
+        HumanMessage with formatted context for planning
+    """
+    config = scan_input.config
+
+    content = f"""
+Scan Target: {scan_input.target_url}
+Audit ID: {scan_input.audit_id}
+Agent Type: {scan_input.agent_type}
+
+User Configuration:
+- Approach: {config.approach}
+- Max Probes: {config.max_probes}
+- Max Generations: {config.max_generations}
+- Agent Override Allowed: {config.allow_agent_override}
+{f"- Custom Probes: {config.custom_probes}" if config.custom_probes else ""}
+{f"- Fixed Generations: {config.generations}" if config.generations else ""}
+
+Infrastructure Intelligence:
+{json.dumps(scan_input.infrastructure, indent=2)}
+
+Detected Tools:
+{json.dumps(scan_input.detected_tools, indent=2)}
+
+INSTRUCTIONS:
+1. Use analyze_target to assess the intelligence and decide optimal scan parameters
+2. Use plan_scan to create a scan plan with your selected probes
+3. Provide reasoning for each probe selection
+
+{"You may adjust probe count and generations based on the intelligence." if config.allow_agent_override else "Use the exact configuration provided by the user."}
+"""
+
+    return HumanMessage(content=content.strip())
+
+
+# ============================================================================
+# Execution Phase (Backward Compatibility)
+# ============================================================================
+
 async def run_scanning_agent(
     agent_type: str,
     scan_input: ScanInput,
 ) -> Dict[str, Any]:
-    """
-    Run a scanning agent with full intelligence analysis.
+    """Run a scanning agent with full intelligence analysis.
 
     Args:
         agent_type: Type of agent
@@ -139,7 +374,7 @@ async def run_scanning_agent(
         logger.info(f"Creating agent executor for {agent_type}...")
         agent_executor = create_scanning_agent(agent_type)
         logger.info("Agent executor created successfully")
-        
+
         # Log agent initialization
         if decision_logger:
             decision_logger.log_configuration(
@@ -149,7 +384,7 @@ async def run_scanning_agent(
                     "model": "google_genai:gemini-2.5-flash",
                     "structured_output": True,
                 },
-                agent_type=agent_type
+                agent_type=agent_type,
             )
 
         config = scan_input.config
@@ -185,7 +420,7 @@ Instructions:
 """
 
         logger.info(f"Invoking agent with input message (length: {len(input_message)})")
-        
+
         # Log input context
         if decision_logger:
             decision_logger.log_configuration(
@@ -195,27 +430,25 @@ Instructions:
                     "has_infrastructure": bool(scan_input.infrastructure),
                     "detected_tools_count": len(scan_input.detected_tools),
                 },
-                agent_type=agent_type
+                agent_type=agent_type,
             )
-        
-        # LangChain agents expect messages as a list, not an "input" key
-        from langchain_core.messages import HumanMessage
 
+        # LangChain agents expect messages as a list, not an "input" key
         logger.info("Calling agent_executor.ainvoke...")
-        
+
         # Log agent invocation start
         if decision_logger:
             decision_logger.log_scan_progress(
                 progress_type="agent_invocation_start",
                 progress_data={},
-                agent_type=agent_type
+                agent_type=agent_type,
             )
-        
+
         result = await agent_executor.ainvoke(
             {"messages": [HumanMessage(content=input_message)]}
         )
         logger.info("Agent invocation completed, processing results...")
-        
+
         # Log agent invocation complete
         if decision_logger:
             decision_logger.log_scan_progress(
@@ -224,7 +457,7 @@ Instructions:
                     "has_messages": bool(result.get("messages")),
                     "has_structured_response": bool(result.get("structured_response")),
                 },
-                agent_type=agent_type
+                agent_type=agent_type,
             )
 
         # Check for structured response from agent
@@ -248,8 +481,6 @@ Instructions:
         scan_metadata = {}
 
         # Parse tool results from messages - look for ToolMessage objects
-        from langchain_core.messages import ToolMessage
-
         for msg in messages:
             # Check if this is a ToolMessage from execute_scan
             is_execute_scan_result = (
@@ -364,7 +595,7 @@ Instructions:
             duration=duration,
             results=agent_result.model_dump(),
         )
-        
+
         # Log agent completion
         if decision_logger:
             decision_logger.log_scan_complete(
@@ -376,7 +607,7 @@ Instructions:
                     "report_path": report_path,
                     "success": True,
                 },
-                agent_type=agent_type
+                agent_type=agent_type,
             )
 
         return agent_result.model_dump()
@@ -389,14 +620,14 @@ Instructions:
             error=str(e),
             duration=duration,
         )
-        
+
         # Log error to decision logger
         decision_logger = None
         try:
             decision_logger = get_decision_logger(scan_input.audit_id)
         except Exception:
             pass
-        
+
         if decision_logger:
             decision_logger.log_error(
                 error_type="agent_execution_failed",
@@ -404,9 +635,9 @@ Instructions:
                 error_details={
                     "duration_seconds": round(duration, 2),
                 },
-                agent_type=agent_type
+                agent_type=agent_type,
             )
-        
+
         import traceback
 
         traceback.print_exc()
