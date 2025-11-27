@@ -2,7 +2,7 @@
 import json
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
-from typing import Any, Dict, AsyncGenerator
+from typing import AsyncGenerator
 
 from libs.contracts.recon import ReconRequest, TargetConfig, ScopeConfig
 from libs.contracts.common import DepthLevel

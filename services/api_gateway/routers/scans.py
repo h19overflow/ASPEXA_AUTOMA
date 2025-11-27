@@ -1,6 +1,5 @@
 """Scans router - S3 scan result operations."""
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
 from typing import Any, Dict, List, Optional
 
 from libs.persistence import (

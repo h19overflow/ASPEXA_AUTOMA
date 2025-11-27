@@ -2,7 +2,7 @@
 import json
 from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
-from typing import Any, AsyncGenerator, Dict
+from typing import AsyncGenerator
 
 from libs.contracts.scanning import ScanJobDispatch, SafetyPolicy, ScanConfigContract
 from libs.persistence import load_scan, ScanType, CampaignRepository
@@ -67,9 +67,9 @@ async def start_scan_stream(request: ScanStartRequest) -> StreamingResponse:
 
         try:
             recon_data = await load_scan(ScanType.RECON, campaign.recon_scan_id, validate=False)
-        except Exception as e:
-            async def error_gen():
-                yield f"data: {json.dumps({'type': 'error', 'message': f'Failed to load recon: {e}'})}\n\n"
+        except Exception as err:
+            async def error_gen(error=err):
+                yield f"data: {json.dumps({'type': 'error', 'message': f'Failed to load recon: {error}'})}\n\n"
             return StreamingResponse(error_gen(), media_type="text/event-stream")
 
         resolved_target_url = request.target_url or getattr(campaign, "target_url", None)

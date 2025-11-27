@@ -64,13 +64,13 @@ class ReconToolSet:
                 # This handles non-substring overlaps (e.g. "Refunds < $1000" vs "Refunds under $1000")
                 similarity = SequenceMatcher(None, cleaned_obs, existing_lower).ratio()
                 if similarity > 0.80:
-                    return "⚠️ SIMILAR: Very similar observation exists ({int(similarity*100)}% match): '{repr(existing[:80])}...'. Skipped."
+                    return f"⚠️ SIMILAR: Very similar observation exists ({int(similarity*100)}% match): '{existing[:80]}...'. Skipped."
 
             # Record the observation
             target_list.append(observation)
+            obs_preview = repr(observation[:100]) + ('...' if len(observation) > 100 else '')
 
-            return "✓ Recorded in '{category}': {repr(observation[:100])}{'...' if len(observation) > 100 else ''}\n" \
-                   "Total {category} observations: {len(target_list)}"
+            return f"✓ Recorded in '{category}': {obs_preview}\nTotal {category} observations: {len(target_list)}"
 
         @tool
         def analyze_gaps() -> str:
