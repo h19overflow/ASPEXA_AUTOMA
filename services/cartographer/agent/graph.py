@@ -216,12 +216,14 @@ Generate a strategic probing question to send to the target. The question should
             }
 
             try:
-                target_response = await call_target_endpoint(
-                    url=target_url,
-                    auth_headers=auth_headers,
-                    message=question,
+                config = ConnectionConfig(
+                    endpoint_url=target_url,
+                    headers=auth_headers,
                     timeout=30,
                 )
+                async with AsyncHttpClient(config) as client:
+                    response = await client.send(question)
+                    target_response = response.text
                 yield {
                     "type": "response",
                     "response": target_response[:200] + "..."

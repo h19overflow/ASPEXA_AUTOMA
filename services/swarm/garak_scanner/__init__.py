@@ -3,7 +3,7 @@ Garak-based security scanner with HTTP endpoint support and result parsing.
 
 Purpose: Core scanning engine - executes probes, collects results, parses reports
 Role: Core scanning engine
-Dependencies: garak, requests, libs.contracts
+Dependencies: garak, libs.connectivity
 """
 
 from .scanner import GarakScanner, get_scanner
@@ -14,7 +14,7 @@ from .report_parser import (
     get_results_summary,
     generate_comprehensive_report_from_results,
 )
-from .http_generator import HttpGenerator
+from libs.connectivity.adapters import GarakHttpGenerator as HttpGenerator
 
 __all__ = [
     "GarakScanner",

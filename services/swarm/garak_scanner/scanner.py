@@ -29,7 +29,7 @@ from .models import (
     ScanCompleteEvent,
     ScanErrorEvent,
 )
-from .http_generator import HttpGenerator
+from libs.connectivity.adapters import GarakHttpGenerator as HttpGenerator
 from .websocket_generator import WebSocketGenerator
 from .rate_limiter import RateLimiter
 from .utils import (
