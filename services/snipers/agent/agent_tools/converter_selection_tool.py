@@ -9,7 +9,7 @@ from typing import Any, Dict
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import SystemMessage, HumanMessage
 
-from services.snipers.models import ConverterSelection, PatternAnalysis
+from services.snipers.models import ConverterSelection
 from services.snipers.agent.prompts import (
     CONVERTER_SELECTION_PROMPT,
     format_recon_intelligence,

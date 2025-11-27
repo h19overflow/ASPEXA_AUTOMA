@@ -156,7 +156,7 @@ async def run_planning_agent(
 
             return PlanningPhaseResult.from_success(plan, duration_ms)
         else:
-            logger.warning(f"[run_planning_agent] Agent did not produce a scan plan")
+            logger.warning("[run_planning_agent] Agent did not produce a scan plan")
             return PlanningPhaseResult.from_error(
                 "Agent did not produce a scan plan",
                 duration_ms

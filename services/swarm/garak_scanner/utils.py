@@ -9,9 +9,12 @@ This module contains reusable helper functions for:
 - Output evaluation with detectors
 - Data transformation utilities
 """
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, TYPE_CHECKING
 from garak.attempt import Attempt, Message, Turn, Conversation
 import logging
+
+if TYPE_CHECKING:
+    from services.swarm.core.schema import ScanPlan
 
 from libs.contracts.common import VulnerabilityCategory, SeverityLevel
 from .models import ProbeResult

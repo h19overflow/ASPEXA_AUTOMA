@@ -22,12 +22,6 @@ from .trinity import (
 )
 from .tools import PLANNING_TOOLS, analyze_target, plan_scan, get_available_probes
 from .prompts import SYSTEM_PROMPTS, get_system_prompt
-from .utils import (
-    build_scan_message,
-    validate_agent_type,
-    parse_scan_result,
-    format_vulnerability_summary,
-)
 
 __all__ = [
     # Planning interface (primary)
@@ -55,10 +49,4 @@ __all__ = [
     # Prompts
     "SYSTEM_PROMPTS",
     "get_system_prompt",
-
-    # Utils
-    "build_scan_message",
-    "validate_agent_type",
-    "parse_scan_result",
-    "format_vulnerability_summary",
 ]

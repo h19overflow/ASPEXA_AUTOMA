@@ -9,9 +9,10 @@ import asyncio
 import importlib
 import logging
 import time
-from typing import List, Optional, Dict, Any, Union, AsyncGenerator
+from typing import List, Optional, Dict, Any, Union, AsyncGenerator, TYPE_CHECKING
 
-from garak.attempt import Attempt
+if TYPE_CHECKING:
+    from services.swarm.core.schema import ScanPlan
 
 from services.swarm.core.config import (
     resolve_probe_path,

@@ -144,7 +144,7 @@ class WebSocketGenerator(garak.generators.base.Generator):
             return ""
         except websockets.exceptions.ConnectionClosed:
             self._error_count += 1
-            logger.error(f"WebSocket connection closed unexpectedly")
+            logger.error("WebSocket connection closed unexpectedly")
             return ""
         except websockets.exceptions.InvalidURI:
             self._error_count += 1
