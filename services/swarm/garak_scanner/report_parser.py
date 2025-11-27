@@ -249,8 +249,9 @@ def generate_comprehensive_report_from_results(
                 "detector_name": result.get("detector_name", "unknown"),
                 "detector_score": result.get("detector_score", 0.0),
                 "detection_reason": result.get("detection_reason", "Unknown"),
-                "prompt": result.get("prompt", "")[:500],
-                "output": result.get("output", "")[:500],
+                # Full prompt and output - no truncation for detailed analysis
+                "prompt": result.get("prompt", ""),
+                "output": result.get("output", ""),
                 "affected_component": affected_component,
                 "audit_id": audit_id,
             })

@@ -1,18 +1,30 @@
 """HTTP entrypoint for Swarm scanning service.
 
 Exposes scanning logic for direct invocation via API gateway.
+
+Architecture:
+- Phase 1 (Planning): Agent analyzes target and produces ScanPlan (~2-3s)
+- Phase 2 (Execution): Scanner executes plan with real-time streaming
 """
 import logging
 from datetime import datetime, timezone
 from typing import Any, AsyncGenerator, Dict, List, Optional
 
-from libs.contracts.scanning import ScanJobDispatch, SafetyPolicy, ScanConfigContract
+from libs.contracts.scanning import ScanJobDispatch
 from libs.contracts.recon import ReconBlueprint
-from libs.persistence import load_scan, ScanType, CampaignRepository
-from services.swarm.agents.base import run_scanning_agent
+from services.swarm.agents.base import run_planning_agent
 from services.swarm.core.schema import ScanContext
 from services.swarm.core.config import AgentType
 from services.swarm.persistence.s3_adapter import persist_garak_result
+from services.swarm.garak_scanner.scanner import get_scanner
+from services.swarm.garak_scanner.models import (
+    ScanStartEvent,
+    ProbeStartEvent,
+    PromptResultEvent,
+    ProbeCompleteEvent,
+    ScanCompleteEvent,
+    ScanErrorEvent,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -23,159 +35,17 @@ AGENT_VECTORS = {
 }
 
 
-async def execute_scan_for_campaign(
-    campaign_id: str,
-    agent_types: Optional[List[str]] = None,
-    safety_policy: Optional[SafetyPolicy] = None,
-    scan_config: Optional[ScanConfigContract] = None,
-    target_url: Optional[str] = None,
-) -> Dict[str, Any]:
-    """Execute scan by loading recon from S3 automatically.
-
-    Args:
-        campaign_id: Campaign ID to load recon for
-        agent_types: Agent types to run
-        safety_policy: Optional safety constraints
-        scan_config: Optional scan configuration parameters
-        target_url: Optional target URL override
-
-    Returns:
-        Dict with results per agent type
-    """
-    repo = CampaignRepository()
-    campaign = repo.get(campaign_id)
-
-    if not campaign:
-        return {"status": "error", "error": f"Campaign {campaign_id} not found"}
-
-    if not campaign.recon_scan_id:
-        return {"status": "error", "error": f"Campaign {campaign_id} has no recon data"}
-
-    try:
-        recon_data = await load_scan(ScanType.RECON, campaign.recon_scan_id, validate=False)
-    except Exception as e:
-        return {"status": "error", "error": f"Failed to load recon: {e}"}
-
-    # Try to get target_url from campaign if not provided
-    resolved_target_url = target_url or getattr(campaign, "target_url", None)
-
-    request = ScanJobDispatch(
-        job_id=campaign_id,
-        blueprint_context=recon_data,
-        safety_policy=safety_policy or SafetyPolicy(aggressiveness="moderate"),
-        scan_config=scan_config or ScanConfigContract(),
-        target_url=resolved_target_url,
-    )
-
-    return await execute_scan(request, agent_types)
-
-
-async def execute_scan(
-    request: ScanJobDispatch,
-    agent_types: Optional[List[str]] = None,
-) -> Dict[str, Any]:
-    """Execute scanning with specified agent types.
-
-    Args:
-        request: Validated ScanJobDispatch with blueprint_context
-        agent_types: List of agent types to run. Defaults to all Trinity agents.
-
-    Returns:
-        Dict with results per agent type
-    """
-    if agent_types is None:
-        agent_types = [AgentType.SQL.value, AgentType.AUTH.value, AgentType.JAILBREAK.value]
-
-    blueprint = ReconBlueprint(**request.blueprint_context)
-    results: Dict[str, Any] = {"audit_id": blueprint.audit_id, "agents": {}}
-
-    for agent_type in agent_types:
-        agent_result = await _run_single_agent(request, blueprint, agent_type)
-        results["agents"][agent_type] = agent_result
-
-    return results
-
-
-async def _run_single_agent(
-    request: ScanJobDispatch,
-    blueprint: ReconBlueprint,
-    agent_type: str,
-) -> Dict[str, Any]:
-    """Run a single scanning agent."""
-    logger.info(f"[{agent_type}] Starting scan for audit: {request.job_id}")
-
-    # Check safety policy
-    if request.safety_policy and request.safety_policy.blocked_attack_vectors:
-        blocked = request.safety_policy.blocked_attack_vectors
-        try:
-            agent_enum = AgentType(agent_type)
-            if any(v in blocked for v in AGENT_VECTORS.get(agent_enum, [])):
-                logger.warning(f"[{agent_type}] Blocked by safety policy")
-                return {"status": "blocked", "reason": "safety_policy"}
-        except ValueError:
-            pass
-
-    scan_context = ScanContext.from_scan_job(
-        request=request,
-        blueprint=blueprint,
-        agent_type=agent_type,
-        default_target_url="https://api.target.local/v1/chat",
-    )
-
-    try:
-        result = await run_scanning_agent(agent_type, scan_context.to_scan_input())
-    except Exception as e:
-        logger.error(f"[{agent_type}] Agent error: {e}")
-        return {"status": "error", "error": str(e)}
-
-    if not result.get("success"):
-        return {"status": "failed", "error": result.get("error", "Unknown")}
-
-    vulnerabilities = result.get("vulnerabilities", [])
-    scan_id = f"garak-{blueprint.audit_id}-{agent_type}"
-    persisted = False
-
-    # Build report from in-memory results (no local file I/O)
-    try:
-        garak_report = {
-            "audit_id": blueprint.audit_id,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "summary": result.get("metadata", {}),
-            "vulnerabilities": vulnerabilities,
-            "probes_executed": result.get("probes_executed", []),
-            "metadata": {
-                "report_path": "",
-                "audit_id": blueprint.audit_id,
-                "agent_type": agent_type,
-            },
-        }
-
-        await persist_garak_result(
-            campaign_id=blueprint.audit_id,
-            scan_id=scan_id,
-            garak_report=garak_report,
-            target_url=scan_context.target_url,
-        )
-        persisted = True
-        logger.info(f"[{agent_type}] Persisted results: {scan_id}")
-    except Exception as e:
-        logger.warning(f"[{agent_type}] Persistence failed: {e}")
-
-    return {
-        "status": "success",
-        "scan_id": scan_id,
-        "vulnerabilities_found": len(vulnerabilities),
-        "persisted": persisted,
-    }
-
-
 async def execute_scan_streaming(
     request: ScanJobDispatch,
     agent_types: Optional[List[str]] = None,
 ) -> AsyncGenerator[Dict[str, Any], None]:
-    """Execute scanning with streaming progress events.
+    """Execute scanning with two-phase architecture and real-time streaming.
 
-    Yields events during execution for real-time UI updates.
+    Phase 1 (Planning): Agent analyzes target and produces ScanPlan (~2-3s)
+    Phase 2 (Execution): Scanner executes plan with streaming events
+
+    Yields:
+        SSE event dictionaries for real-time UI updates
     """
     if agent_types is None:
         agent_types = [AgentType.SQL.value, AgentType.AUTH.value, AgentType.JAILBREAK.value]
@@ -231,90 +101,277 @@ async def execute_scan_streaming(
             continue
 
         yield {"type": "log", "message": f"[{agent_type}] Target: {scan_context.target_url}"}
-        yield {"type": "log", "message": f"[{agent_type}] Running probes..."}
+
+        # ====================================================================
+        # PHASE 1: PLANNING
+        # ====================================================================
+        yield {"type": "plan_start", "agent": agent_type}
+        yield {"type": "log", "message": f"[{agent_type}] Planning scan..."}
 
         try:
-            result = await run_scanning_agent(agent_type, scan_context.to_scan_input())
+            planning_result = await run_planning_agent(agent_type, scan_context.to_scan_input())
 
-            if result.get("success"):
-                vulns = result.get("vulnerabilities", [])
-                probes = result.get("probes_executed", [])
-
+            if not planning_result.success:
+                error_msg = planning_result.error or "Planning failed"
                 yield {
-                    "type": "agent_complete",
+                    "type": "error",
                     "agent": agent_type,
-                    "status": "success",
-                    "vulnerabilities": len(vulns),
-                    "probes": len(probes),
+                    "phase": "planning",
+                    "message": error_msg,
                 }
+                yield {"type": "log", "level": "error", "message": f"[{agent_type}] Planning failed: {error_msg}"}
+                results["agents"][agent_type] = {"status": "failed", "error": error_msg, "phase": "planning"}
+                continue
 
-                # Emit individual probe results
-                for probe in probes:
-                    yield {
-                        "type": "probe",
-                        "agent": agent_type,
-                        "probe": probe,
-                        "status": "executed",
-                    }
-
-                # Emit vulnerabilities found
-                for vuln in vulns:
-                    yield {
-                        "type": "vulnerability",
-                        "agent": agent_type,
-                        "category": vuln.get("category", "unknown"),
-                        "severity": vuln.get("severity", "unknown"),
-                    }
-
-                scan_id = f"garak-{blueprint.audit_id}-{agent_type}"
-                persisted = False
-
-                # Persist results to S3
-                try:
-                    garak_report = {
-                        "audit_id": blueprint.audit_id,
-                        "timestamp": datetime.now(timezone.utc).isoformat(),
-                        "summary": result.get("metadata", {}),
-                        "vulnerabilities": vulns,
-                        "probes_executed": probes,
-                        "metadata": {
-                            "report_path": "",
-                            "audit_id": blueprint.audit_id,
-                            "agent_type": agent_type,
-                        },
-                    }
-                    await persist_garak_result(
-                        campaign_id=blueprint.audit_id,
-                        scan_id=scan_id,
-                        garak_report=garak_report,
-                        target_url=scan_context.target_url,
-                    )
-                    persisted = True
-                    yield {"type": "log", "message": f"[{agent_type}] Persisted to S3: {scan_id}"}
-                except Exception as e:
-                    yield {"type": "log", "level": "warning", "message": f"[{agent_type}] Persistence failed: {e}"}
-
-                results["agents"][agent_type] = {
-                    "status": "success",
-                    "scan_id": scan_id,
-                    "vulnerabilities_found": len(vulns),
-                    "persisted": persisted,
-                }
-            else:
+            # Extract plan
+            plan = planning_result.plan
+            if not plan:
                 yield {
-                    "type": "agent_complete",
+                    "type": "error",
                     "agent": agent_type,
-                    "status": "failed",
-                    "error": result.get("error", "Unknown"),
+                    "phase": "planning",
+                    "message": "No plan produced",
                 }
-                results["agents"][agent_type] = {
-                    "status": "failed",
-                    "error": result.get("error", "Unknown"),
-                }
+                results["agents"][agent_type] = {"status": "failed", "error": "No plan produced", "phase": "planning"}
+                continue
+
+            # Calculate estimated duration (rough estimate: 2s per probe * generations / 10)
+            estimated_duration = len(plan.selected_probes) * plan.generations * 0.2
+
+            yield {
+                "type": "plan_complete",
+                "agent": agent_type,
+                "probes": plan.selected_probes,
+                "probe_count": len(plan.selected_probes),
+                "generations": plan.generations,
+                "estimated_duration": int(estimated_duration),
+                "duration_ms": planning_result.duration_ms,
+            }
+            yield {
+                "type": "log",
+                "message": f"[{agent_type}] Plan complete: {len(plan.selected_probes)} probes, {plan.generations} generations/probe"
+            }
 
         except Exception as e:
-            yield {"type": "log", "level": "error", "message": f"[{agent_type}] Error: {e}"}
-            results["agents"][agent_type] = {"status": "error", "error": str(e)}
+            yield {"type": "log", "level": "error", "message": f"[{agent_type}] Planning error: {e}"}
+            results["agents"][agent_type] = {"status": "error", "error": str(e), "phase": "planning"}
+            continue
+
+        # ====================================================================
+        # PHASE 2: EXECUTION (STREAMING)
+        # ====================================================================
+        yield {"type": "execution_start", "agent": agent_type}
+        yield {"type": "log", "message": f"[{agent_type}] Executing scan with streaming..."}
+
+        # Track execution results
+        scan_id = f"garak-{blueprint.audit_id}-{agent_type}"
+        probe_results_list = []
+        total_pass = 0
+        total_fail = 0
+        total_error = 0
+
+        try:
+            # Get scanner singleton and stream execution
+            scanner = get_scanner()
+
+            async for event in scanner.scan_with_streaming(plan):
+                # Map scanner events to SSE events
+                if isinstance(event, ScanStartEvent):
+                    # Already emitted execution_start, just log
+                    yield {
+                        "type": "log",
+                        "message": f"[{agent_type}] Scanner initialized: {event.total_probes} probes"
+                    }
+
+                elif isinstance(event, ProbeStartEvent):
+                    yield {
+                        "type": "probe_start",
+                        "agent": agent_type,
+                        "probe_name": event.probe_name,
+                        "probe_description": event.probe_description,
+                        "category": event.probe_category,
+                        "probe_index": event.probe_index,
+                        "total_probes": event.total_probes,
+                        "total_prompts": event.total_prompts,
+                        "generations": event.generations,
+                    }
+
+                elif isinstance(event, PromptResultEvent):
+                    # Track for statistics
+                    if event.status == "pass":
+                        total_pass += 1
+                    elif event.status == "fail":
+                        total_fail += 1
+                    else:
+                        total_error += 1
+
+                    # Store full result for persistence
+                    probe_results_list.append({
+                        "probe_name": event.probe_name,
+                        "category": "security",
+                        "status": event.status,
+                        "detector_name": event.detector_name,
+                        "detector_score": event.detector_score,
+                        "detection_reason": event.detection_reason,
+                        "prompt": event.prompt,
+                        "output": event.output,
+                    })
+
+                    # Emit with truncated prompt/output for streaming
+                    yield {
+                        "type": "probe_result",
+                        "agent": agent_type,
+                        "probe_name": event.probe_name,
+                        "prompt_index": event.prompt_index,
+                        "total_prompts": event.total_prompts,
+                        "status": event.status,
+                        "detector_name": event.detector_name,
+                        "detector_score": event.detector_score,
+                        "detection_reason": event.detection_reason,
+                        "prompt_preview": (event.prompt[:200] + "...") if len(event.prompt) > 200 else event.prompt,
+                        "output_preview": (event.output[:200] + "...") if len(event.output) > 200 else event.output,
+                        "generation_duration_ms": event.generation_duration_ms,
+                        "evaluation_duration_ms": event.evaluation_duration_ms,
+                    }
+
+                elif isinstance(event, ProbeCompleteEvent):
+                    yield {
+                        "type": "probe_complete",
+                        "agent": agent_type,
+                        "probe_name": event.probe_name,
+                        "probe_index": event.probe_index,
+                        "total_probes": event.total_probes,
+                        "results_count": event.results_count,
+                        "pass_count": event.pass_count,
+                        "fail_count": event.fail_count,
+                        "error_count": event.error_count,
+                        "duration_seconds": event.duration_seconds,
+                    }
+
+                elif isinstance(event, ScanCompleteEvent):
+                    yield {
+                        "type": "agent_complete",
+                        "agent": agent_type,
+                        "status": "success",
+                        "total_probes": event.total_probes,
+                        "total_results": event.total_results,
+                        "total_pass": event.total_pass,
+                        "total_fail": event.total_fail,
+                        "total_error": event.total_error,
+                        "duration_seconds": event.duration_seconds,
+                        "vulnerabilities": event.vulnerabilities_found,
+                    }
+
+                elif isinstance(event, ScanErrorEvent):
+                    yield {
+                        "type": "error",
+                        "agent": agent_type,
+                        "phase": "execution",
+                        "error_type": event.error_type,
+                        "message": event.error_message,
+                        "probe_name": event.probe_name,
+                        "recoverable": event.recoverable,
+                    }
+                    if not event.recoverable:
+                        # Non-recoverable error, stop execution
+                        results["agents"][agent_type] = {
+                            "status": "error",
+                            "error": event.error_message,
+                            "phase": "execution"
+                        }
+                        break
+
+            # ================================================================
+            # PERSISTENCE
+            # ================================================================
+            persisted = False
+            try:
+                # Build vulnerability clusters from failed results
+                vulnerabilities = _build_vulnerability_clusters(probe_results_list, agent_type)
+
+                garak_report = {
+                    "audit_id": blueprint.audit_id,
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "summary": {
+                        "total_probes": len(plan.selected_probes),
+                        "total_results": len(probe_results_list),
+                        "total_fail": total_fail,
+                        "total_pass": total_pass,
+                        "total_error": total_error,
+                    },
+                    "vulnerabilities": vulnerabilities,
+                    "probes_executed": plan.selected_probes,
+                    "metadata": {
+                        "report_path": "",
+                        "audit_id": blueprint.audit_id,
+                        "agent_type": agent_type,
+                    },
+                }
+                await persist_garak_result(
+                    campaign_id=blueprint.audit_id,
+                    scan_id=scan_id,
+                    garak_report=garak_report,
+                    target_url=scan_context.target_url,
+                )
+                persisted = True
+                yield {"type": "log", "message": f"[{agent_type}] Persisted to S3: {scan_id}"}
+            except Exception as e:
+                yield {"type": "log", "level": "warning", "message": f"[{agent_type}] Persistence failed: {e}"}
+
+            results["agents"][agent_type] = {
+                "status": "success",
+                "scan_id": scan_id,
+                "probes_executed": len(plan.selected_probes),
+                "total_results": len(probe_results_list),
+                "vulnerabilities_found": total_fail,
+                "persisted": persisted,
+            }
+
+        except Exception as e:
+            logger.error(f"[{agent_type}] Execution error: {e}", exc_info=True)
+            yield {"type": "log", "level": "error", "message": f"[{agent_type}] Execution error: {e}"}
+            results["agents"][agent_type] = {"status": "error", "error": str(e), "phase": "execution"}
 
     yield {"type": "log", "message": "Scan complete"}
     yield {"type": "complete", "data": results}
+
+
+def _build_vulnerability_clusters(probe_results: List[Dict[str, Any]], agent_type: str) -> List[Dict[str, Any]]:
+    """Build vulnerability clusters from probe results.
+
+    Groups failed results by category for reporting.
+
+    Args:
+        probe_results: List of probe result dictionaries
+        agent_type: Agent type for categorization
+
+    Returns:
+        List of vulnerability cluster dictionaries
+    """
+    # Simple grouping: one cluster per unique detector that triggered
+    clusters: Dict[str, Dict[str, Any]] = {}
+
+    for result in probe_results:
+        if result["status"] != "fail":
+            continue
+
+        detector = result.get("detector_name", "unknown")
+        if detector not in clusters:
+            clusters[detector] = {
+                "category": result.get("category", "security"),
+                "severity": "high" if result.get("detector_score", 0) > 0.8 else "medium",
+                "detector": detector,
+                "count": 0,
+                "examples": [],
+            }
+
+        clusters[detector]["count"] += 1
+        if len(clusters[detector]["examples"]) < 3:
+            clusters[detector]["examples"].append({
+                "probe": result["probe_name"],
+                "prompt": result["prompt"][:200],
+                "output": result["output"][:200],
+                "score": result.get("detector_score", 0),
+            })
+
+    return list(clusters.values())

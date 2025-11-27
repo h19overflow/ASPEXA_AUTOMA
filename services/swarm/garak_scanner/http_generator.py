@@ -67,7 +67,8 @@ class HttpGenerator(garak.generators.base.Generator):
                 status_forcelist=[500, 502, 503, 504],  # Retry on server errors
                 allowed_methods=["POST"]  # Only retry POST requests
             )
-            adapter = HTTPAdapter(max_retries=retry_strategy, pool_connections=10, pool_maxsize=20)
+            # Pool size increased for parallel execution: max_concurrent_probes(3) * max_concurrent_generations(3) * 2 buffer
+            adapter = HTTPAdapter(max_retries=retry_strategy, pool_connections=15, pool_maxsize=30)
             self.session.mount("http://", adapter)
             self.session.mount("https://", adapter)
         

@@ -4,10 +4,8 @@ LangChain tools for scanning agents.
 Purpose: Define LangChain tools for agent-based vulnerability scanning
 Dependencies: langchain_core, services.swarm.core, services.swarm.garak_scanner
 """
-import asyncio
 import json
 import logging
-import warnings
 from contextvars import ContextVar
 from typing import List, Dict, Any, Optional, TypedDict
 
@@ -19,12 +17,7 @@ from services.swarm.core.config import (
     get_all_probe_names,
     PROBE_CATEGORIES,
 )
-from services.swarm.garak_scanner.scanner import get_scanner
-from services.swarm.garak_scanner.report_parser import (
-    parse_results_to_clusters,
-    get_results_summary,
-)
-from services.swarm.core.schema import ScanAnalysisResult, AgentScanResult, ScanPlan, ScanConfig
+from services.swarm.core.schema import ScanAnalysisResult, ScanPlan, ScanConfig
 from services.swarm.core.utils import get_decision_logger
 
 logger = logging.getLogger(__name__)
@@ -74,22 +67,6 @@ def _get_tool_context() -> ToolContext:
         )
 
 
-def _run_async_scan(scanner, probe_list, generations):
-    """Helper to run async scan in a new event loop if needed."""
-    try:
-        loop = asyncio.get_event_loop()
-        if loop.is_running():
-            # We're in an async context, create new loop
-            import nest_asyncio
-            nest_asyncio.apply()
-            return loop.run_until_complete(scanner.scan_with_probe(probe_list, generations=generations))
-        else:
-            return asyncio.run(scanner.scan_with_probe(probe_list, generations=generations))
-    except RuntimeError:
-        # No event loop, create one
-        return asyncio.run(scanner.scan_with_probe(probe_list, generations=generations))
-
-
 @tool
 def analyze_target(
     infrastructure: Dict[str, Any],
@@ -122,7 +99,7 @@ def analyze_target(
             decision_logger = get_decision_logger(audit_id)
         except Exception as e:
             logger.warning(f"Failed to get decision logger: {e}")
-    
+
     # Log tool call
     if decision_logger:
         decision_logger.log_tool_call(
@@ -137,14 +114,14 @@ def analyze_target(
             },
             agent_type=agent_type
         )
-    
+
     # Handle string inputs for backward compatibility
     if isinstance(infrastructure, str):
         try:
             infrastructure = json.loads(infrastructure)
         except json.JSONDecodeError:
             infrastructure = {}
-    
+
     if isinstance(detected_tools, str):
         try:
             detected_tools = json.loads(detected_tools)
@@ -180,7 +157,7 @@ def analyze_target(
     generations = min(max_generations, base_generations)
 
     reasoning = " | ".join(reasoning_parts) if reasoning_parts else "Standard intelligence-driven scan"
-    
+
     # Log reasoning
     if decision_logger:
         decision_logger.log_reasoning(
@@ -194,7 +171,7 @@ def analyze_target(
             },
             agent_type=agent_type
         )
-        
+
         # Log decision
         decision_logger.log_decision(
             decision_type="probe_selection",
@@ -218,9 +195,9 @@ def analyze_target(
             "tool_count": len(detected_tools),
         }
     )
-    
+
     result_dict = result.model_dump()
-    
+
     # Log tool result
     if decision_logger:
         decision_logger.log_tool_result(
@@ -297,278 +274,6 @@ def plan_scan(
     }
 
 
-# ============================================================================
-# Execute Scan Tool (Deprecated - Use plan_scan instead)
-# ============================================================================
-
-@tool
-def execute_scan(
-    target_url: str,
-    audit_id: str,
-    agent_type: str,
-    probes: List[str],
-    generations: int = 5,
-    approach: str = "standard",
-    config: Optional[Dict[str, Any]] = None,
-) -> Dict[str, Any]:
-    """[DEPRECATED] Execute security scan with specified probes.
-
-    DEPRECATION WARNING: This tool is deprecated. Use plan_scan() instead
-    for better streaming support. This tool will be removed in a future version.
-
-    Args:
-        target_url: HTTP or WebSocket endpoint to test
-        audit_id: Unique audit identifier
-        agent_type: Type of agent running the scan
-        probes: List of probe names to execute
-        generations: Number of generations per probe
-        approach: Scan approach
-        config: Optional configuration dict with parallel execution, rate limiting, etc.
-
-    Returns:
-        Dictionary with scan results including vulnerabilities and summary statistics
-    """
-    # Emit deprecation warning
-    warnings.warn(
-        "execute_scan is deprecated, use plan_scan instead for streaming support",
-        DeprecationWarning,
-        stacklevel=2
-    )
-    logger.warning("[DEPRECATED] execute_scan called - use plan_scan instead")
-    logger.info(f"execute_scan called: target={target_url}, probes={probes}, generations={generations}")
-
-    # Get decision logger
-    decision_logger = None
-    try:
-        decision_logger = get_decision_logger(audit_id)
-    except Exception as e:
-        logger.warning(f"Failed to get decision logger: {e}")
-    
-    # Log tool call
-    if decision_logger:
-        decision_logger.log_tool_call(
-            tool_name="execute_scan",
-            parameters={
-                "target_url": target_url,
-                "probes": probes if isinstance(probes, list) else str(probes),
-                "generations": generations,
-                "approach": approach,
-                "config": config or {},
-            },
-            agent_type=agent_type
-        )
-        
-        # Log scan start
-        decision_logger.log_scan_progress(
-            progress_type="scan_start",
-            progress_data={
-                "probe_count": len(probes) if isinstance(probes, list) else 0,
-                "generations": generations,
-                "target_url": target_url,
-            },
-            agent_type=agent_type
-        )
-
-    # Validate target URL (support both HTTP and WebSocket)
-    if not target_url or not target_url.startswith(("http://", "https://", "ws://", "wss://")):
-        logger.error(f"Invalid target URL: {target_url}")
-        error_result = AgentScanResult(
-            success=False,
-            audit_id=audit_id,
-            agent_type=agent_type,
-            error=f"Invalid target URL: {target_url}. Must be http://, https://, ws://, or wss://"
-        ).model_dump()
-        
-        if decision_logger:
-            decision_logger.log_error(
-                error_type="invalid_url",
-                error_message=f"Invalid target URL: {target_url}",
-                error_details={"target_url": target_url},
-                agent_type=agent_type
-            )
-        
-        return error_result
-
-    # Handle string input for backward compatibility
-    if isinstance(probes, str):
-        try:
-            probe_list: List[str] = json.loads(probes)
-        except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse probes JSON: {e}")
-            return AgentScanResult(
-                success=False,
-                audit_id=audit_id,
-                agent_type=agent_type,
-                error=f"Invalid probes JSON: {e}"
-            ).model_dump()
-    else:
-        probe_list: List[str] = probes
-
-    if not probe_list:
-        logger.warning("No probes specified")
-        return AgentScanResult(
-            success=False,
-            audit_id=audit_id,
-            agent_type=agent_type,
-            error="No probes specified"
-        ).model_dump()
-
-    try:
-        # Configure scanner with new endpoint configuration
-        scanner = get_scanner()
-        
-        # Extract configuration options
-        config_dict = config or {}
-        connection_type = config_dict.get("connection_type")
-        timeout = config_dict.get("request_timeout", 30)
-        max_retries = config_dict.get("max_retries", 3)
-        retry_backoff = config_dict.get("retry_backoff", 1.0)
-        
-        # Auto-detect connection type from URL if not specified
-        if connection_type is None:
-            if target_url.startswith(("ws://", "wss://")):
-                connection_type = "websocket"
-            else:
-                connection_type = "http"
-        
-        # Add audit_id and agent_type to config for logging
-        config_dict = config_dict.copy() if config_dict else {}
-        config_dict["audit_id"] = audit_id
-        config_dict["agent_type"] = agent_type
-        
-        # Configure endpoint with full config
-        scanner.configure_endpoint(
-            endpoint_url=target_url,
-            connection_type=connection_type,
-            timeout=timeout,
-            max_retries=max_retries,
-            retry_backoff=retry_backoff,
-            config=config_dict
-        )
-
-        # Run scan with proper event loop handling
-        parallel_enabled = config_dict.get("enable_parallel_execution", False)
-        logger.info(
-            f"Executing {len(probe_list)} probes with {generations} generations each "
-            f"(parallel: {parallel_enabled})"
-        )
-        
-        # Log configuration
-        if decision_logger:
-            decision_logger.log_configuration(
-                config_type="scan_execution",
-                config_data={
-                    "parallel_enabled": parallel_enabled,
-                    "connection_type": connection_type,
-                    "timeout": timeout,
-                    "max_retries": max_retries,
-                    "retry_backoff": retry_backoff,
-                    **config_dict,
-                },
-                agent_type=agent_type
-            )
-        
-        results = _run_async_scan(scanner, probe_list, generations)
-
-        # Convert results to dicts for in-memory processing (no local file I/O)
-        results_dicts = scanner.results_to_dicts(results)
-
-        # Parse into vulnerability clusters (in-memory)
-        clusters = parse_results_to_clusters(results_dicts, audit_id, affected_component=agent_type)
-
-        # Get summary statistics from in-memory results
-        report_summary = get_results_summary(results_dicts)
-
-        # Get HTTP request stats if available
-        http_stats = {}
-        if hasattr(scanner.generator, 'get_stats'):
-            http_stats = scanner.generator.get_stats()
-
-        # Build comprehensive metadata
-        metadata = {
-            "approach": approach,
-            "total_probe_results": len(results),
-            "target_url": target_url,
-            **report_summary,  # Include pass/fail/error counts
-            "http_stats": http_stats,
-        }
-
-        result = AgentScanResult(
-            success=True,
-            audit_id=audit_id,
-            agent_type=agent_type,
-            vulnerabilities=clusters,
-            probes_executed=probe_list,
-            probe_results=results_dicts,  # Include detailed probe results for streaming
-            generations_used=generations,
-            report_path=None,  # No local file - results persisted to S3
-            metadata=metadata,
-        )
-
-        # Log summary for visibility
-        logger.info(f"Scan completed: {report_summary.get('fail_count', 0)} failures, "
-                   f"{report_summary.get('pass_count', 0)} passes, "
-                   f"{len(clusters)} vulnerability clusters")
-        
-        # Log scan completion
-        if decision_logger:
-            decision_logger.log_scan_complete(
-                summary={
-                    "probes_executed": probe_list,
-                    "generations_used": generations,
-                    "vulnerabilities_found": len(clusters),
-                    "pass_count": report_summary.get('pass_count', 0),
-                    "fail_count": report_summary.get('fail_count', 0),
-                    "error_count": report_summary.get('error_count', 0),
-                    "http_stats": http_stats,
-                },
-                agent_type=agent_type
-            )
-            
-            # Log tool result
-            decision_logger.log_tool_result(
-                tool_name="execute_scan",
-                result=result.model_dump(),
-                agent_type=agent_type
-            )
-
-        return result.model_dump()
-
-    except Exception as e:
-        logger.error(f"Scan execution failed: {e}", exc_info=True)
-        
-        # Log error
-        decision_logger = None
-        try:
-            decision_logger = get_decision_logger(audit_id)
-        except Exception:
-            pass
-        
-        if decision_logger:
-            decision_logger.log_error(
-                error_type="scan_execution_failed",
-                error_message=str(e),
-                error_details={
-                    "approach": approach,
-                    "target_url": target_url,
-                    "probes_attempted": probe_list,
-                },
-                agent_type=agent_type
-            )
-        
-        return AgentScanResult(
-            success=False,
-            audit_id=audit_id,
-            agent_type=agent_type,
-            error=str(e),
-            metadata={
-                "approach": approach,
-                "target_url": target_url,
-                "probes_attempted": probe_list,
-            }
-        ).model_dump()
-
-
 @tool
 def get_available_probes(category: str = None) -> str:
     """
@@ -584,10 +289,6 @@ def get_available_probes(category: str = None) -> str:
         return json.dumps({"category": category, "probes": PROBE_CATEGORIES[category]})
     return json.dumps({"all_probes": get_all_probe_names(), "categories": PROBE_CATEGORIES})
 
-
-# Export all tools as a list for easy registration
-# Note: execute_scan is deprecated but kept for backward compatibility
-AGENT_TOOLS = [analyze_target, execute_scan, get_available_probes]
 
 # Planning-mode tools (Phase 2)
 PLANNING_TOOLS = [analyze_target, plan_scan, get_available_probes]
