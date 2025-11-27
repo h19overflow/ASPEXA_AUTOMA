@@ -128,7 +128,7 @@ class AsyncHttpClient:
                                 status_code=response.status,
                                 latency_ms=latency_ms,
                             )
-                        except Exception as e:
+                        except Exception:
                             # Non-JSON response
                             text = await response.text()
                             self._stats["success"] += 1

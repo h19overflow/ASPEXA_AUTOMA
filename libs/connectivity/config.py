@@ -7,7 +7,7 @@ that can be overridden via environment variables.
 from typing import List
 
 from pydantic import Field
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class ConnectionSettings(BaseSettings):
@@ -20,6 +20,11 @@ class ConnectionSettings(BaseSettings):
         CONNECTIVITY_DEFAULT_MESSAGE_FIELD: Default message field name
         CONNECTIVITY_DEFAULT_RESPONSE_FIELDS: Comma-separated response field names
     """
+
+    model_config = SettingsConfigDict(
+        env_prefix="",
+        case_sensitive=False,
+    )
 
     default_timeout: int = Field(
         default=30,
@@ -56,10 +61,6 @@ class ConnectionSettings(BaseSettings):
         alias="CONNECTIVITY_DEFAULT_RESPONSE_FIELDS",
         description="Default priority-ordered response fields",
     )
-
-    class Config:
-        env_prefix = ""
-        case_sensitive = False
 
 
 def get_settings() -> ConnectionSettings:

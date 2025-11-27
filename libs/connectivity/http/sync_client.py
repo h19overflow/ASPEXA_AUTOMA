@@ -158,7 +158,7 @@ class SyncHttpClient:
             raise ConnectivityError(
                 f"Connection failed to {self.config.endpoint_url}: {e}"
             )
-        except requests.Timeout as e:
+        except requests.Timeout:
             self._stats["errors"] += 1
             raise ConnectionTimeoutError(
                 self.config.timeout, self.config.endpoint_url
@@ -195,7 +195,7 @@ class SyncHttpClient:
             base_url = self.config.endpoint_url.rsplit("/", 1)[0]
             response = self._session.head(base_url, timeout=5)
             return True, None
-        except requests.RequestException as e:
+        except requests.RequestException:
             # Fall back to simple POST
             try:
                 payload = {self.config.message_field: "health_check"}
