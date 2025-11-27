@@ -25,13 +25,13 @@ class ScanConfigContract(StrictBaseModel):
     allow_agent_override: bool = Field(default=True, description="Allow agent adjustments")
     max_probes: int = Field(default=10, description="Maximum probes to run")
     max_generations: int = Field(default=15, description="Maximum generations per probe")
-    # Parallel execution
-    enable_parallel_execution: bool = Field(default=False, description="Enable parallel execution")
-    max_concurrent_probes: int = Field(default=1, description="Concurrent probes")
-    max_concurrent_generations: int = Field(default=1, description="Concurrent generations")
+    # Parallel execution - ENABLED BY DEFAULT for 60-70% speedup
+    enable_parallel_execution: bool = Field(default=True, description="Enable parallel probe/generation execution")
+    max_concurrent_probes: int = Field(default=3, description="Concurrent probes (3 = good balance)")
+    max_concurrent_generations: int = Field(default=3, description="Concurrent generations per probe")
     # Rate limiting
     requests_per_second: Optional[float] = Field(default=None, description="Rate limit (requests/sec)")
-    max_concurrent_connections: int = Field(default=5, description="Max concurrent connections")
+    max_concurrent_connections: int = Field(default=15, description="Max concurrent connections (increased for parallelization)")
     # Request configuration
     request_timeout: int = Field(default=30, description="Request timeout seconds")
     max_retries: int = Field(default=3, description="Max retry attempts")

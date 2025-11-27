@@ -5,9 +5,8 @@ from fastapi.responses import StreamingResponse
 from typing import Any, AsyncGenerator, Dict
 
 from libs.contracts.scanning import ScanJobDispatch, SafetyPolicy, ScanConfigContract
-from libs.contracts.recon import ReconBlueprint
 from libs.persistence import load_scan, ScanType, CampaignRepository
-from services.swarm.entrypoint import execute_scan, execute_scan_for_campaign, execute_scan_streaming
+from services.swarm.entrypoint import execute_scan_streaming
 from services.api_gateway.schemas import ScanStartRequest
 
 router = APIRouter(prefix="/scan", tags=["scanning"])
@@ -36,45 +35,6 @@ def _build_scan_config(request: ScanStartRequest) -> ScanConfigContract:
         retry_backoff=cfg.retry_backoff,
         connection_type=cfg.connection_type,
     )
-
-
-@router.post("/start")
-async def start_scan(request: ScanStartRequest) -> Dict[str, Any]:
-    """Start vulnerability scanning with Trinity agents.
-
-    Provide EITHER:
-    - campaign_id: Auto-loads recon from S3
-    - blueprint_context: Manual recon data
-
-    Returns:
-        Results per agent type with scan_ids
-    """
-    safety_policy = SafetyPolicy(
-        allowed_attack_vectors=request.allowed_attack_vectors,
-        blocked_attack_vectors=request.blocked_attack_vectors,
-        aggressiveness=request.aggressiveness,
-    )
-    scan_config = _build_scan_config(request)
-
-    # Use campaign_id path (auto-load recon)
-    if request.campaign_id:
-        return await execute_scan_for_campaign(
-            campaign_id=request.campaign_id,
-            agent_types=request.agent_types,
-            safety_policy=safety_policy,
-            scan_config=scan_config,
-            target_url=request.target_url,
-        )
-
-    # Use manual blueprint_context
-    scan_dispatch = ScanJobDispatch(
-        job_id=request.campaign_id or "manual",
-        blueprint_context=request.blueprint_context,
-        safety_policy=safety_policy,
-        scan_config=scan_config,
-        target_url=request.target_url,
-    )
-    return await execute_scan(scan_dispatch, request.agent_types)
 
 
 @router.post("/start/stream")

@@ -25,11 +25,6 @@ class DatabaseSettings(BaseSettings):
     database_url: Optional[str] = Field(None, description="PostgreSQL connection URL")
 
 
-class RedisSettings(BaseSettings):
-    """Redis configuration."""
-    model_config = SettingsConfigDict(env_prefix="", extra="ignore")
-
-    redis_url: str = Field(default="redis://localhost:6379", description="Redis URL")
 
 
 class Settings(BaseSettings):
