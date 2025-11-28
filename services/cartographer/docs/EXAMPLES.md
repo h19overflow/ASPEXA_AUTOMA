@@ -180,10 +180,6 @@ if __name__ == "__main__":
     asyncio.run(event_based_example())
 ```
 
-**Workflow**:
-1. Application publishes `IF-01 ReconRequest` to `cmd_recon_start`
-2. Cartographer consumer handles request
-3. Reconnaissance executes
 4. Results transformed to `IF-02 ReconBlueprint`
 5. Published to `evt_recon_finished`
 6. Swarm service consumes for scanning

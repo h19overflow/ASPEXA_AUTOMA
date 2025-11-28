@@ -75,25 +75,57 @@ class ExploitAgent:
         Initialize exploit agent.
 
         Args:
-            llm: Language model for agent reasoning (default: Gemini 2.5 Flash)
+            llm: Language model for agent reasoning (default: specialized LLMs per agent type)
             checkpointer: LangGraph checkpointer for state persistence (default: MemorySaver)
         """
-        self.llm = llm or self._create_default_llm()
         self.checkpointer = checkpointer or MemorySaver()
 
-        # Create specialized agents for each reasoning step
-        self.pattern_analysis_agent = create_pattern_analysis_agent(self.llm)
-        self.converter_selection_agent = create_converter_selection_agent(self.llm)
-        self.payload_generation_agent = create_payload_generation_agent(self.llm)
-        self.scoring_agent = create_scoring_agent(self.llm)
+        # Create specialized LLMs for each agent type (optimized temperature and tokens)
+        self.pattern_llm = self._create_pattern_analysis_llm()
+        self.converter_llm = self._create_converter_selection_llm()
+        self.payload_llm = self._create_payload_generation_llm()
+        self.scoring_llm = self._create_scoring_llm()
+
+        # Create specialized agents with appropriate LLMs
+        self.pattern_analysis_agent = create_pattern_analysis_agent(self.pattern_llm)
+        self.converter_selection_agent = create_converter_selection_agent(self.converter_llm)
+        self.payload_generation_agent = create_payload_generation_agent(self.payload_llm)
+        self.scoring_agent = create_scoring_agent(self.scoring_llm)
 
         # Create LangGraph workflow for orchestration
         self.workflow = self._create_workflow()
 
-    def _create_default_llm(self) -> BaseChatModel:
-        """Create default LLM (Google Gemini 2.5 Flash)."""
+    def _create_pattern_analysis_llm(self) -> BaseChatModel:
+        """Precision-focused for pattern analysis."""
         return ChatGoogleGenerativeAI(
-            model="gemini-2.5-flash", temperature=0.7, max_output_tokens=8192
+            model="gemini-2.5-flash",
+            temperature=0.2,  # Low temp for analytical precision
+            max_output_tokens=4096,
+        )
+
+    def _create_converter_selection_llm(self) -> BaseChatModel:
+        """Strategic consistency for converter selection."""
+        return ChatGoogleGenerativeAI(
+            model="gemini-2.5-flash",
+            temperature=0.3,  # Strategic but consistent
+            max_output_tokens=2048,
+        )
+
+    def _create_payload_generation_llm(self) -> BaseChatModel:
+        """Creative diversity for payload generation."""
+        return ChatGoogleGenerativeAI(
+            model="gemini-2.5-flash",
+            temperature=0.85,  # High temp for creativity
+            max_output_tokens=6144,
+            top_p=0.95,  # Diversity control
+        )
+
+    def _create_scoring_llm(self) -> BaseChatModel:
+        """Analytical precision for scoring."""
+        return ChatGoogleGenerativeAI(
+            model="gemini-2.5-flash",
+            temperature=0.1,  # Very low for consistent scoring
+            max_output_tokens=2048,
         )
 
     def _create_workflow(self) -> StateGraph:
@@ -105,26 +137,26 @@ class ExploitAgent:
         """
         workflow = StateGraph(ExploitAgentState)
 
-        # Create partial functions that include the specialized agents
+        # Create partial functions with specialized agents and their optimized LLMs
         analyze_node = partial(
             analyze_pattern_node,
             self.pattern_analysis_agent,
-            self.llm,
+            self.pattern_llm,
         )
         select_node = partial(
             select_converters_node,
             self.converter_selection_agent,
-            self.llm,
+            self.converter_llm,
         )
         generate_node = partial(
             generate_payloads_node,
             self.payload_generation_agent,
-            self.llm,
+            self.payload_llm,
         )
         score_node = partial(
             score_result_node,
             self.scoring_agent,
-            self.llm,
+            self.scoring_llm,
         )
 
         # Add nodes

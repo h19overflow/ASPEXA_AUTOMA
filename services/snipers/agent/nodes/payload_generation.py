@@ -42,6 +42,11 @@ def generate_payloads_node(
             )
             human_guidance += f"\nModifications: {modifications_str}"
 
+    # Add failure learning on retry
+    failure_analysis = state.get("failure_analysis")
+    if failure_analysis:
+        human_guidance += f"\n\nFAILURE LEARNING:\nPreviously failed payloads: {failure_analysis.get('recent_failures', [])}\nAttempt {failure_analysis.get('retry_count', 0)} of {state.get('max_retries', 3)}\nGenerate substantially different variations."
+
     try:
         payload_generation = generate_payloads_with_context(
             agent,
@@ -52,6 +57,7 @@ def generate_payloads_node(
             converter_selection=state["converter_selection"],
             example_findings=state["example_findings"],
             recon_intelligence=state.get("recon_intelligence", {}),
+            vulnerability_cluster=state.get("vulnerability_cluster"),
             human_guidance=human_guidance or None,
         )
 

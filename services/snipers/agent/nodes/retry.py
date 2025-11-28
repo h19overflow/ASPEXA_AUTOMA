@@ -32,12 +32,23 @@ def handle_retry_node(state: ExploitAgentState) -> Dict[str, Any]:
 
     # Track failed payloads to avoid repeating them
     failed = state.get("failed_payloads", [])
-    if state.get("current_payload"):
-        failed.append(state["current_payload"])
+    current_payload = state.get("current_payload")
+    if current_payload:
+        failed.append(current_payload)
+
+    # Analyze recent failures (last 3) for failure learning
+    recent_failures = failed[-3:] if len(failed) > 0 else []
+    failure_analysis = {
+        "failed_count": len(failed),
+        "recent_failures": recent_failures,
+        "retry_count": retry_count + 1,
+        "current_payload_failed": current_payload,
+    }
 
     return {
         "retry_count": retry_count + 1,
         "failed_payloads": failed,
+        "failure_analysis": failure_analysis,
         "next_action": "retry",
         "human_approved": None,  # Reset approval for new attempt
         "awaiting_human_review": False

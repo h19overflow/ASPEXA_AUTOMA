@@ -89,11 +89,7 @@ asyncio.run(main())
 
 ```bash
 # Start Cartographer service
-python -m services.cartographer.main
 
-# Service listens on Redis and responds to CMD_RECON_START events
-# Results published to EVT_RECON_FINISHED topic
-```
 
 ---
 
@@ -126,8 +122,6 @@ services/cartographer/
 ```mermaid
 graph TB
     subgraph EventBus ["Redis Event Bus"]
-        CMD["CMD_RECON_START<br/>(IF-01 ReconRequest)"]
-        EVT["EVT_RECON_FINISHED<br/>(IF-02 ReconBlueprint)"]
     end
 
     subgraph Consumer ["Consumer Layer"]
@@ -268,10 +262,7 @@ graph TD
 
 **Responsibility**: Bridge event bus with reconnaissance logic
 
-**Entry Point**: `handle_recon_request()`
-- Subscribes to `CMD_RECON_START` topic
-- Accepts IF-01 `ReconRequest` messages
-- Orchestrates reconnaissance execution
+
 - Transforms observations to IF-02 format
 - Publishes results to `EVT_RECON_FINISHED`
 
@@ -549,11 +540,7 @@ Injected into initial agent message to guide questioning.
 | Pydantic | Data validation | V2 |
 | difflib | Similarity checking | Python stdlib |
 
-### Event Bus Integration
 
-**Subscribes to**: `CMD_RECON_START`
-- Receives IF-01 ReconRequest
-- Executes reconnaissance
 - Processes results
 
 **Publishes to**: `EVT_RECON_FINISHED`

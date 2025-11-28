@@ -9,6 +9,7 @@ from services.cartographer.prompts import RECON_SYSTEM_PROMPT
 from libs.connectivity import AsyncHttpClient, ConnectionConfig, ConnectivityError as NetworkError
 from services.cartographer.tools.health import check_target_health
 from services.cartographer.response_format import ReconTurn
+from libs.monitoring import CallbackHandler
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -23,7 +24,7 @@ def build_recon_graph():
 
     # Initialize model - lower temperature for more reliable structured output
     model = ChatGoogleGenerativeAI(
-        model="gemini-2.5-flash",
+        model="gemini-2.5-flash-lite",
         temperature=0.1,
     )
 
@@ -98,6 +99,10 @@ Generate a strategic probing question to send to the target. The question should
     target_response = None
     all_deductions = {}
 
+    # Initialize Langfuse callback handler for tracing
+    langfuse_handler = CallbackHandler(
+    )
+
     try:
         while turn < max_turns:
             turn += 1
@@ -116,7 +121,8 @@ Generate a strategic probing question to send to the target. The question should
             for retry in range(max_retries):
                 try:
                     result = await agent_graph.ainvoke(
-                        {"messages": conversation_history}
+                        {"messages": conversation_history},
+                        config={"callbacks": [langfuse_handler],"run_name": "Cartographer"}
                     )
                     recon_turn = result.get("structured_response")
                     if recon_turn and isinstance(recon_turn, ReconTurn):

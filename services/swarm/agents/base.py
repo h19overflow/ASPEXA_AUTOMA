@@ -29,6 +29,7 @@ from services.swarm.core.utils import (
 )
 from .prompts import get_system_prompt
 from .tools import PLANNING_TOOLS, set_tool_context, ToolContext
+from libs.monitoring import CallbackHandler, observe
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -73,6 +74,7 @@ def create_planning_agent(
     return agent
 
 
+@observe()
 async def run_planning_agent(
     agent_type: str,
     scan_input: ScanInput,
@@ -128,8 +130,15 @@ async def run_planning_agent(
 
         logger.info(f"[run_planning_agent] Invoking planning agent (input length: {len(input_message.content)})")
 
+        # Initialize Langfuse callback handler for tracing
+        langfuse_handler = CallbackHandler(
+        )
+
         # Invoke agent (fast - just planning, no execution)
-        result = await agent_executor.ainvoke({"messages": [input_message]})
+        result = await agent_executor.ainvoke(
+            {"messages": [input_message]},
+            config={"callbacks": [langfuse_handler],"run_name":"swarm_"+agent_type}
+        )
 
         # Extract plan from tool calls
         plan = _extract_plan_from_result(result)

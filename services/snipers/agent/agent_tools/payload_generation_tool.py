@@ -62,6 +62,17 @@ def generate_payloads_with_context(
         else:
             converter_selection_str = str(converter_selection)
 
+        vulnerability_cluster = context.get("vulnerability_cluster", {})
+        vulnerability_cluster_str = ""
+        if vulnerability_cluster:
+            vulnerability_cluster_str = f"""
+Severity: {vulnerability_cluster.get('severity', 'unknown')}
+Category: {vulnerability_cluster.get('category', 'unknown')}
+Related vulnerabilities: {vulnerability_cluster.get('related_count', 0)}
+"""
+        else:
+            vulnerability_cluster_str = "No vulnerability cluster data available."
+
         prompt = PAYLOAD_GENERATION_PROMPT.format(
             probe_name=context["probe_name"],
             target_url=context["target_url"],
@@ -71,6 +82,7 @@ def generate_payloads_with_context(
             recon_intelligence=format_recon_intelligence(
                 context.get("recon_intelligence", {})
             ),
+            vulnerability_cluster=vulnerability_cluster_str,
             human_guidance=context.get("human_guidance", "No specific guidance provided."),
         )
 

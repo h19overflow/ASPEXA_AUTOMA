@@ -6,6 +6,7 @@ from functools import lru_cache
 from typing import Optional
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings.sources.providers.cli import T
 
 
 class S3Settings(BaseSettings):
@@ -46,6 +47,12 @@ class Settings(BaseSettings):
 
     # Redis Settings
     redis_url: str = Field(default="redis://localhost:6379", description="Redis URL")
+
+    # Langfuse Monitoring Settings
+    langfuse_public_key: Optional[str] = Field(None, description="Langfuse public API key")
+    langfuse_secret_key: Optional[str] = Field(None, description="Langfuse secret API key")
+    langfuse_host: str = Field(default="https://cloud.langfuse.com", description="Langfuse server host")
+    langfuse_enabled: bool = Field(default=True, description="Enable Langfuse monitoring")
 
     @property
     def s3(self) -> S3Settings:

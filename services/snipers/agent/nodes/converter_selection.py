@@ -39,6 +39,7 @@ def select_converters_node(
             target_url=state["target_url"],
             pattern_analysis=state["pattern_analysis"],
             recon_intelligence=state.get("recon_intelligence", {}),
+            vulnerability_cluster=state.get("vulnerability_cluster"),
         )
 
         return {

@@ -39,6 +39,14 @@ def score_result_node(
         return {"error": "Missing pattern analysis"}
 
     try:
+        # Extract success_indicators from pattern_analysis
+        success_indicators = []
+        if state.get("pattern_analysis"):
+            success_indicators = state["pattern_analysis"].success_indicators
+
+        # Extract example outputs from example_findings
+        example_outputs = [f.output for f in state["example_findings"]]
+
         scoring_result = score_attack_result(
             agent,
             llm,
@@ -46,7 +54,8 @@ def score_result_node(
             attack_payload=payload,
             target_response=response,
             pattern_analysis=state["pattern_analysis"],
-            example_findings=state["example_findings"],
+            success_indicators=success_indicators,
+            example_outputs=example_outputs,
         )
 
         attempt_number = len(state.get("attack_results", [])) + 1

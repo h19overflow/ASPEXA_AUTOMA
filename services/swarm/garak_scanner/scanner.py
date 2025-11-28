@@ -31,6 +31,7 @@ from .models import (
     ScanErrorEvent,
 )
 from libs.connectivity.adapters import GarakHttpGenerator as HttpGenerator
+from libs.monitoring import observe
 from .websocket_generator import WebSocketGenerator
 from .rate_limiter import RateLimiter
 from .utils import (
@@ -216,6 +217,7 @@ class GarakScanner:
 
             return all_results
 
+    @observe()
     async def scan_with_streaming(
         self,
         plan: "ScanPlan"  # Import from services.swarm.core.schema

@@ -55,6 +55,12 @@ class ExploitAgentState(TypedDict, total=False):
     max_retries: int
     failed_payloads: List[str]
 
+    # Enhanced tracking fields
+    failure_analysis: Optional[Dict[str, Any]]  # Failure pattern analysis
+    current_payload: Optional[str]               # Currently executing payload
+    current_response: Optional[str]              # Current target response
+    converter_execution_errors: List[str]        # Track converter failures
+
     # Workflow control
     next_action: Optional[str]
     error: Optional[str]
@@ -109,6 +115,10 @@ def create_initial_state(
         retry_count=0,
         max_retries=max_retries,
         failed_payloads=[],
+        failure_analysis=None,
+        current_payload=None,
+        current_response=None,
+        converter_execution_errors=[],
         next_action="analyze_pattern",
         error=None,
         completed=False,

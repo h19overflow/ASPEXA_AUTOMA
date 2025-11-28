@@ -12,6 +12,7 @@ from typing import Any, AsyncGenerator, Dict, List, Optional
 
 from libs.contracts.scanning import ScanJobDispatch
 from libs.contracts.recon import ReconBlueprint
+from libs.monitoring import observe
 from services.swarm.agents.base import run_planning_agent
 from services.swarm.core.schema import ScanContext
 from services.swarm.core.config import AgentType
@@ -35,6 +36,7 @@ AGENT_VECTORS = {
 }
 
 
+@observe()
 async def execute_scan_streaming(
     request: ScanJobDispatch,
     agent_types: Optional[List[str]] = None,
@@ -336,6 +338,7 @@ async def execute_scan_streaming(
     yield {"type": "complete", "data": results}
 
 
+@observe()
 def _build_vulnerability_clusters(probe_results: List[Dict[str, Any]], agent_type: str) -> List[Dict[str, Any]]:
     """Build vulnerability clusters from probe results.
 
