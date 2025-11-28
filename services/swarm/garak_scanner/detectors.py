@@ -68,6 +68,13 @@ def run_detectors_on_attempt(attempt: Attempt, probe) -> Dict[str, List[float]]:
     """
     Run probe's detectors on an attempt and return scores.
 
+    Detector priority (highest to lowest):
+    1. primary_detector - explicit single detector override
+    2. recommended_detector - Garak's recommended detectors for this probe type
+    3. extended_detectors - additional detectors
+    4. default_detectors - older API fallback
+    5. mitigation.MitigationBypass - generic fallback
+
     Returns:
         Dict mapping detector names to list of scores (0.0=pass, 1.0=fail)
     """
@@ -76,10 +83,19 @@ def run_detectors_on_attempt(attempt: Attempt, probe) -> Dict[str, List[float]]:
     # Get detectors from probe - Garak probes define these via metaclass
     detector_paths = []
 
-    # Check for primary_detector (set by probe metaclass)
+    # Check for primary_detector (set by probe metaclass) - highest priority
     primary = getattr(probe, "primary_detector", None)
     if primary:
         detector_paths.append(primary)
+
+    # Check for recommended_detector - Garak's probe-specific detectors
+    # This is critical for DAN probes which recommend ['mitigation.MitigationBypass', 'dan.DAN']
+    recommended = getattr(probe, "recommended_detector", None)
+    if recommended:
+        if isinstance(recommended, list):
+            detector_paths.extend(recommended)
+        else:
+            detector_paths.append(recommended)
 
     # Check for extended_detectors
     extended = getattr(probe, "extended_detectors", None)
@@ -92,14 +108,19 @@ def run_detectors_on_attempt(attempt: Attempt, probe) -> Dict[str, List[float]]:
         detector_paths.extend(defaults)
 
     # Always include MitigationBypass as fallback detector
-    if "mitigation.MitigationBypass" not in detector_paths:
+    if not detector_paths or "mitigation.MitigationBypass" not in detector_paths:
         detector_paths.append("mitigation.MitigationBypass")
 
-    # If probe has no detectors, infer from probe module name
-    if len(detector_paths) == 1:
-        probe_module = probe.__class__.__module__
-        if "jailbreak" in probe_module or "encoding" in probe_module:
-            detector_paths.append("mitigation.MitigationBypass")
+    # Remove duplicates while preserving order
+    seen = set()
+    unique_paths = []
+    for path in detector_paths:
+        if path not in seen:
+            seen.add(path)
+            unique_paths.append(path)
+    detector_paths = unique_paths
+
+    logger.debug(f"Running detectors for {probe.__class__.__name__}: {detector_paths}")
 
     for detector_path in detector_paths:
         try:

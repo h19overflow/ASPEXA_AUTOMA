@@ -162,6 +162,7 @@ def build_conversation(prompt_text: str, output_text: str) -> Optional[Conversat
     Build garak Conversation object with proper Message format.
 
     Handles different garak versions with varying Message constructors.
+    Sets language tags to 'en' so detectors can find outputs via outputs_for().
 
     Args:
         prompt_text: User prompt text
@@ -175,16 +176,20 @@ def build_conversation(prompt_text: str, output_text: str) -> Optional[Conversat
         # Different garak versions may have different signatures
         msg_user = Message(prompt_text)
         msg_user.role = "user"
+        msg_user.lang = "en"  # Required for outputs_for() to work
         msg_assistant = Message(output_text)
         msg_assistant.role = "assistant"
+        msg_assistant.lang = "en"  # Required for outputs_for() to work
         turn = Turn(messages=[msg_user, msg_assistant])
         return Conversation(turns=[turn])
     except (TypeError, AttributeError) as e:
         logger.debug(f"Could not build Conversation with Message objects: {e}")
         try:
-            # Fallback: Try without role attribute
+            # Fallback: Try without role attribute but still set language
             msg_user = Message(prompt_text)
+            msg_user.lang = "en"
             msg_assistant = Message(output_text)
+            msg_assistant.lang = "en"
             turn = Turn(messages=[msg_user, msg_assistant])
             return Conversation(turns=[turn])
         except Exception as e2:
@@ -220,6 +225,15 @@ async def evaluate_output(
     # Build attempt object
     attempt = Attempt()
     attempt.prompt = prompt_text
+
+    # Set language on prompt's last message so outputs_for('en') returns all_outputs
+    # Garak's outputs_for() checks prompt.last_message().lang to determine if translation needed
+    if attempt.prompt and hasattr(attempt.prompt, 'last_message'):
+        last_msg = attempt.prompt.last_message()
+        if last_msg:
+            last_msg.lang = "en"
+
+    # Set outputs (Garak auto-converts strings to Message objects)
     attempt.outputs = [output_text]
     attempt.status = 2  # Garak status for "generated"
 
