@@ -24,7 +24,9 @@
       "Bash(uv run:*)",
       "Bash(findstr:*)",
       "Bash(uv add:*)",
-      "Bash(timeout:*)"
+      "Bash(timeout:*)",
+      "Bash(mkdir:*)",
+      "Bash(1)"
     ],
     "deny": [],
     "ask": []
