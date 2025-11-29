@@ -288,11 +288,11 @@ class TestPayloadGenerator:
         )
 
     def test_payload_generator_creation(self):
-        """Test creating PayloadGenerator with mocked LLM."""
-        mock_llm = MagicMock()
+        """Test creating PayloadGenerator with mocked agent."""
+        mock_agent = MagicMock()
         library = FramingLibrary()
-        generator = PayloadGenerator(llm=mock_llm, framing_library=library)
-        assert generator.llm is mock_llm
+        generator = PayloadGenerator(agent=mock_agent, framing_library=library)
+        assert generator.agent is mock_agent
         assert generator.framing_library is library
 
     def test_articulated_payload_model(self):
