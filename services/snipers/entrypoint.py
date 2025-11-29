@@ -1,13 +1,16 @@
 """HTTP entrypoint for Snipers exploitation service.
 
 Exposes exploitation logic for direct invocation via API gateway.
+Supports three attack modes: Guided, Manual, Sweep with SSE streaming.
 """
 import logging
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any, AsyncGenerator, Dict, List, Optional
 
 from services.snipers.agent.core import ExploitAgent
 from services.snipers.agent.state import create_initial_state
+from services.snipers.models import AttackEvent, AttackMode, ExploitStreamRequest
+from services.snipers.flows import run_manual_attack, run_sweep_attack, run_guided_attack
 from services.snipers.persistence.s3_adapter import (
     load_campaign_intel,
     persist_exploit_result,
@@ -122,3 +125,81 @@ async def execute_exploit(
         "execution_time_seconds": round(execution_time, 2),
         "persisted": persisted,
     }
+
+
+# ============================================================================
+# Streaming Mode Router (New Multi-Mode Support)
+# ============================================================================
+
+async def execute_exploit_stream(
+    request: ExploitStreamRequest,
+) -> AsyncGenerator[AttackEvent, None]:
+    """
+    Execute exploitation with SSE streaming.
+
+    Routes to appropriate flow based on attack mode:
+    - GUIDED: Pattern-learning from Garak findings
+    - MANUAL: Custom payload with converters
+    - SWEEP: All probes in selected categories
+
+    Args:
+        request: ExploitStreamRequest with mode and parameters
+
+    Yields:
+        AttackEvent objects for SSE streaming
+    """
+    logger.info(f"[Snipers] Starting {request.mode.value} attack: target={request.target_url}")
+
+    # Load campaign intel if provided (for guided mode)
+    garak_findings = None
+    if request.campaign_id and request.mode == AttackMode.GUIDED:
+        try:
+            intel = await load_campaign_intel(request.campaign_id)
+            garak_data = intel.get("garak", {})
+            garak_findings = _extract_garak_findings(garak_data)
+        except Exception as e:
+            logger.warning(f"Failed to load campaign intel: {e}")
+
+    # Route to appropriate flow
+    if request.mode == AttackMode.MANUAL:
+        async for event in run_manual_attack(request):
+            yield event
+
+    elif request.mode == AttackMode.SWEEP:
+        async for event in run_sweep_attack(request):
+            yield event
+
+    elif request.mode == AttackMode.GUIDED:
+        async for event in run_guided_attack(request, garak_findings):
+            yield event
+
+    else:
+        yield AttackEvent(
+            type="error",
+            data={"message": f"Unknown attack mode: {request.mode}"},
+        )
+
+
+def _extract_garak_findings(garak_data: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Extract vulnerability findings from Garak data for guided mode."""
+    findings = []
+
+    # Handle different Garak data formats
+    if "results" in garak_data:
+        for result in garak_data["results"]:
+            if result.get("status") == "fail":
+                findings.append({
+                    "probe_name": result.get("probe_name", ""),
+                    "prompt": result.get("prompt", ""),
+                    "output": result.get("output", ""),
+                    "status": result.get("status", ""),
+                    "detector_name": result.get("detector_name", ""),
+                    "detector_score": result.get("detector_score", 0.0),
+                })
+
+    elif "vulnerability_clusters" in garak_data:
+        for cluster in garak_data["vulnerability_clusters"]:
+            for finding in cluster.get("findings", []):
+                findings.append(finding)
+
+    return findings

@@ -47,6 +47,22 @@ class HttpTargetAdapter(PromptTarget):
         self._endpoint_url = endpoint_url
         logger.info(f"Initialized HttpTargetAdapter for {endpoint_url}")
 
+    def _validate_request(self, *, prompt_request: PromptRequestResponse) -> None:
+        """Validate the prompt request before sending.
+
+        Args:
+            prompt_request: PyRIT prompt request/response object
+
+        Raises:
+            ValueError: If request is invalid
+        """
+        if not prompt_request.request_pieces:
+            raise ValueError("No request pieces provided")
+
+        request_piece = prompt_request.request_pieces[0]
+        if not request_piece.converted_value and not request_piece.original_value:
+            raise ValueError("Request piece has no value")
+
     async def send_prompt_async(
         self, *, prompt_request: PromptRequestResponse
     ) -> PromptRequestResponse:
@@ -62,8 +78,7 @@ class HttpTargetAdapter(PromptTarget):
             ValueError: If no request pieces provided
             RuntimeError: If HTTP request fails
         """
-        if not prompt_request.request_pieces:
-            raise ValueError("No request pieces provided")
+        self._validate_request(prompt_request=prompt_request)
 
         request_piece = prompt_request.request_pieces[0]
         prompt_text = request_piece.converted_value or request_piece.original_value
@@ -107,6 +122,22 @@ class WebSocketTargetAdapter(PromptTarget):
         self._endpoint_url = endpoint_url
         logger.info(f"Initialized WebSocketTargetAdapter for {endpoint_url}")
 
+    def _validate_request(self, *, prompt_request: PromptRequestResponse) -> None:
+        """Validate the prompt request before sending.
+
+        Args:
+            prompt_request: PyRIT prompt request/response object
+
+        Raises:
+            ValueError: If request is invalid
+        """
+        if not prompt_request.request_pieces:
+            raise ValueError("No request pieces provided")
+
+        request_piece = prompt_request.request_pieces[0]
+        if not request_piece.converted_value and not request_piece.original_value:
+            raise ValueError("Request piece has no value")
+
     async def send_prompt_async(
         self, *, prompt_request: PromptRequestResponse
     ) -> PromptRequestResponse:
@@ -122,8 +153,7 @@ class WebSocketTargetAdapter(PromptTarget):
             ValueError: If no request pieces provided
             RuntimeError: If WebSocket request fails
         """
-        if not prompt_request.request_pieces:
-            raise ValueError("No request pieces provided")
+        self._validate_request(prompt_request=prompt_request)
 
         request_piece = prompt_request.request_pieces[0]
         prompt_text = request_piece.converted_value or request_piece.original_value

@@ -22,6 +22,11 @@ from services.snipers.tools.converters import (
     HtmlEntityConverter,
     JsonEscapeConverter,
     XmlEscapeConverter,
+    LeetspeakConverter,
+    MorseCodeConverter,
+    CharacterSpaceConverter,
+    HomoglyphConverter,
+    UnicodeSubstitutionConverter,
 )
 
 logger = logging.getLogger(__name__)
@@ -46,21 +51,57 @@ class ConverterFactory:
         self._initialize_converters()
 
     def _initialize_converters(self) -> None:
-        """Create all supported converter instances."""
-        # PyRIT native converters
+        """Create all supported converter instances with dual naming."""
+        # Create instances once
+        base64 = Base64Converter()
+        rot13 = ROT13Converter()
+        caesar = CaesarConverter(caesar_offset=3)
+        url = UrlConverter()
+        hex_conv = TextToHexConverter()
+        unicode_conf = UnicodeConfusableConverter()
+        html = HtmlEntityConverter()
+        json_esc = JsonEscapeConverter()
+        xml_esc = XmlEscapeConverter()
+        leetspeak = LeetspeakConverter()
+        morse = MorseCodeConverter()
+        char_space = CharacterSpaceConverter()
+        homoglyph = HomoglyphConverter()
+        unicode_sub = UnicodeSubstitutionConverter()
+
+        # Map both short names (API) and class names (backward compat)
         self._converters = {
-            "Base64Converter": Base64Converter(),
-            "ROT13Converter": ROT13Converter(),
-            "CaesarConverter": CaesarConverter(caesar_offset=3),  # Default offset
-            "UrlConverter": UrlConverter(),
-            "TextToHexConverter": TextToHexConverter(),
-            "UnicodeConverter": UnicodeConfusableConverter(),
-            # Custom converters
-            "HtmlEntityConverter": HtmlEntityConverter(),
-            "JsonEscapeConverter": JsonEscapeConverter(),
-            "XmlEscapeConverter": XmlEscapeConverter(),
+            # Short names (used by API)
+            "base64": base64,
+            "rot13": rot13,
+            "caesar_cipher": caesar,
+            "url": url,
+            "hex": hex_conv,
+            "unicode_confusable": unicode_conf,
+            "html_entity": html,
+            "json_escape": json_esc,
+            "xml_escape": xml_esc,
+            "leetspeak": leetspeak,
+            "morse_code": morse,
+            "character_space": char_space,
+            "homoglyph": homoglyph,
+            "unicode_substitution": unicode_sub,
+            # Class names (backward compatibility)
+            "Base64Converter": base64,
+            "ROT13Converter": rot13,
+            "CaesarConverter": caesar,
+            "UrlConverter": url,
+            "TextToHexConverter": hex_conv,
+            "UnicodeConverter": unicode_conf,
+            "HtmlEntityConverter": html,
+            "JsonEscapeConverter": json_esc,
+            "XmlEscapeConverter": xml_esc,
+            "LeetspeakConverter": leetspeak,
+            "MorseCodeConverter": morse,
+            "CharacterSpaceConverter": char_space,
+            "HomoglyphConverter": homoglyph,
+            "UnicodeSubstitutionConverter": unicode_sub,
         }
-        logger.info(f"Initialized {len(self._converters)} PyRIT converters")
+        logger.info(f"Initialized {len(self._converters)} PyRIT converter mappings")
 
     def get_converter(self, name: str) -> Optional[PromptConverter]:
         """

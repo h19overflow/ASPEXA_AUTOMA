@@ -12,6 +12,41 @@ OpenAIChatTarget) are fully mocked to avoid external API calls.
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch, call
 from typing import List, Dict, Any
+import sys
+
+# Mock all PyRIT modules before importing orchestrators
+mock_pyrit = MagicMock()
+mock_pyrit.orchestrator = MagicMock()
+mock_pyrit.prompt_target = MagicMock()
+mock_pyrit.prompt_converter = MagicMock()
+mock_pyrit.score = MagicMock()
+mock_pyrit.common = MagicMock()
+mock_pyrit.models = MagicMock()
+mock_pyrit.memory = MagicMock()
+
+sys.modules['pyrit'] = mock_pyrit
+sys.modules['pyrit.orchestrator'] = mock_pyrit.orchestrator
+sys.modules['pyrit.prompt_target'] = mock_pyrit.prompt_target
+sys.modules['pyrit.prompt_converter'] = mock_pyrit.prompt_converter
+sys.modules['pyrit.score'] = mock_pyrit.score
+sys.modules['pyrit.common'] = mock_pyrit.common
+sys.modules['pyrit.models'] = mock_pyrit.models
+sys.modules['pyrit.memory'] = mock_pyrit.memory
+
+# Create mock classes
+mock_pyrit.orchestrator.RedTeamingOrchestrator = MagicMock()
+mock_pyrit.orchestrator.PromptSendingOrchestrator = MagicMock()
+mock_pyrit.prompt_target.PromptChatTarget = MagicMock()
+mock_pyrit.prompt_target.PromptTarget = MagicMock()
+mock_pyrit.prompt_target.OpenAIChatTarget = MagicMock()
+mock_pyrit.prompt_converter.PromptConverter = MagicMock()
+mock_pyrit.score.SelfAskTrueFalseScorer = MagicMock()
+mock_pyrit.common.initialize_pyrit = MagicMock()
+mock_pyrit.common.IN_MEMORY = "in_memory"
+mock_pyrit.common.DUCK_DB = "duck_db"
+mock_pyrit.models.PromptRequestPiece = MagicMock()
+mock_pyrit.models.PromptRequestResponse = MagicMock()
+mock_pyrit.memory.CentralMemory = MagicMock()
 
 from services.snipers.orchestrators.guided_orchestrator import GuidedAttackOrchestrator
 from services.snipers.orchestrators.sweep_orchestrator import SweepAttackOrchestrator

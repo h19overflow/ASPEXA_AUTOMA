@@ -222,7 +222,9 @@ class TestConverterFactoryIntegration:
                 payload, ["HtmlEntityConverter"]
             )
             assert result2 != payload  # Should be transformed
-            assert "&lt;" in result2 or "&gt;" in result2  # HTML entities
+            # HTML entities can be in named (&lt;) or hex (&#x3c;) format
+            assert ("&lt;" in result2 or "&gt;" in result2 or
+                    "&#x3c;" in result2 or "&#x3E;" in result2)
             assert len(errors2) == 0
 
         asyncio.run(test_transform())
