@@ -27,53 +27,40 @@ graph TB
     end
 
     subgraph "Phase 2: Intelligent Scanning"
-        B["Swarm Trinity<br/>LangChain Agents + Garak Framework"]
+        B["Swarm Trinity<br/>LangChain Agents + Garak Framework<br/>Phase 1: Planning<br/>Phase 2: Execution"]
         B1["SQL Agent<br/>Injection, Encoding Bypass"]
         B2["Auth Agent<br/>BOLA, Privilege Escalation"]
         B3["Jailbreak Agent<br/>Prompt Override, System Prompt Leak"]
         B --> B1
         B --> B2
         B --> B3
-        B4["50+ Garak Probes<br/>Parallel Execution<br/>Rate Limiting<br/>Vulnerability Scoring"]
-        B1 --> B4
-        B2 --> B4
-        B3 --> B4
     end
 
-    subgraph "Phase 3: Human-Guided Exploitation"
-        C["Snipers<br/>LangGraph Workflow + PyRIT Framework"]
-        C1["7-Stage Pipeline:<br/>1. Pattern Analysis<br/>2. Converter Selection<br/>3. Payload Generation<br/>4. Attack Plan<br/>5. HITL Gate #1<br/>6. Attack Execution<br/>7. HITL Gate #2"]
-        C --> C1
-        C2["9 PyRIT Converters:<br/>Base64, ROT13, Caesar,<br/>URL, TextToHex, Unicode,<br/>HtmlEntity, JsonEscape, XmlEscape"]
-        C1 --> C2
+    subgraph "Phase 3: Exploitation"
+        C["Snipers (Automated)<br/>LangGraph + PyRIT<br/>7-Stage Pipeline"]
+        D["Manual Sniping (Interactive)<br/>Session-Based<br/>WebSocket + Converter Chain"]
     end
 
     subgraph "Shared Services"
-        D["Libs<br/>Contracts, Config,<br/>Events, Persistence"]
-        E["FastStream<br/>Redis Streams<br/>Event Bus"]
+        E["Libs<br/>Contracts, Config,<br/>Monitoring, Persistence"]
         F["S3 + SQLite<br/>Campaign Tracking<br/>Scan Storage"]
     end
 
-    A -->|IF-02 ReconBlueprint| E
-    E -->|evt_recon_finished| B
-    B -->|IF-04 VulnerabilityCluster| E
-    E -->|evt_scan_complete| C
-    C -->|IF-06 ExploitResult| E
-
-    A --> D
-    B --> D
-    C --> D
+    A --> E
+    B --> E
+    C --> E
     D --> E
     A --> F
     B --> F
     C --> F
+    D --> F
 
     style A fill:#ff6b6b,color:#fff,stroke:#c92a2a,stroke-width:2px
     style B fill:#4ecdc4,color:#fff,stroke:#0d9488,stroke-width:2px
     style C fill:#ffd93d,color:#000,stroke:#f39c12,stroke-width:2px
-    style D fill:#95a5a6,color:#fff,stroke:#7f8c8d,stroke-width:2px
-    style E fill:#3498db,color:#fff,stroke:#2980b9,stroke-width:2px
-    style F fill:#9b59b6,color:#fff,stroke:#8e44ad,stroke-width:2px
+    style D fill:#9b59b6,color:#fff,stroke:#8e44ad,stroke-width:2px
+    style E fill:#95a5a6,color:#fff,stroke:#7f8c8d,stroke-width:2px
+    style F fill:#3498db,color:#fff,stroke:#2980b9,stroke-width:2px
 ```
 
 ---
@@ -137,38 +124,49 @@ All contracts use **Pydantic V2** for validation and type safety.
 
 **Engine**: LangChain agents + Garak framework (50+ security probes)
 
-**The Trinity** (3 specialized agents):
+**Two-Phase Architecture**:
 
-Each agent interprets reconnaissance data differently:
+#### Phase 1: Planning (~2-3s)
+- **LangChain Agent** analyzes target and recon blueprint
+- **Produces ScanPlan** with:
+  - Selected probes (filtered by agent type + target context)
+  - Generations per probe
+  - Execution strategy (quick/standard/thorough)
+
+#### Phase 2: Execution (Streaming)
+- **Scanner** executes plan with real-time event streaming
+- **Parallel probe execution** with configurable concurrency
+- **Rate limiting** via token bucket algorithm
+- **Real-time SSE updates** for UI progress tracking
+
+**The Trinity** (3 specialized agents):
 
 #### SQL Agent (Data Surface Attacker)
 - **Focuses on**: SQL injection, XSS, encoding bypasses
-- **Uses**: recon.tools, recon.infrastructure.database
-- **Strategy**: If PostgreSQL detected -> prioritize SQL injection probes
+- **Strategy**: If PostgreSQL detected → prioritize SQL injection probes
 - **Success**: Extracts data or triggers SQL error
 
 #### Auth Agent (Authorization Surface Attacker)
 - **Focuses on**: BOLA, privilege escalation, role bypass
-- **Uses**: recon.authorization, role structure, limits
-- **Strategy**: Uses discovered limits ("Max refund $5000") -> generates boundary tests ($5001, $0, -1)
+- **Strategy**: Uses discovered limits ("Max refund $5000") → generates boundary tests ($5001, $0, -1)
 - **Success**: Accesses restricted data or escalates privileges
 
 #### Jailbreak Agent (Prompt Surface Attacker)
 - **Focuses on**: Breaking character, overriding constraints, leaking system prompt
-- **Uses**: recon.system_prompt_leak, recon.infrastructure.model_family
-- **Strategy**: If GPT-4 detected -> use specific jailbreak variants
+- **Strategy**: If GPT-4 detected → use specific jailbreak variants
 - **Success**: Violates stated constraints or reveals hidden instructions
 
 **Execution**:
-- **Parallelism**: Up to 10 concurrent probes + 5 generations per probe
-- **Rate Limiting**: Token bucket algorithm (configurable requests/second)
-- **Approaches**:
-  - Quick: 2 min
-  - Standard: 10 min
-  - Thorough: 30 min
+- **Concurrent probes**: Configurable (default 10)
+- **Generations per probe**: Configurable (default 5)
+- **Rate Limiting**: Token bucket (configurable requests/second)
+- **Approaches** (via planning agent):
+  - Quick: Fewer probes, 1-2 generations
+  - Standard: Mixed probes, 3-5 generations
+  - Thorough: All probes, 5+ generations
 
 **Detection Pipeline**:
-1. Extract probes from Garak
+1. Extract probes matching agent type + plan
 2. Generate outputs via HTTP/WebSocket
 3. Run detectors (vulnerability scoring 0.0-1.0)
 4. Aggregate with fallback detection
@@ -182,62 +180,58 @@ Each agent interprets reconnaissance data differently:
 
 ---
 
-### Phase 3: Snipers (Exploitation) [64% COMPLETE]
+### Phase 3: Snipers (Exploitation) [COMPLETE]
 
-**Goal**: Analyze vulnerability patterns, plan multi-turn attacks, and execute with mandatory human approval.
+**Goal**: Provide both automated and interactive exploitation capabilities.
 
+**Two sub-services**:
+
+#### Automated Snipers (Planned Attacks)
 **Engine**: LangGraph workflow + PyRIT framework
-
-**Design**: Hybrid structure + content separation
-- **Structure** (hard): LangGraph workflow defines stages, success criteria, safety limits
-- **Content** (soft): LLM adapts tone, phrasing, social engineering context to target
 
 **7-Stage Pipeline**:
 
-1. **Pattern Analysis** -> Extract patterns from successful Garak probes
-   - *Example*: "In 50 probes, 3 succeeded with comment injection: `--` and `/**/`"
+1. **Pattern Analysis** → Extract patterns from successful Garak probes
+2. **Converter Selection** → Choose encoding strategies (Base64, ROT13, Caesar, URL, etc.)
+3. **Payload Generation** → Create contextual attack strings
+4. **Attack Plan** → Design multi-turn conversation sequence
+5. **Human Review** [HITL Gate #1] → Plan auditor approves
+6. **Attack Execution** → Run PyRIT orchestrator with session state
+7. **Scoring & Review** [HITL Gate #2] → Confirm proof
 
-2. **Converter Selection** -> Choose encoding strategies
-   - Map vulnerability type to PyRIT converters (Base64, ROT13, Caesar, URL, etc.)
-   - Avoid detection while maintaining functionality
+**Endpoint**: `POST /api/exploit/start/stream` (SSE streaming)
 
-3. **Payload Generation** -> Create contextual attack strings
-   - Rewrite payloads to match target's domain/tone
-   - *Example*: "Patient ID: `' OR 1=1 --`" -> "Could you check if ID `' OR 1=1 --` exists in our system?"
+#### Manual Sniping (Interactive Testing)
+**Engine**: Session-based converter chain + async attack executor
 
-4. **Attack Plan** -> Design multi-turn conversation sequence
-   - Determine conversation flow to trigger vulnerability
-   - Plan for authentication, session handling, state management
+**Features**:
+- **Session Management**: Create/manage multiple sessions per campaign
+- **Converter Catalog**: 9 PyRIT converters (Base64, ROT13, Caesar, URL, TextToHex, Unicode, HtmlEntity, JsonEscape, XmlEscape)
+- **Payload Transformation**: Preview or execute with converter chains
+- **Real-time Execution**: WebSocket streaming of attack progress
+- **Protocol Support**: HTTP, WebSocket, custom headers, authentication (Bearer, Basic)
+- **Campaign Intelligence**: Load discovered vulnerabilities from Swarm
+- **Persistence**: Save sessions with full attack transcript to S3
 
-5. **Human Review** [HITL Gate #1]
-   - Plan auditor reviews and approves attack sequence
-
-6. **Attack Execution** -> Run PyRIT orchestrator
-   - Send generative prompt to target
-   - Maintain session state and conversation history
-   - Capture full interaction transcript
-
-7. **Scoring & Review** [HITL Gate #2]
-   - Verify exploitation and confirm vulnerability proof
+**Endpoints**:
+- `POST /api/manual-sniping/session/create` → Create session
+- `GET /api/manual-sniping/session/{id}` → Get session details
+- `POST /api/manual-sniping/transform` → Preview payload transformation
+- `POST /api/manual-sniping/attack` → Execute attack (async)
+- `WebSocket /ws/manual-sniping/session/{id}` → Real-time updates
+- `POST /api/manual-sniping/session/{id}/save` → Persist to S3
 
 **PyRIT Integration**:
-- **9 Payload Converters**: Base64, ROT13, Caesar, URL, TextToHex, Unicode, HtmlEntity, JsonEscape, XmlEscape
-- **Target Adapters**: HTTP, WebSocket
+- **9 Payload Converters**: Pluggable, dynamic loading via importlib
+- **Target Adapters**: HTTP, WebSocket with custom authentication
 - **Scorers**: Regex-based, pattern-based, composite strategies
-- **Dynamic Loading**: via importlib for extensibility
+- **Streaming**: Real-time progress events via WebSocket
 
-**Output**: **IF-06 ExploitResult** containing:
+**Output**: **IF-06 ExploitResult** (both services):
 - Attack success status
-- Proof of exploitation (screenshot, data exfiltrated, etc.)
+- Proof of exploitation (data exfiltrated, system prompt leaked, etc.)
 - Kill chain transcript (request/response pairs)
 - Vulnerability confirmation with evidence
-
-**Status**:
-- [DONE] Core LangGraph workflow
-- [DONE] PyRIT integration (converters, executors, scorers)
-- [DONE] Pattern analysis and payload generation
-- [PENDING] FastAPI REST endpoints
-- [PENDING] WebSocket controller
 
 ---
 
@@ -294,132 +288,160 @@ Each agent interprets reconnaissance data differently:
 ```
 aspexa-automa/
 ├── libs/                        # Shared kernel
+│   ├── __init__.py
 │   ├── config/
 │   │   └── settings.py         # Centralized configuration
 │   ├── contracts/
-│   │   ├── common.py           # Shared enums
-│   │   ├── recon.py            # IF-01, IF-02
-│   │   ├── scanning.py         # IF-03, IF-04
-│   │   └── attack.py           # IF-05, IF-06
-│   ├── events/
-│   │   ├── publisher.py        # Redis Streams publisher
-│   │   └── consumer.py         # Redis Streams consumer
+│   │   ├── __init__.py
+│   │   ├── common.py           # Shared enums (DepthLevel, Aggressiveness)
+│   │   ├── recon.py            # IF-01 ReconRequest, IF-02 ReconBlueprint
+│   │   ├── scanning.py         # IF-03 ScanJobDispatch, IF-04 VulnerabilityCluster
+│   │   └── attack.py           # IF-05 ExploitInput, IF-06 ExploitResult
+│   ├── monitoring/
+│   │   └── __init__.py         # Observability decorators
 │   └── persistence/
+│       ├── __init__.py
 │       ├── s3.py               # S3 storage interface
 │       ├── sqlite/             # Campaign tracking
-│       └── scan_models.py      # Scan data models
+│       ├── scan_models.py      # Scan data models
+│       └── repository.py       # Campaign repository
 │
 ├── services/
+│   ├── api_gateway/            # HTTP FastAPI Entry Point
+│   │   ├── main.py             # FastAPI app initialization
+│   │   ├── routers/
+│   │   │   ├── __init__.py
+│   │   │   ├── recon.py        # POST /api/recon/start/stream
+│   │   │   ├── scan.py         # POST /api/scan/start/stream
+│   │   │   ├── exploit.py      # POST /api/exploit/start/stream
+│   │   │   ├── manual_sniping.py # Manual sniping endpoints
+│   │   │   ├── campaigns.py    # Campaign CRUD endpoints
+│   │   │   └── scans.py        # Scan persistence endpoints
+│   │   └── schemas/
+│   │       ├── __init__.py
+│   │       ├── recon.py        # Request/response schemas
+│   │       ├── scan.py
+│   │       ├── exploit.py
+│   │       └── manual_sniping.py
+│   │
 │   ├── cartographer/           # Phase 1: Reconnaissance
-│   │   ├── main.py             # FastStream entry point
-│   │   ├── consumer.py         # Event handler
-│   │   ├── prompts.py          # 11 attack vectors
-│   │   ├── response_format.py  # Pydantic schemas
+│   │   ├── __init__.py
+│   │   ├── entrypoint.py       # HTTP handler (execute_recon_streaming)
 │   │   ├── agent/
+│   │   │   ├── __init__.py
 │   │   │   ├── graph.py        # LangGraph workflow
 │   │   │   └── state.py        # Agent state
+│   │   ├── intelligence/
+│   │   │   ├── __init__.py
+│   │   │   └── extractors.py   # Intelligence extraction logic
 │   │   ├── tools/
+│   │   │   ├── __init__.py
 │   │   │   ├── definitions.py  # Tool implementations
 │   │   │   └── network.py      # HTTP client
 │   │   └── persistence/
-│   │       ├── json_storage.py # IF-02 transformation
+│   │       ├── __init__.py
 │   │       └── s3_adapter.py   # S3 integration
 │   │
-│   ├── swarm/                  # Phase 2: Scanning
-│   │   ├── main.py             # FastStream entry point
+│   ├── swarm/                  # Phase 2: Intelligent Scanning
+│   │   ├── __init__.py
+│   │   ├── entrypoint.py       # HTTP handler (execute_scan_streaming)
 │   │   ├── core/
-│   │   │   ├── consumer.py     # Event handler
-│   │   │   ├── schema.py       # Data models
-│   │   │   ├── config.py       # 50+ Garak probes
+│   │   │   ├── __init__.py
+│   │   │   ├── schema.py       # ScanContext, ScanPlan models
+│   │   │   ├── config.py       # 50+ Garak probe configuration
 │   │   │   └── utils.py        # Logging utilities
 │   │   ├── agents/
-│   │   │   ├── base.py         # Agent factory
-│   │   │   ├── trinity.py      # SQL, Auth, Jailbreak agents
-│   │   │   ├── prompts.py      # System prompts
+│   │   │   ├── __init__.py
+│   │   │   ├── base.py         # Planning agent factory
+│   │   │   ├── prompts.py      # System prompts for agents
 │   │   │   ├── tools.py        # Probe selection tools
 │   │   │   └── utils.py        # Agent utilities
 │   │   ├── garak_scanner/
-│   │   │   ├── scanner.py      # Core orchestration
-│   │   │   ├── http_generator.py
+│   │   │   ├── __init__.py
+│   │   │   ├── scanner.py      # Core orchestration + streaming
+│   │   │   ├── models.py       # Event models (ScanStartEvent, etc.)
+│   │   │   ├── http_generator.py    # HTTP probe execution
 │   │   │   ├── websocket_generator.py
 │   │   │   ├── detectors.py    # Vulnerability detection
-│   │   │   ├── report_parser.py # JSONL -> VulnerabilityCluster
-│   │   │   ├── rate_limiter.py
-│   │   │   └── models.py
+│   │   │   ├── rate_limiter.py # Token bucket rate limiting
+│   │   │   └── report_parser.py # JSONL -> VulnerabilityCluster
 │   │   └── persistence/
+│   │       ├── __init__.py
 │   │       └── s3_adapter.py   # S3 integration
 │   │
-│   └── snipers/                # Phase 3: Exploitation (64%)
-│       ├── main.py             # FastStream entry point
-│       ├── consumer.py         # Event handler
-│       ├── models.py           # Pydantic models
-│       ├── parsers.py          # Report parsing
-│       ├── agent/
-│       │   ├── core.py         # Orchestration
-│       │   ├── state.py        # LangGraph state
-│       │   ├── prompts.py      # System prompts
-│       │   ├── routing.py      # Workflow logic
-│       │   ├── agent_tools/    # Reasoning tools
-│       │   │   ├── pattern_analysis_tool.py
-│       │   │   ├── converter_selection_tool.py
-│       │   │   ├── payload_generation_tool.py
-│       │   │   └── scoring_tool.py
-│       │   └── nodes/          # Workflow nodes
-│       │       ├── pattern_analysis.py
-│       │       ├── converter_selection.py
-│       │       ├── payload_generation.py
-│       │       ├── attack_plan.py
-│       │       ├── human_review.py
-│       │       ├── attack_execution.py
-│       │       ├── scoring.py
-│       │       └── retry.py
-│       ├── tools/
-│       │   ├── pyrit_bridge.py
-│       │   ├── pyrit_executor.py
-│       │   ├── pyrit_target_adapters.py
-│       │   └── scorers/
-│       │       ├── base.py
-│       │       ├── regex_scorer.py
-│       │       ├── pattern_scorer.py
-│       │       └── composite_scorer.py
-│       └── persistence/
-│           └── s3_adapter.py   # S3 integration
-│
-├── scripts/
-│   ├── examples/
-│   │   ├── 01_basic_reconnaissance.py
-│   │   ├── 02_persistence_workflow.py
-│   │   ├── 03_intelligence_extraction.py
-│   │   └── scan_target_with_swarm.py
-│   └── testing/
-│       └── test_swarm_scanner.py
+│   ├── snipers/                # Phase 3a: Automated Exploitation
+│   │   ├── __init__.py
+│   │   ├── entrypoint.py       # HTTP handler (execute_exploit_streaming)
+│   │   ├── models.py           # Pydantic models
+│   │   ├── agent/
+│   │   │   ├── __init__.py
+│   │   │   ├── core.py         # Orchestration
+│   │   │   ├── state.py        # LangGraph state
+│   │   │   ├── prompts.py      # System prompts
+│   │   │   └── nodes/          # Workflow nodes (7-stage pipeline)
+│   │   ├── tools/
+│   │   │   ├── __init__.py
+│   │   │   ├── pyrit_bridge.py # PyRIT integration
+│   │   │   ├── pyrit_executor.py
+│   │   │   ├── pyrit_target_adapters.py
+│   │   │   └── scorers/        # Scoring strategies
+│   │   └── persistence/
+│   │       ├── __init__.py
+│   │       └── s3_adapter.py   # S3 integration
+│   │
+│   └── manual_sniping/         # Phase 3b: Interactive Testing
+│       ├── __init__.py
+│       ├── entrypoint.py       # HTTP/WebSocket handler
+│       ├── core/
+│       │   ├── __init__.py
+│       │   ├── session.py      # Session management
+│       │   ├── converters.py   # Converter chain executor
+│       │   ├── websocket.py    # WebSocket manager
+│       │   └── catalog.py      # Converter catalog
+│       ├── execution/
+│       │   ├── __init__.py
+│       │   └── attack_executor.py # Attack execution logic
+│       ├── insights/
+│       │   ├── __init__.py
+│       │   └── intelligence.py # Campaign intelligence loader
+│       ├── models/
+│       │   ├── __init__.py
+│       │   ├── session.py      # Session model
+│       │   ├── attempt.py      # Attack attempt model
+│       │   └── config.py       # Target & auth config
+│       ├── persistence/
+│       │   ├── __init__.py
+│       │   └── s3_adapter.py   # S3 integration
+│       └── README.md           # Service-specific docs
 │
 ├── tests/
 │   ├── conftest.py
 │   ├── unit/
 │   │   ├── libs/
-│   │   ├── services/cartographer/
-│   │   ├── services/swarm/
-│   │   ├── services/snipers/
+│   │   ├── services/
+│   │   │   ├── cartographer/
+│   │   │   ├── swarm/
+│   │   │   └── snipers/
 │   │   └── test_persistence/
 │   └── integration/
 │       ├── test_cartographer_flow.py
 │       └── test_swarm_flow.py
 │
 ├── docs/
-│   ├── main.md
-│   ├── code_base_structure.md
-│   ├── tech_stack.md
-│   ├── data_contracts.md
+│   ├── main.md                 # High-level overview
+│   ├── code_base_structure.md  # Module organization
+│   ├── tech_stack.md           # Technology breakdown
+│   ├── data_contracts.md       # IF-01 through IF-06
 │   ├── persistence_integration_plan.md
 │   └── Phases/
 │       ├── PHASE1_CARTOGRAPHER.md
 │       ├── PHASE2_SWARM_SCANNER.md
-│       ├── PHASE3_GARAK_INTEGRATION.md
-│       └── PHASE4_SNIPERS_EXPLOIT.md
+│       ├── PHASE3_SNIPERS_EXPLOITATION.md
+│       └── PHASE3B_MANUAL_SNIPING.md
 │
-├── docker-compose.yml
-├── pyproject.toml
+├── docker-compose.yml          # Redis setup
+├── pyproject.toml              # Dependencies
+├── CLAUDE.md                   # Development standards
 └── README.md
 ```
 
@@ -456,67 +478,91 @@ export AWS_ACCESS_KEY_ID=your_aws_key
 export AWS_SECRET_ACCESS_KEY=your_aws_secret
 ```
 
-4. **Start Redis**:
+4. **Start API Gateway**:
 ```bash
-docker-compose up -d
+python -m services.api_gateway.main
 ```
 
-5. **Run a reconnaissance**:
+The gateway will start on `http://localhost:8081` and expose all endpoints.
+
+5. **Run reconnaissance via API**:
 ```bash
-python -m services.cartographer.main
+curl -X POST http://localhost:8081/api/recon/start/stream \
+  -H "Content-Type: application/json" \
+  -d '{
+    "audit_id": "test-001",
+    "target_url": "https://target.local",
+    "depth": "deep",
+    "max_turns": 10
+  }'
 ```
 
-6. **Run scanning**:
+6. **Run scanning via API**:
 ```bash
-python -m services.swarm.main
+curl -X POST http://localhost:8081/api/scan/start/stream \
+  -H "Content-Type: application/json" \
+  -d '{
+    "campaign_id": "test-001",
+    "blueprint_context": { ... },
+    "target_url": "https://target.local",
+    "agent_types": ["sql", "auth", "jailbreak"]
+  }'
 ```
 
-7. **Run exploitation** (when ready):
+7. **Interactive manual sniping via WebSocket**:
 ```bash
-python -m services.snipers.main
+wscat -c ws://localhost:8081/ws/manual-sniping/session/{session_id}
 ```
 
 ---
 
-## Event-Driven Architecture
+## HTTP API Architecture
 
-Services communicate asynchronously via **FastStream + Redis Streams**:
+Services communicate via **FastAPI HTTP Gateway** (Synchronous REST + SSE streaming):
 
 ```
-User/API
+User/UI
    |
-   +-- (IF-01 ReconRequest) --> cmd_recon_start
-   |                             |
-   |                        [Cartographer]
-   |                             |
-   +-- (IF-02 ReconBlueprint) -- evt_recon_finished
+   +-- POST /api/recon/start/stream
+   |       |
+   |       [Cartographer]
+   |       |
+   |       +-- SSE: log events, deductions
+   |       |
+   |       +-- Persists ReconBlueprint to S3
    |
-   +-- (IF-03 ScanJobDispatch) -> cmd_scan_start
-   |                             |
-   |                        [Swarm Trinity]
-   |                             |
-   +-- (IF-04 VulnerabilityCluster[]) -- evt_scan_complete
+   +-- POST /api/scan/start/stream
+   |       |
+   |       [Swarm: Phase 1 Planning + Phase 2 Execution]
+   |       |
+   |       +-- SSE: plan, probe progress, results
+   |       |
+   |       +-- Persists VulnerabilityCluster[] to S3
    |
-   +-- (IF-05 ExploitInput) -> cmd_exploit_start
-   |                             |
-   |                        [Snipers Agent]
-   |                             |
-   +-- (IF-06 ExploitResult) -- evt_exploit_complete
+   +-- POST /api/exploit/start/stream (FastAPI SSE)
+   |       |
+   |       [Snipers: Multi-turn exploitation]
+   |       |
+   +-- WebSocket /ws/manual-sniping/session/{session_id}
+       |
+       [Manual Sniping: Session-based interactive testing]
+       |
+       +-- Real-time attack updates
+       +-- Persists to S3
 ```
 
-### Event Topics
-- `cmd_recon_start` -> Trigger reconnaissance
-- `evt_recon_finished` -> Broadcast intelligence
-- `cmd_scan_start` -> Trigger scanning
-- `evt_scan_complete` -> Broadcast vulnerabilities
-- `cmd_exploit_start` -> Trigger exploitation
-- `evt_exploit_complete` -> Broadcast results
+### API Endpoints
+- **Reconnaissance**: `POST /api/recon/start/stream` → Cartographer streaming
+- **Scanning**: `POST /api/scan/start/stream` → Swarm (planning + execution)
+- **Exploitation**: `POST /api/exploit/start/stream` → Snipers (planned attacks)
+- **Manual Sniping**: `WebSocket /ws/manual-sniping/session/{id}` → Interactive testing
 
 ### Benefits
-- **Decoupling**: Services run independently
-- **Scalability**: Multiple instances of same service
-- **Reliability**: Redis persistence for message durability
-- **Observability**: All events logged with correlation IDs (audit_id)
+- **Simplicity**: Direct HTTP calls, no message queue complexity
+- **Real-time Feedback**: SSE streaming for live progress
+- **Synchronous Flow**: Clearer request/response patterns
+- **Session Management**: Manual Sniping maintains state per session
+- **Observability**: Correlation IDs (audit_id, session_id) in all requests
 
 ---
 
@@ -524,32 +570,45 @@ User/API
 
 ### 1. Separation of Concerns
 Each service has one job:
-- **Cartographer**: Gathering intelligence
-- **Swarm**: Finding vulnerabilities
-- **Snipers**: Proving impact
+- **Cartographer**: Gathering intelligence via 11 attack vectors
+- **Swarm**: Finding vulnerabilities via planning + execution
+- **Snipers**: Proving impact with multi-turn attacks
+- **Manual Sniping**: Interactive, session-based testing with real-time feedback
 
-### 2. Intelligence-Driven Decisions
-Swarm doesn't run all 50 probes equally. It prioritizes based on reconnaissance:
-- Detected PostgreSQL -> prioritize SQL injection
-- Detected GPT-4 -> use specific jailbreak variants
-- Found vector store -> add semantic attack probes
+### 2. HTTP-First Architecture
+No message queues—direct API calls with streaming:
+- **SSE (Server-Sent Events)** for real-time progress tracking in Cartographer/Swarm/Snipers
+- **WebSocket** for bi-directional interactive sessions in Manual Sniping
+- Synchronous request/response patterns with clear error handling
+- Session management with persistent state for interactive testing
 
-### 3. Pattern Learning (Snipers)
-Instead of running static templates, Snipers learns from Garak's successful probes:
-- "These 3 payloads succeeded, these 47 failed"
-- Extract common patterns: comment injection, encoding, social engineering
-- Adapt attack phrasing to target's domain/tone
+### 3. Intelligence-Driven Planning
+Swarm doesn't run all 50 probes equally. Phase 1 planning filters by:
+- **Target infrastructure**: Detected PostgreSQL → prioritize SQL injection
+- **Model type**: Detected GPT-4 → use specific jailbreak variants
+- **Recon findings**: Found vector store → add semantic attack probes
 
-### 4. Human-in-the-Loop Safety
-**Two mandatory approval gates**:
+### 4. Pattern Learning (Snipers)
+Instead of running static templates, Snipers learns from probe results:
+- "These 3 payloads succeeded with comment injection"
+- Extract common patterns: encoding, social engineering techniques
+- Adapt attack phrasing to target's domain/tone for realistic context
+
+### 5. Human-in-the-Loop Safety
+**Automated Snipers** has two mandatory approval gates:
 1. **Plan Review**: Human audits attack plan before execution
 2. **Result Review**: Human confirms vulnerability proof before reporting
 
-### 5. Production-Grade Resilience
+**Manual Sniping** provides interactive control:
+- Try converters and payloads in real-time
+- Immediate feedback via WebSocket
+- Full session history saved to S3
+
+### 6. Production-Grade Resilience
 - **Exponential backoff retry**: Network errors don't stop reconnaissance
 - **Graceful degradation**: Missing detectors fall back to generic detection
 - **Duplicate prevention**: 80% similarity threshold deduplicates findings
-- **Audit trails**: All decisions logged with correlation IDs
+- **Audit trails**: All decisions logged with correlation IDs (audit_id, session_id)
 
 ---
 
@@ -557,11 +616,12 @@ Instead of running static templates, Snipers learns from Garak's successful prob
 
 | Phase | Service | Status | Output |
 |-------|---------|--------|--------|
-| **1** | Cartographer | Complete | IF-02 ReconBlueprint |
-| **2** | Swarm | Complete | IF-04 VulnerabilityCluster[] |
-| **3** | Snipers | 64% Complete | IF-06 ExploitResult |
+| **1** | Cartographer | Complete | IF-02 ReconBlueprint (SSE streaming) |
+| **2** | Swarm | Complete | IF-04 VulnerabilityCluster[] (SSE streaming) |
+| **3a** | Snipers (Automated) | Complete | IF-06 ExploitResult (SSE streaming) |
+| **3b** | Manual Sniping (Interactive) | Complete | IF-06 ExploitResult (WebSocket) |
 
-**Phase 1 & 2 are production-ready**. Phase 3 is pending REST API endpoints and WebSocket controller.
+**All services are production-ready**. HTTP API gateway provides REST endpoints with SSE streaming for Cartographer/Swarm/Snipers and WebSocket for Manual Sniping interactive sessions.
 
 ---
 
@@ -712,25 +772,27 @@ Aspexa Automa is licensed under **[Your License Here]**. See LICENSE file for de
 ## Roadmap
 
 **Completed**:
-- [DONE] Phase 1: Cartographer reconnaissance engine
-- [DONE] Phase 2: Swarm intelligent scanning
+- [DONE] Phase 1: Cartographer reconnaissance engine with streaming SSE
+- [DONE] Phase 2: Swarm intelligent scanning (planning + execution)
+- [DONE] Phase 3a: Snipers automated exploitation with 7-stage pipeline
+- [DONE] Phase 3b: Manual Sniping interactive session-based testing
+- [DONE] HTTP API Gateway with FastAPI
 - [DONE] Garak framework integration
-- [DONE] PyRIT exploitation framework
+- [DONE] PyRIT exploitation framework with 9 converters
 - [DONE] S3 + SQLite persistence layer
 
 **In Progress**:
-- [WIP] Phase 3: Snipers REST API endpoints
-- [WIP] Phase 3: WebSocket controller
-- [WIP] Snipers integration testing
+- [WIP] Web dashboard for real-time monitoring
+- [WIP] Advanced campaign analytics and reporting
 
 **Planned**:
-- [TODO] API Gateway with campaign management
-- [TODO] Web dashboard for real-time monitoring
-- [TODO] Advanced reporting and analytics
 - [TODO] Multi-target campaign orchestration
+- [TODO] Advanced vulnerability correlation across phases
+- [TODO] Custom probe/converter development UI
+- [TODO] Collaborative penetration testing features
 
 ---
 
-**Version**: 1.0.0 | **Last Updated**: November 2024
+**Version**: 2.0.0 | **Last Updated**: November 2024
 
 *Transform AI security testing from chaos to science.*
