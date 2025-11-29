@@ -143,3 +143,4 @@ class JsonEscapeConverter(PromptConverter):
     def output_supported(self, output_type: str) -> bool:
         """Check if output type is supported."""
         return output_type == "text"
+

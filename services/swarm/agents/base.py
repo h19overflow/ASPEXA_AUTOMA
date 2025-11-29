@@ -150,19 +150,6 @@ async def run_planning_agent(
                 f"[run_planning_agent] Planning successful: {len(plan.selected_probes)} probes, "
                 f"{plan.generations} generations, duration={duration_ms}ms"
             )
-
-            # Log planning success
-            if decision_logger:
-                decision_logger.log_scan_progress(
-                    progress_type="planning_complete",
-                    progress_data={
-                        "probes_selected": len(plan.selected_probes),
-                        "generations": plan.generations,
-                        "duration_ms": duration_ms,
-                    },
-                    agent_type=agent_type,
-                )
-
             return PlanningPhaseResult.from_success(plan, duration_ms)
         else:
             logger.warning("[run_planning_agent] Agent did not produce a scan plan")
@@ -174,15 +161,6 @@ async def run_planning_agent(
     except Exception as e:
         duration_ms = int((time.monotonic() - start_time) * 1000)
         logger.error(f"[run_planning_agent] Planning failed: {e}", exc_info=True)
-
-        # Log planning error
-        if decision_logger:
-            decision_logger.log_error(
-                error_type="planning_failed",
-                error_message=str(e),
-                error_details={"duration_ms": duration_ms},
-                agent_type=agent_type,
-            )
 
         return PlanningPhaseResult.from_error(str(e), duration_ms)
 
@@ -228,19 +206,74 @@ def _extract_plan_from_result(result: dict) -> Optional[ScanPlan]:
 
 
 def _build_planning_input(scan_input: ScanInput) -> HumanMessage:
-    """Build input message for planning agent.
+    """Build input message for planning agent with FULL intelligence context.
 
     Args:
-        scan_input: Scan input context
+        scan_input: Scan input context with full recon data
 
     Returns:
-        HumanMessage with formatted context for planning
+        HumanMessage with comprehensive context for intelligent probe selection
     """
     config = scan_input.config
 
+    # Build system prompt leaks section
+    prompt_leaks_section = ""
+    if scan_input.system_prompt_leaks:
+        leaks_text = "\n".join(f"  - {leak[:200]}..." if len(leak) > 200 else f"  - {leak}"
+                               for leak in scan_input.system_prompt_leaks[:10])
+        prompt_leaks_section = f"""
+System Prompt Leaks Found ({len(scan_input.system_prompt_leaks)} fragments):
+{leaks_text}
+"""
+
+    # Build auth intelligence section
+    auth_section = ""
+    if scan_input.auth_intelligence:
+        auth = scan_input.auth_intelligence
+        auth_section = f"""
+Authentication Intelligence:
+- Type: {auth.type}
+- Rules: {json.dumps(auth.rules, indent=2) if auth.rules else "None discovered"}
+- Known Vulnerabilities: {json.dumps(auth.vulnerabilities, indent=2) if auth.vulnerabilities else "None discovered"}
+"""
+
+    # Build raw observations section (summarized)
+    observations_section = ""
+    if scan_input.raw_observations:
+        obs_parts = []
+        for category, items in scan_input.raw_observations.items():
+            if items:
+                obs_parts.append(f"  [{category}]: {len(items)} observations")
+                for item in items[:3]:
+                    obs_parts.append(f"    - {item[:150]}..." if len(item) > 150 else f"    - {item}")
+                if len(items) > 3:
+                    obs_parts.append(f"    ... and {len(items) - 3} more")
+        if obs_parts:
+            observations_section = f"""
+Raw Observations by Category:
+{chr(10).join(obs_parts)}
+"""
+
+    # Build structured deductions section
+    deductions_section = ""
+    if scan_input.structured_deductions:
+        ded_parts = []
+        for category, deductions in scan_input.structured_deductions.items():
+            if deductions:
+                ded_parts.append(f"  [{category}]:")
+                for ded in deductions[:5]:
+                    finding = ded.get("finding", ded.get("deduction", str(ded)))
+                    confidence = ded.get("confidence", "unknown")
+                    ded_parts.append(f"    - {finding} (confidence: {confidence})")
+                if len(deductions) > 5:
+                    ded_parts.append(f"    ... and {len(deductions) - 5} more")
+        if ded_parts:
+            deductions_section = f"""
+Structured Deductions (Analyzed Findings):
+{chr(10).join(ded_parts)}
+"""
+
     content = f"""
-Scan Target: {scan_input.target_url}
-Audit ID: {scan_input.audit_id}
 Agent Type: {scan_input.agent_type}
 
 User Configuration:
@@ -251,16 +284,24 @@ User Configuration:
 {f"- Custom Probes: {config.custom_probes}" if config.custom_probes else ""}
 {f"- Fixed Generations: {config.generations}" if config.generations else ""}
 
-Infrastructure Intelligence:
+=== RECONNAISSANCE INTELLIGENCE ===
+
+Infrastructure:
 {json.dumps(scan_input.infrastructure, indent=2)}
 
-Detected Tools:
+Detected Tools ({len(scan_input.detected_tools)} tools):
 {json.dumps(scan_input.detected_tools, indent=2)}
+{prompt_leaks_section}{auth_section}{observations_section}{deductions_section}
+=== END INTELLIGENCE ===
 
 INSTRUCTIONS:
-1. Use analyze_target to assess the intelligence and decide optimal scan parameters
-2. Use plan_scan to create a scan plan with your selected probes
-3. Provide reasoning for each probe selection
+1. Carefully analyze ALL the intelligence above - especially:
+   - System prompt leaks (reveals system behavior and constraints)
+   - Auth vulnerabilities (for auth agent)
+   - Structured deductions (pre-analyzed findings with confidence)
+2. Use analyze_target to confirm and refine your analysis
+3. Use plan_scan to create a targeted scan plan
+4. Provide specific reasoning for each probe selection based on the intelligence
 
 {"You may adjust probe count and generations based on the intelligence." if config.allow_agent_override else "Use the exact configuration provided by the user."}
 """

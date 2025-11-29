@@ -3,10 +3,79 @@ Phase 4: Exploit Agent Pydantic Models
 
 All data structures for the exploit agent system using Pydantic V2.
 Supports Human-in-the-Loop (HITL) interactions and structured agent outputs.
+
+Includes multi-mode attack support:
+- Guided: Uses Garak findings for intelligent attack selection
+- Manual: Custom payload with optional converter chain
+- Sweep: Category-based automated probe execution
 """
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from enum import Enum
+from typing import Any, Dict, List, Literal, Optional
 from pydantic import BaseModel, Field
+
+
+# ============================================================================
+# Attack Mode Enums
+# ============================================================================
+
+class AttackMode(str, Enum):
+    """Attack execution mode."""
+    GUIDED = "guided"      # Uses Garak findings for pattern analysis
+    MANUAL = "manual"      # Custom payload with optional converters
+    SWEEP = "sweep"        # All probes in selected categories
+
+
+class ProbeCategory(str, Enum):
+    """Probe categories for sweep mode."""
+    JAILBREAK = "jailbreak"              # DAN, roleplay bypass
+    PROMPT_INJECTION = "prompt_injection"  # Ignore instructions
+    ENCODING = "encoding"                # Base64, ROT13, Unicode bypass
+    DATA_EXTRACTION = "data_extraction"   # System prompt leak
+    TOOL_EXPLOITATION = "tool_exploitation"  # Function call abuse
+
+
+# ============================================================================
+# Streaming Event Models
+# ============================================================================
+
+class AttackEvent(BaseModel):
+    """SSE event emitted during attack execution."""
+    type: Literal[
+        "started",
+        "plan",
+        "approval_required",
+        "payload",
+        "turn",
+        "response",
+        "result",
+        "score",
+        "error",
+        "complete"
+    ]
+    timestamp: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
+    data: Dict[str, Any] = Field(default_factory=dict)
+
+
+# ============================================================================
+# Multi-Mode Request Models
+# ============================================================================
+
+class ExploitStreamRequest(BaseModel):
+    """Request for streaming exploit execution (all modes)."""
+    target_url: str = Field(..., description="Target endpoint URL")
+    mode: AttackMode = Field(..., description="Attack mode")
+    campaign_id: Optional[str] = Field(None, description="Optional campaign for persistence")
+    # Manual mode fields
+    custom_payload: Optional[str] = Field(None, description="Custom payload for manual mode")
+    converters: Optional[List[str]] = Field(None, description="Converters to apply in order")
+    # Sweep mode fields
+    categories: Optional[List[ProbeCategory]] = Field(None, description="Probe categories for sweep")
+    probes_per_category: int = Field(5, ge=1, le=20, description="Max probes per category")
+    # Guided mode fields
+    probe_name: Optional[str] = Field(None, description="Specific probe for guided mode")
+    # Config
+    require_plan_approval: bool = Field(True, description="Require human approval before execution")
 
 
 # ============================================================================
