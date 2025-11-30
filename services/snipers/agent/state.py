@@ -4,7 +4,7 @@ Phase 4: Exploit Agent LangGraph State
 State management for the exploit agent workflow using LangGraph v1.
 Supports Human-in-the-Loop interrupts at critical decision points.
 """
-from typing import Any, Dict, List, Optional, TypedDict
+from typing import Any, Dict, List, Literal, Optional, TypedDict
 
 from services.snipers.models import (
     AttackPlan,
@@ -15,6 +15,79 @@ from services.snipers.models import (
     PatternAnalysis,
     PayloadGeneration,
 )
+
+
+# Available framing types for payload articulation
+FramingTypeLiteral = Literal[
+    "qa_testing",
+    "compliance_audit",
+    "documentation",
+    "debugging",
+    "educational",
+    "research",
+]
+
+
+class CustomFraming(TypedDict, total=False):
+    """
+    Custom framing strategy definition.
+
+    Use this to define your own persona/context for payload generation
+    instead of using the built-in framing types.
+
+    Example:
+        custom_framing = {
+            "name": "IT Helpdesk",
+            "system_context": "You are an IT helpdesk technician troubleshooting a system issue.",
+            "user_prefix": "Hi, I'm from IT support. We're investigating a critical system error.",
+            "user_suffix": "Please provide detailed diagnostic information."
+        }
+    """
+
+    # Human-readable name for the framing
+    name: str
+
+    # System context to set the persona (e.g., "You are a QA tester...")
+    system_context: str
+
+    # Prefix text to prepend to payload
+    user_prefix: str
+
+    # Suffix text to append to payload (optional)
+    user_suffix: str
+
+
+class PayloadConfig(TypedDict, total=False):
+    """
+    Configuration for payload articulation.
+
+    Options:
+    1. Auto-select: Set payload_count, system picks best framing types
+    2. Specific types: Set framing_types to use specific built-in framings
+    3. Custom: Set custom_framing to define your own persona
+
+    Built-in framing types:
+    - qa_testing: QA tester running security tests
+    - compliance_audit: Compliance auditor checking policies
+    - documentation: Technical writer documenting features
+    - debugging: Developer debugging an issue
+    - educational: Instructor teaching about the system
+    - research: Security researcher analyzing behavior
+    """
+
+    # Number of payloads to generate (1-6)
+    payload_count: int
+
+    # Specific framing types to use (if None, auto-select based on domain)
+    # Options: qa_testing, compliance_audit, documentation, debugging, educational, research
+    framing_types: Optional[List[FramingTypeLiteral]]
+
+    # Exclude high-risk framing strategies (default: True)
+    exclude_high_risk: bool
+
+    # Custom framing strategy (overrides framing_types if provided)
+    # Use this to define your own persona/context for payload generation
+    custom_framing: Optional[CustomFraming]
 
 
 class ExploitAgentState(TypedDict, total=False):
@@ -34,6 +107,9 @@ class ExploitAgentState(TypedDict, total=False):
 
     # Campaign tracking (for persistence)
     campaign_id: Optional[str]
+
+    # Payload articulation configuration
+    payload_config: Optional[PayloadConfig]
 
     # Agent reasoning outputs
     pattern_analysis: Optional[PatternAnalysis]
@@ -79,6 +155,10 @@ def create_initial_state(
     max_retries: int = 3,
     thread_id: str = "default",
     campaign_id: Optional[str] = None,
+    payload_count: int = 1,
+    framing_types: Optional[List[FramingTypeLiteral]] = None,
+    exclude_high_risk: bool = True,
+    custom_framing: Optional[CustomFraming] = None,
 ) -> ExploitAgentState:
     """
     Create initial state for exploit agent workflow.
@@ -92,10 +172,24 @@ def create_initial_state(
         max_retries: Maximum retry attempts
         thread_id: Thread ID for LangGraph checkpointing
         campaign_id: Optional campaign ID for persistence tracking
+        payload_count: Number of payloads to generate (1-6)
+        framing_types: Specific framing types to use (None = auto-select)
+            Options: qa_testing, compliance_audit, documentation, debugging, educational, research
+        exclude_high_risk: Whether to exclude high-risk framing strategies
+        custom_framing: Custom framing strategy (overrides framing_types)
+            Example: {"name": "IT Support", "system_context": "You are IT support...",
+                      "user_prefix": "Hi, I'm from IT.", "user_suffix": "Thanks!"}
 
     Returns:
         Initialized ExploitAgentState
     """
+    payload_config: PayloadConfig = {
+        "payload_count": min(max(1, payload_count), 6),
+        "framing_types": framing_types,
+        "exclude_high_risk": exclude_high_risk,
+        "custom_framing": custom_framing,
+    }
+
     return ExploitAgentState(
         probe_name=probe_name,
         example_findings=example_findings,
@@ -103,6 +197,7 @@ def create_initial_state(
         recon_intelligence=recon_intelligence,
         vulnerability_cluster=vulnerability_cluster,
         campaign_id=campaign_id,
+        payload_config=payload_config,
         pattern_analysis=None,
         converter_selection=None,
         payload_generation=None,

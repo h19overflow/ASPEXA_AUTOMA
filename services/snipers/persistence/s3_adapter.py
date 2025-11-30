@@ -12,10 +12,58 @@ from libs.persistence import (
     ScanType,
     ArtifactUploadError,
     ArtifactNotFoundError,
+    S3PersistenceAdapter,
 )
 from libs.persistence.sqlite import CampaignRepository, Stage
 
 logger = logging.getLogger(__name__)
+
+
+class S3InterfaceAdapter:
+    """
+    Adapter to make S3PersistenceAdapter compatible with PatternDatabaseAdapter.
+
+    PatternDatabaseAdapter expects: get_object(key), put_object(key, data), list_objects(prefix)
+    S3PersistenceAdapter has different methods, so we adapt them.
+    """
+
+    def __init__(self, s3_adapter: S3PersistenceAdapter):
+        """Initialize with S3PersistenceAdapter."""
+        self._adapter = s3_adapter
+
+    async def get_object(self, key: str) -> str:
+        """Get object content as string."""
+        import asyncio
+
+        response = await asyncio.to_thread(
+            self._adapter._client.get_object,
+            Bucket=self._adapter._bucket,
+            Key=key,
+        )
+        return response["Body"].read().decode("utf-8")
+
+    async def put_object(self, key: str, data: str) -> None:
+        """Put string content to S3."""
+        import asyncio
+
+        await asyncio.to_thread(
+            self._adapter._client.put_object,
+            Bucket=self._adapter._bucket,
+            Key=key,
+            Body=data.encode("utf-8"),
+            ContentType="application/json",
+        )
+
+    async def list_objects(self, prefix: str) -> list[str]:
+        """List objects with prefix."""
+        import asyncio
+
+        response = await asyncio.to_thread(
+            self._adapter._client.list_objects_v2,
+            Bucket=self._adapter._bucket,
+            Prefix=prefix,
+        )
+        return [obj["Key"] for obj in response.get("Contents", [])]
 
 
 async def load_campaign_intel(campaign_id: str) -> Dict[str, Any]:
@@ -186,3 +234,9 @@ async def persist_with_fallback(
         logger.error(f"Persistence error: {e}")
         local_save_func(exploit_result)
         return False
+if __name__ == "__main__":
+    import asyncio
+    import json
+    result = asyncio.run(load_campaign_intel("fresh1"))
+    with open("output.json", "w") as f:
+        json.dump(result, f)

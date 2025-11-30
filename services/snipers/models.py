@@ -1,5 +1,5 @@
 """
-Phase 4: Exploit Agent Pydantic Models
+Exploit Agent Pydantic Models
 
 All data structures for the exploit agent system using Pydantic V2.
 Supports Human-in-the-Loop (HITL) interactions and structured agent outputs.
@@ -8,11 +8,20 @@ Includes multi-mode attack support:
 - Guided: Uses Garak findings for intelligent attack selection
 - Manual: Custom payload with optional converter chain
 - Sweep: Category-based automated probe execution
+
+Phase models:
+- Phase1Result: Output from payload articulation phase
+- Phase2Result: Output from converter application phase
+- ConvertedPayload: Individual converted payload with metadata
 """
+from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional, TYPE_CHECKING
 from pydantic import BaseModel, Field
+
+if TYPE_CHECKING:
+    from services.snipers.chain_discovery.models import ConverterChain
 
 
 # ============================================================================
@@ -435,3 +444,77 @@ class ExploitJobResult(BaseModel):
         default_factory=datetime.utcnow,
         description="Job completion timestamp"
     )
+
+
+# ============================================================================
+# Phase 1 & Phase 2 Flow Models (Dataclasses)
+# ============================================================================
+
+@dataclass
+class Phase1Result:
+    """Result from Phase 1 execution - ready for handoff to Phase 2.
+
+    Contains articulated payloads and selected converter chain.
+    User can inspect, modify, or override before Phase 2.
+    """
+    campaign_id: str
+    selected_chain: Any  # ConverterChain | None - use Any to avoid circular import
+    articulated_payloads: List[str]
+    framing_type: str
+    framing_types_used: List[str]
+    context_summary: Dict[str, Any]
+    garak_objective: str
+    defense_patterns: List[str]
+    tools_detected: List[str]
+
+
+@dataclass
+class ConvertedPayload:
+    """Single converted payload with metadata."""
+    original: str
+    converted: str
+    chain_id: str
+    converters_applied: List[str]
+    errors: Optional[List[str]] = None
+
+
+@dataclass
+class Phase2Result:
+    """Result from Phase 2 converter application.
+
+    Contains converted payloads ready for attack execution.
+    """
+    chain_id: str
+    converter_names: List[str]
+    payloads: List[ConvertedPayload]
+    success_count: int
+    error_count: int
+
+
+@dataclass
+class AttackResponse:
+    """Single attack response from target."""
+    payload_index: int
+    payload: str
+    response: str
+    status_code: int
+    latency_ms: float
+    error: Optional[str] = None
+
+
+@dataclass
+class Phase3Result:
+    """Result from Phase 3 attack execution.
+
+    Contains attack responses, composite scoring, and learning outcomes.
+    """
+    campaign_id: str
+    target_url: str
+    attack_responses: List[AttackResponse]
+    composite_score: Any  # CompositeScore - avoid circular import
+    is_successful: bool
+    overall_severity: str
+    total_score: float
+    learned_chain: Any = None  # ConverterChain if successful
+    failure_analysis: Optional[Dict[str, Any]] = None
+    adaptation_strategy: Optional[Dict[str, Any]] = None

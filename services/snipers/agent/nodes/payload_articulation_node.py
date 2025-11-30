@@ -5,11 +5,17 @@ Generates contextually-framed attack payloads using Phase 2 components:
 - FramingLibrary for strategy selection
 - PayloadGenerator for LLM-based generation
 - EffectivenessTracker for learning and adaptation
+
+Configuration via state.payload_config:
+- payload_count: Number of payloads to generate (1-6)
+- framing_types: Specific framing types to use (None = auto-cycle)
+- exclude_high_risk: Whether to exclude high-risk framing strategies
 """
 
 import logging
 from typing import Any
-from services.snipers.agent.state import ExploitAgentState
+
+from services.snipers.agent.state import ExploitAgentState, PayloadConfig, CustomFraming
 from services.snipers.tools.prompt_articulation import (
     PayloadContext,
     TargetInfo,
@@ -18,8 +24,16 @@ from services.snipers.tools.prompt_articulation import (
     PayloadGenerator,
     EffectivenessTracker,
 )
+from services.snipers.tools.prompt_articulation.models.framing_strategy import FramingType
 
 logger = logging.getLogger(__name__)
+
+# Default payload configuration
+DEFAULT_PAYLOAD_CONFIG: PayloadConfig = {
+    "payload_count": 1,
+    "framing_types": None,
+    "exclude_high_risk": True,
+}
 
 
 class PayloadArticulationNodePhase3:
@@ -31,6 +45,11 @@ class PayloadArticulationNodePhase3:
     - Attack history and failed patterns
     - Observable defenses
     - Learned framing strategies with effectiveness tracking
+
+    Configuration is read from state.payload_config:
+    - payload_count: Number of payloads (1-6), each uses different framing
+    - framing_types: List of specific framing types to use
+    - exclude_high_risk: Skip high-detection-risk strategies
     """
 
     def __init__(self, llm: Any, s3_client: Any):
@@ -49,6 +68,11 @@ class PayloadArticulationNodePhase3:
         """
         Generate contextual attack payloads.
 
+        Reads configuration from state.payload_config:
+        - payload_count: Number of payloads to generate (1-6)
+        - framing_types: Specific framing types (None = auto-cycle)
+        - exclude_high_risk: Skip high-risk strategies
+
         Args:
             state: Current exploit agent state
 
@@ -57,26 +81,39 @@ class PayloadArticulationNodePhase3:
         """
         try:
             campaign_id = state.get("campaign_id", "unknown")
-            target_url = state.get("target_url", "")
-            recon_blueprint = state.get("recon_intelligence", {})
-            vulnerability_cluster = state.get("vulnerability_cluster", {})
-            pattern_analysis = state.get("pattern_analysis", {})
-            # Read from converter_selection (state key set by core.py wrapper)
-            selected_converters = state.get("converter_selection")
+            recon_blueprint = state.get("recon_intelligence") or {}
+            pattern_analysis = state.get("pattern_analysis") or {}
+
+            # Read payload configuration from state
+            config = state.get("payload_config") or DEFAULT_PAYLOAD_CONFIG
+            payload_count = min(max(1, config.get("payload_count", 1)), 6)
+            requested_framing_types = config.get("framing_types")
+            exclude_high_risk = config.get("exclude_high_risk", True)
 
             self.logger.info(
-                "Generating attack payloads (Phase 2 integration)",
-                extra={"campaign_id": campaign_id}
+                f"Generating {payload_count} attack payload(s) (Phase 2 integration)",
+                extra={
+                    "campaign_id": campaign_id,
+                    "payload_count": payload_count,
+                    "requested_framings": requested_framing_types,
+                    "exclude_high_risk": exclude_high_risk,
+                }
             )
 
             # Build context from available intelligence
             target_domain = self._extract_domain(recon_blueprint)
             discovered_tools = self._extract_tools(recon_blueprint)
-            infrastructure = recon_blueprint.get("infrastructure", {}) if recon_blueprint else {}
+            infrastructure = recon_blueprint.get("infrastructure", {})
 
             # Build attack history
-            failed_approaches = state.get("failed_payloads", [])
-            successful_patterns = pattern_analysis.get("successful_payloads", []) if pattern_analysis else []
+            failed_approaches = state.get("failed_payloads") or []
+            successful_patterns = pattern_analysis.get("successful_payloads") or []
+
+            # Extract objective from attack_plan dict
+            attack_plan = state.get("attack_plan")
+            objective = ""
+            if isinstance(attack_plan, dict):
+                objective = attack_plan.get("objective", "")
 
             context = PayloadContext(
                 target=TargetInfo(
@@ -87,16 +124,19 @@ class PayloadArticulationNodePhase3:
                 history=AttackHistory(
                     failed_approaches=failed_approaches,
                     successful_patterns=successful_patterns,
-                    blocked_keywords=pattern_analysis.get("blocked_keywords", []) if pattern_analysis else []
+                    blocked_keywords=pattern_analysis.get("blocked_keywords") or []
                 ),
-                observed_defenses=pattern_analysis.get("defense_mechanisms", []) if pattern_analysis else [],
-                objective=state.get("attack_plan", {}).get("objective", "") if state.get("attack_plan") else "",
+                observed_defenses=pattern_analysis.get("defense_mechanisms") or [],
+                objective=objective,
             )
+
+            # Check for custom framing in config
+            custom_framing = config.get("custom_framing")
 
             # Initialize effectiveness tracker
             tracker = EffectivenessTracker(campaign_id=campaign_id)
             try:
-                await tracker.load_history()  # Load previous campaign data
+                await tracker.load_history()
             except Exception as e:
                 self.logger.debug(f"Could not load effectiveness history: {e}")
 
@@ -104,44 +144,62 @@ class PayloadArticulationNodePhase3:
             library = FramingLibrary(effectiveness_provider=tracker)
             generator = PayloadGenerator(agent=self.llm, framing_library=library)
 
-            # Generate payloads using selected converter chain
-            converter_names = []
-            if selected_converters:
-                converter_names = selected_converters.converter_names
-
             payloads = []
-            framing_type = None
+            framing_types_used: list[Any] = []
 
-            # Generate payload(s)
-            try:
-                payload = await generator.generate(context)
-                payloads.append(payload.content)
-                framing_type = payload.framing_type
-
-                self.logger.info(
-                    "Generated attack payload",
-                    extra={
-                        "campaign_id": campaign_id,
-                        "framing_type": framing_type.value if framing_type else "unknown",
-                        "payload_length": len(payload.content)
-                    }
+            # If custom framing provided, use it instead of built-in types
+            if custom_framing:
+                payloads, framing_types_used = await self._generate_with_custom_framing(
+                    generator, context, custom_framing, payload_count, campaign_id or "unknown"
+                )
+            else:
+                # Determine framing types to use
+                framing_types_to_use = self._get_framing_types(
+                    requested_framing_types,
+                    payload_count,
+                    exclude_high_risk,
+                    library,
                 )
 
-            except Exception as e:
-                self.logger.error(
-                    f"Payload generation failed: {e}",
-                    extra={"campaign_id": campaign_id}
-                )
-                # Fallback: use converters to transform objective
-                if state.get("attack_plan"):
-                    objective = state["attack_plan"].get("objective", "")
-                    payloads = [objective]
+                # Generate multiple payloads with different framing strategies
+                for framing_type in framing_types_to_use:
+                    try:
+                        payload = await generator.generate(context, framing_type=framing_type)
+                        payloads.append(payload.content)
+                        framing_types_used.append(framing_type)
+
+                        self.logger.info(
+                            f"Generated payload with {framing_type.value} framing",
+                            extra={
+                                "campaign_id": campaign_id,
+                                "framing_type": framing_type.value,
+                                "payload_length": len(payload.content)
+                            }
+                        )
+
+                    except Exception as e:
+                        self.logger.error(
+                            f"Payload generation failed for {framing_type.value}: {e}",
+                            extra={"campaign_id": campaign_id}
+                        )
+
+            # Fallback if no payloads generated
+            if not payloads and objective:
+                payloads = [objective]
+                framing_types_used = [FramingType.QA_TESTING]
+
+            # Format framing types for output
+            framing_output = [
+                ft.value if isinstance(ft, FramingType) else str(ft)
+                for ft in framing_types_used
+            ]
 
             return {
                 "articulated_payloads": payloads,
-                "selected_framing": framing_type,
+                "selected_framing": framing_types_used[0] if framing_types_used else None,
+                "framing_types_used": framing_output,
                 "payload_context": context.to_dict(),
-                "attack_objective": state.get("attack_plan", {}).get("objective", "") if state.get("attack_plan") else ""
+                "attack_objective": objective,
             }
 
         except Exception as e:
@@ -184,6 +242,126 @@ class PayloadArticulationNodePhase3:
 
         return []
 
+    async def _generate_with_custom_framing(
+        self,
+        generator: PayloadGenerator,
+        context: PayloadContext,
+        custom_framing: CustomFraming,
+        payload_count: int,
+        campaign_id: str,
+    ) -> tuple[list[str], list[str]]:
+        """
+        Generate payloads using custom framing strategy.
+
+        Args:
+            generator: PayloadGenerator instance
+            context: Payload context with target info
+            custom_framing: Custom framing definition from config
+            payload_count: Number of payloads to generate
+            campaign_id: Campaign ID for logging
+
+        Returns:
+            Tuple of (payloads list, framing names list)
+        """
+        from services.snipers.tools.prompt_articulation.models.framing_strategy import (
+            FramingStrategy,
+        )
+
+        framing_name = custom_framing.get("name", "custom")
+
+        self.logger.info(
+            f"Using custom framing: {framing_name}",
+            extra={"campaign_id": campaign_id}
+        )
+
+        # Create custom FramingStrategy from config
+        custom_strategy = FramingStrategy(
+            type=FramingType.QA_TESTING,  # Use as base type
+            name=framing_name,
+            system_context=custom_framing.get("system_context", ""),
+            user_prefix=custom_framing.get("user_prefix", ""),
+            user_suffix=custom_framing.get("user_suffix", ""),
+            domain_effectiveness={"general": 0.8},
+            detection_risk="medium",
+        )
+
+        # Register custom strategy in library
+        generator.framing_library.strategies[FramingType.QA_TESTING] = custom_strategy
+
+        payloads = []
+        framing_names = []
+
+        for i in range(payload_count):
+            try:
+                # Generate using the custom strategy
+                payload = await generator.generate(context, framing_type=FramingType.QA_TESTING)
+                payloads.append(payload.content)
+                framing_names.append(f"{framing_name}_{i+1}" if payload_count > 1 else framing_name)
+
+                self.logger.info(
+                    f"Generated payload with custom framing '{framing_name}'",
+                    extra={
+                        "campaign_id": campaign_id,
+                        "framing_name": framing_name,
+                        "payload_length": len(payload.content),
+                        "payload_index": i + 1,
+                    }
+                )
+
+            except Exception as e:
+                self.logger.error(
+                    f"Custom framing payload generation failed: {e}",
+                    extra={"campaign_id": campaign_id, "framing_name": framing_name}
+                )
+
+        return payloads, framing_names
+
+    def _get_framing_types(
+        self,
+        requested_types: list[Any] | None,
+        count: int,
+        exclude_high_risk: bool,
+        library: FramingLibrary,
+    ) -> list[FramingType]:
+        """
+        Determine which framing types to use for payload generation.
+
+        Args:
+            requested_types: User-specified framing types (None = auto)
+            count: Number of payloads to generate
+            exclude_high_risk: Whether to skip high-risk strategies
+            library: FramingLibrary for strategy lookup
+
+        Returns:
+            List of FramingType enums to use
+        """
+        # If user specified framing types, use those
+        if requested_types:
+            result = []
+            for ft_str in requested_types[:count]:
+                try:
+                    result.append(FramingType(ft_str))
+                except ValueError:
+                    self.logger.warning(f"Unknown framing type: {ft_str}, skipping")
+            return result if result else [FramingType.QA_TESTING]
+
+        # Auto-select: cycle through all available framing types
+        all_types = list(FramingType)
+
+        # Optionally filter high-risk strategies
+        if exclude_high_risk:
+            filtered = []
+            for ft in all_types:
+                try:
+                    strategy = library.get_strategy(ft)
+                    if strategy.detection_risk != "high":
+                        filtered.append(ft)
+                except ValueError:
+                    filtered.append(ft)
+            all_types = filtered if filtered else list(FramingType)
+
+        return all_types[:count]
+
 
 # Module-level async wrapper
 async def articulate_payloads_node(state: ExploitAgentState) -> dict[str, Any]:
@@ -200,3 +378,4 @@ async def articulate_payloads_node(state: ExploitAgentState) -> dict[str, Any]:
     raise NotImplementedError(
         "Use functools.partial to inject PayloadArticulationNodePhase3 instance"
     )
+

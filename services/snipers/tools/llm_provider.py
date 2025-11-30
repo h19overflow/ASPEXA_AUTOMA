@@ -16,10 +16,14 @@ logger = logging.getLogger(__name__)
 # Singleton instances for efficiency
 _default_agent: Optional[Any] = None
 _default_chat_model: Optional[Any] = None
+_default_chat_target: Optional[Any] = None
+
+from dotenv import load_dotenv
+load_dotenv()
 
 
 def get_default_agent(
-    model_id: str = "google_genai:gemini-2.5-flash",
+    model_id: str = "google_genai:gemini-2.5-pro",
     temperature: float = 0.7,
     system_prompt: str = "You are an intelligent exploit agent. Analyze and respond accurately.",
 ) -> Any:
@@ -138,3 +142,38 @@ def create_specialized_agent(
     )
 
     return agent
+
+
+def get_chat_target(
+    model_name: str = "gemini-2.0-flash",
+    temperature: float = 0.7,
+) -> Any:
+    """
+    Get or create PyRIT-compatible chat target for scoring.
+
+    Uses singleton pattern for efficiency.
+    Ensures PyRIT is initialized before creating target.
+
+    Args:
+        model_name: Gemini model name
+        temperature: Sampling temperature (0.0-1.0)
+
+    Returns:
+        GeminiChatTarget instance (PyRIT PromptChatTarget)
+    """
+    global _default_chat_target
+
+    if _default_chat_target is None:
+        # Ensure PyRIT is initialized
+        from services.snipers.core.pyrit_init import init_pyrit
+        init_pyrit()
+
+        from libs.connectivity.adapters.gemini_chat_target import GeminiChatTarget
+
+        _default_chat_target = GeminiChatTarget(
+            model_name=model_name,
+            temperature=temperature,
+        )
+        logger.info(f"Created default chat target with model {model_name}")
+
+    return _default_chat_target

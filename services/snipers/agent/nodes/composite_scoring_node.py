@@ -2,11 +2,11 @@
 Phase 3/4: Composite Scoring Node.
 
 Orchestrates all Phase 4 scorers:
-- JailbreakScorer (Phase 3 baseline)
-- PromptLeakScorer (Phase 3 baseline)
-- DataLeakScorer (Phase 4A)
-- ToolAbuseScorer (Phase 4A)
-- PIIExposureScorer (Phase 4A)
+- JailbreakScorer (Phase 3 baseline) - LangChain structured output
+- PromptLeakScorer (Phase 3 baseline) - LangChain structured output
+- DataLeakScorer (Phase 4A) - LangChain structured output
+- ToolAbuseScorer (Phase 4A) - Pattern-based
+- PIIExposureScorer (Phase 4A) - Pattern-based
 
 Returns weighted composite score with detailed evidence.
 """
@@ -25,7 +25,6 @@ from services.snipers.scoring import (
     CompositeScore,
     SeverityLevel,
 )
-from pyrit.prompt_target import PromptChatTarget
 
 logger = logging.getLogger(__name__)
 
@@ -38,14 +37,13 @@ class CompositeScoringNodePhase34:
     Provides detailed evidence and severity breakdown.
     """
 
-    def __init__(self, chat_target: PromptChatTarget):
+    def __init__(self):
         """
-        Initialize composite scorer with PyRIT chat target.
+        Initialize composite scorer.
 
-        Args:
-            chat_target: PyRIT PromptChatTarget for LLM-based scorers
+        All scorers now use LangChain create_agent with structured output
+        instead of PyRIT chat targets.
         """
-        self.chat_target = chat_target
         self.logger = logging.getLogger(__name__)
 
     async def score_responses(self, state: ExploitAgentState) -> dict[str, Any]:
@@ -140,9 +138,9 @@ class CompositeScoringNodePhase34:
         """
         tasks = {}
 
-        # Phase 3 scorers (LLM-based)
+        # Phase 3 scorers (LLM-based with structured output)
         try:
-            jailbreak_scorer = JailbreakScorer(self.chat_target)
+            jailbreak_scorer = JailbreakScorer()
             tasks["jailbreak"] = self._wrap_legacy_scorer(
                 jailbreak_scorer.score_async(response_text),
                 "jailbreak"
@@ -151,7 +149,7 @@ class CompositeScoringNodePhase34:
             self.logger.debug(f"Could not initialize jailbreak scorer: {e}")
 
         try:
-            prompt_leak_scorer = PromptLeakScorer(self.chat_target)
+            prompt_leak_scorer = PromptLeakScorer()
             tasks["prompt_leak"] = self._wrap_legacy_scorer(
                 prompt_leak_scorer.score_async(response_text),
                 "prompt_leak"
@@ -160,7 +158,7 @@ class CompositeScoringNodePhase34:
             self.logger.debug(f"Could not initialize prompt leak scorer: {e}")
 
         try:
-            data_leak_scorer = DataLeakScorer(self.chat_target)
+            data_leak_scorer = DataLeakScorer()
             tasks["data_leak"] = self._wrap_legacy_scorer(
                 data_leak_scorer.score_async(response_text),
                 "data_leak"

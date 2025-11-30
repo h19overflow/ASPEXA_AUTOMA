@@ -21,7 +21,6 @@ class TargetInfo(BaseModel):
     infrastructure: dict[str, Any] = Field(
         default_factory=dict, description="Tech stack details"
     )
-    model_name: str | None = Field(None, description="LLM model if detected")
 
 
 class AttackHistory(BaseModel):

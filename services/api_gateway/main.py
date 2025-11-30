@@ -5,7 +5,7 @@ Provides REST endpoints as an alternative to event-driven consumers.
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from services.api_gateway.routers import recon, scan, exploit, campaigns, scans, manual_sniping
+from services.api_gateway.routers import recon, scan, campaigns, scans, manual_sniping
 
 app = FastAPI(
     title="Aspexa Automa API",
@@ -26,7 +26,7 @@ app.add_middleware(
 # Service execution endpoints
 app.include_router(recon.router, prefix="/api")
 app.include_router(scan.router, prefix="/api")
-app.include_router(exploit.router, prefix="/api")
+# app.include_router(exploit.router, prefix="/api")
 app.include_router(manual_sniping.router, prefix="/api")
 
 # Persistence endpoints

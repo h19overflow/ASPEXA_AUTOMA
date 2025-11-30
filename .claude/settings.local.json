@@ -26,7 +26,13 @@
       "Bash(uv add:*)",
       "Bash(timeout:*)",
       "Bash(mkdir:*)",
-      "Bash(1)"
+      "Bash(1)",
+      "Bash(del \"services\\snipers\\simple_attack_flow.py\")",
+      "Bash(del \"services\\snipers\\phase2_converter_application.py\")",
+      "Bash(Remove-Item \"c:\\Users\\User\\Projects\\Aspexa_Automa\\services\\snipers\\simple_attack_flow.py\")",
+      "Bash(Remove-Item \"c:\\Users\\User\\Projects\\Aspexa_Automa\\services\\snipers\\phase2_converter_application.py\")",
+      "Bash(powershell:*)",
+      "Bash(ls -la \"c:\\Users\\User\\Projects\\Aspexa_Automa\\services\\snipers\\adaptive_attack\"\" 2>&1 || echo \"Directory check completed \")"
     ],
     "deny": [],
     "ask": []
