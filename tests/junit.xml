@@ -1,1 +1,16 @@
-<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="0" skipped="0" tests="0" time="13.076" timestamp="2025-12-01T12:41:23.411342+08:00" hostname="Adonis2" /></testsuites>
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="11.837" timestamp="2025-12-01T12:56:29.509373+08:00" hostname="Adonis2"><testcase classname="tests.routers_api_gateway.test_snipers_routers.TestPhase2Endpoints" name="test_phase2_preview_conversion" time="0.110"><failure message="assert 422 == 200&#10; +  where 422 = &lt;Response [422 Unprocessable Entity]&gt;.status_code">self = &lt;routers_api_gateway.test_snipers_routers.TestPhase2Endpoints object at 0x0000026042AB8250&gt;
+client = &lt;starlette.testclient.TestClient object at 0x0000026042B12120&gt;
+
+&gt;   ???
+E   assert 422 == 200
+E    +  where 422 = &lt;Response [422 Unprocessable Entity]&gt;.status_code
+
+client     = &lt;starlette.testclient.TestClient object at 0x0000026042B12120&gt;
+mock_payload = &lt;MagicMock id='2612459027968'&gt;
+mock_phase2 = &lt;AsyncMock name='Conversion()' id='2612459027296'&gt;
+mock_phase2_class = &lt;MagicMock name='Conversion' id='2612459026624'&gt;
+mock_result = &lt;MagicMock id='2612459749456'&gt;
+response   = &lt;Response [422 Unprocessable Entity]&gt;
+self       = &lt;routers_api_gateway.test_snipers_routers.TestPhase2Endpoints object at 0x0000026042AB8250&gt;
+
+C:\Users\User\Projects\Aspexa_Automa\tests\unit\api_gateway\test_snipers_routers.py:479: AssertionError</failure></testcase></testsuite></testsuites>

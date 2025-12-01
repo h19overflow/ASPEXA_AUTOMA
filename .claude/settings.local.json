@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(python -m pytest:*)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Bash(PYTHONPATH=/c/Users/User/Projects/Aspexa_Automa python -m pytest:*)"
     ],
     "deny": [],
     "ask": []

@@ -1,4 +1,3 @@
 """API Gateway routers."""
-from . import recon, scan, exploit, campaigns, scans
-
-__all__ = ["recon", "scan",  "campaigns", "scans"]
+# Only import existing routers, snipers is imported in main.py directly
+__all__ = []
