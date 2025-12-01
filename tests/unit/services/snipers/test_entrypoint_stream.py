@@ -1,11 +1,11 @@
-"""Unit tests for snipers entrypoint streaming router.
+"""Unit tests for snipers entrypoint streaming functions.
 
-Tests the execute_exploit_stream() function and helper _extract_garak_findings.
+Tests execute_full_attack_streaming() and execute_adaptive_attack_streaming()
+functions with mocked dependencies.
 """
 import pytest
 import logging
 from unittest.mock import AsyncMock, patch, MagicMock
-from typing import Dict, Any, List
 import sys
 
 # Mock all PyRIT modules to avoid import errors during test collection
@@ -43,587 +43,288 @@ mock_pyrit.models.PromptRequestResponse = MagicMock()
 mock_pyrit.memory.CentralMemory = MagicMock()
 
 from services.snipers.entrypoint import (
-    execute_exploit_stream,
-    _extract_garak_findings,
-)
-from services.snipers.models import (
-    AttackMode,
-    ProbeCategory,
-    AttackEvent,
-    ExploitStreamRequest,
+    execute_full_attack_streaming,
+    execute_adaptive_attack_streaming,
 )
 
 logger = logging.getLogger(__name__)
 
 
-class TestExtractGarakFindings:
-    """Test _extract_garak_findings() helper function."""
-
-    def test_extract_from_results_format(self):
-        """Test extracting findings from 'results' format."""
-        garak_data = {
-            "results": [
-                {
-                    "probe_name": "encoding",
-                    "status": "fail",
-                    "prompt": "Decode BASE64",
-                    "output": "decoded_text",
-                    "detector_name": "match",
-                    "detector_score": 0.95,
-                },
-                {
-                    "probe_name": "encoding",
-                    "status": "pass",
-                    "prompt": "test",
-                    "output": "test",
-                    "detector_name": "match",
-                    "detector_score": 0.1,
-                },
-            ]
-        }
-        findings = _extract_garak_findings(garak_data)
-        assert isinstance(findings, list)
-        # Should only extract 'fail' results (vulnerabilities)
-        assert len(findings) == 1
-        assert findings[0]["status"] == "fail"
-
-    def test_extract_from_vulnerability_clusters_format(self):
-        """Test extracting findings from 'vulnerability_clusters' format."""
-        garak_data = {
-            "vulnerability_clusters": [
-                {
-                    "findings": [
-                        {
-                            "probe_name": "dan",
-                            "status": "fail",
-                            "prompt": "DAN prompt",
-                            "output": "jailbreak",
-                            "detector_name": "jailbreak_detector",
-                            "detector_score": 0.9,
-                        }
-                    ]
-                }
-            ]
-        }
-        findings = _extract_garak_findings(garak_data)
-        assert len(findings) == 1
-        assert findings[0]["probe_name"] == "dan"
-
-    def test_extract_empty_results(self):
-        """Test extracting from empty results."""
-        garak_data = {"results": []}
-        findings = _extract_garak_findings(garak_data)
-        assert findings == []
-
-    def test_extract_empty_clusters(self):
-        """Test extracting from empty clusters."""
-        garak_data = {"vulnerability_clusters": []}
-        findings = _extract_garak_findings(garak_data)
-        assert findings == []
-
-    def test_extract_missing_fields(self):
-        """Test extracting with missing optional fields."""
-        garak_data = {
-            "results": [
-                {
-                    "probe_name": "encoding",
-                    "status": "fail",
-                    # Missing: prompt, output, detector_name, etc.
-                }
-            ]
-        }
-        findings = _extract_garak_findings(garak_data)
-        assert len(findings) == 1
-        assert findings[0]["probe_name"] == "encoding"
-        assert findings[0].get("prompt") == ""
-
-    def test_extract_none_format(self):
-        """Test extracting from None/empty dict."""
-        findings = _extract_garak_findings({})
-        assert findings == []
-
-    def test_extract_multiple_clusters(self):
-        """Test extracting from multiple clusters."""
-        garak_data = {
-            "vulnerability_clusters": [
-                {
-                    "findings": [
-                        {
-                            "probe_name": "dan",
-                            "status": "fail",
-                            "prompt": "DAN",
-                            "output": "success",
-                            "detector_name": "jailbreak",
-                            "detector_score": 0.95,
-                        }
-                    ]
-                },
-                {
-                    "findings": [
-                        {
-                            "probe_name": "encoding",
-                            "status": "fail",
-                            "prompt": "Encode",
-                            "output": "decoded",
-                            "detector_name": "encoding",
-                            "detector_score": 0.9,
-                        }
-                    ]
-                }
-            ]
-        }
-        findings = _extract_garak_findings(garak_data)
-        assert len(findings) == 2
-        probe_names = {f["probe_name"] for f in findings}
-        assert probe_names == {"dan", "encoding"}
-
-    def test_extract_preserves_all_fields(self):
-        """Test that all fields are preserved in extraction."""
-        garak_data = {
-            "results": [
-                {
-                    "probe_name": "encoding",
-                    "status": "fail",
-                    "prompt": "test prompt",
-                    "output": "test output",
-                    "detector_name": "test_detector",
-                    "detector_score": 0.88,
-                    "extra_field": "extra_value",
-                }
-            ]
-        }
-        findings = _extract_garak_findings(garak_data)
-        finding = findings[0]
-        assert finding["probe_name"] == "encoding"
-        assert finding["status"] == "fail"
-        assert finding["prompt"] == "test prompt"
-        assert finding["output"] == "test output"
-        assert finding["detector_name"] == "test_detector"
-        assert finding["detector_score"] == 0.88
-
-    def test_extract_mixed_statuses(self):
-        """Test extraction only extracts 'fail' status (vulnerabilities)."""
-        garak_data = {
-            "results": [
-                {"probe_name": "p1", "status": "fail", "prompt": "p1", "output": "o1", "detector_name": "d1", "detector_score": 0.9},
-                {"probe_name": "p2", "status": "pass", "prompt": "p2", "output": "o2", "detector_name": "d2", "detector_score": 0.1},
-            ]
-        }
-        findings = _extract_garak_findings(garak_data)
-        # Only 'fail' status should be extracted (vulnerabilities for exploitation)
-        assert len(findings) == 1
-        assert findings[0]["status"] == "fail"
-        assert findings[0]["probe_name"] == "p1"
-
-
-class TestExecuteExploitStreamManualMode:
-    """Test execute_exploit_stream() with MANUAL mode."""
+class TestFullAttackStreaming:
+    """Test execute_full_attack_streaming() function."""
 
     @pytest.mark.asyncio
-    async def test_manual_mode_with_payload(self):
-        """Test manual mode with custom payload."""
-        request = ExploitStreamRequest(
-            target_url="http://localhost:8000/api/chat",
-            mode=AttackMode.MANUAL,
-            custom_payload="test payload"
-        )
+    async def test_full_attack_streaming_yields_events(self):
+        """Test that streaming yields events correctly."""
+        with patch(
+            "services.snipers.entrypoint.PayloadArticulation"
+        ) as mock_phase1_class, patch(
+            "services.snipers.entrypoint.Conversion"
+        ) as mock_phase2_class, patch(
+            "services.snipers.entrypoint.AttackExecution"
+        ) as mock_phase3_class:
+            # Setup Phase 1 mock
+            mock_phase1 = AsyncMock()
+            mock_phase1_class.return_value = mock_phase1
 
-        # Mock run_manual_attack to yield events
-        async def mock_manual_flow(req):
-            yield AttackEvent(type="plan", data={"mode": "manual"})
-            yield AttackEvent(type="complete", data={"mode": "manual"})
+            mock_result1 = MagicMock()
+            mock_result1.campaign_id = "test-campaign"
+            mock_result1.selected_chain = MagicMock(
+                chain_id="chain-1",
+                converter_names=["converter1"],
+                defense_patterns=["pattern1"],
+            )
+            mock_result1.articulated_payloads = ["payload1"]
+            mock_result1.framing_types_used = ["qa_testing"]
+            mock_result1.framing_type = "qa_testing"
+            mock_result1.context_summary = {}
+            mock_result1.garak_objective = "test"
+            mock_result1.defense_patterns = ["pattern1"]
+            mock_result1.tools_detected = []
 
-        with patch("services.snipers.entrypoint.run_manual_attack", mock_manual_flow):
+            mock_phase1.execute = AsyncMock(return_value=mock_result1)
+
+            # Setup Phase 2 mock
+            mock_phase2 = AsyncMock()
+            mock_phase2_class.return_value = mock_phase2
+
+            mock_payload = MagicMock()
+            mock_payload.original = "payload1"
+            mock_payload.converted = "converted1"
+            mock_payload.chain_id = "chain-1"
+            mock_payload.converters_applied = ["converter1"]
+            mock_payload.errors = None
+
+            mock_result2 = MagicMock()
+            mock_result2.chain_id = "chain-1"
+            mock_result2.converter_names = ["converter1"]
+            mock_result2.payloads = [mock_payload]
+            mock_result2.success_count = 1
+            mock_result2.error_count = 0
+
+            mock_phase2.execute = AsyncMock(return_value=mock_result2)
+
+            # Setup Phase 3 mock
+            mock_phase3 = AsyncMock()
+            mock_phase3_class.return_value = mock_phase3
+
+            mock_attack_resp = MagicMock()
+            mock_attack_resp.payload_index = 0
+            mock_attack_resp.payload = "converted1"
+            mock_attack_resp.response = "response"
+            mock_attack_resp.status_code = 200
+            mock_attack_resp.latency_ms = 100.0
+            mock_attack_resp.error = None
+
+            mock_scorer = MagicMock()
+            mock_scorer.severity.value = "high"
+            mock_scorer.confidence = 0.85
+            mock_scorer.reasoning = "Jailbreak"
+
+            mock_composite = MagicMock()
+            mock_composite.overall_severity.value = "high"
+            mock_composite.total_score = 0.85
+            mock_composite.is_successful = True
+            mock_composite.scorer_results = {"jailbreak": mock_scorer}
+
+            mock_result3 = MagicMock()
+            mock_result3.campaign_id = "test-campaign"
+            mock_result3.target_url = "http://localhost"
+            mock_result3.attack_responses = [mock_attack_resp]
+            mock_result3.composite_score = mock_composite
+            mock_result3.is_successful = True
+            mock_result3.overall_severity = "high"
+            mock_result3.total_score = 0.85
+            mock_result3.learned_chain = None
+            mock_result3.failure_analysis = None
+            mock_result3.adaptation_strategy = None
+
+            mock_phase3.execute = AsyncMock(return_value=mock_result3)
+
+            # Collect events
             events = []
-            async for event in execute_exploit_stream(request):
+            async for event in execute_full_attack_streaming(
+                campaign_id="test-campaign",
+                target_url="http://localhost",
+                payload_count=1,
+            ):
                 events.append(event)
 
-            assert len(events) == 2
-            assert events[0].type == "plan"
-            assert events[1].type == "complete"
+            # Verify we got events
+            assert len(events) > 0
+            # Verify first and last event types
+            assert events[0]["type"] == "attack_started"
+            assert events[-1]["type"] == "attack_complete"
 
     @pytest.mark.asyncio
-    async def test_manual_mode_logging(self):
-        """Test that manual mode logs appropriately."""
-        request = ExploitStreamRequest(
-            target_url="http://localhost:8000/api/chat",
-            mode=AttackMode.MANUAL,
-            custom_payload="test"
-        )
+    async def test_full_attack_streaming_with_framing_types(self):
+        """Test streaming with specific framing types."""
+        with patch(
+            "services.snipers.entrypoint.PayloadArticulation"
+        ) as mock_phase1_class, patch(
+            "services.snipers.entrypoint.Conversion"
+        ) as mock_phase2_class, patch(
+            "services.snipers.entrypoint.AttackExecution"
+        ) as mock_phase3_class:
+            # Setup minimal mocks
+            mock_phase1 = AsyncMock()
+            mock_phase1_class.return_value = mock_phase1
 
-        async def mock_manual_flow(req):
-            yield AttackEvent(type="complete", data={})
+            mock_result1 = MagicMock()
+            mock_result1.campaign_id = "test"
+            mock_result1.selected_chain = None
+            mock_result1.articulated_payloads = ["p"]
+            mock_result1.framing_types_used = ["compliance_audit"]
+            mock_result1.framing_type = "compliance_audit"
+            mock_result1.context_summary = {}
+            mock_result1.garak_objective = "test"
+            mock_result1.defense_patterns = []
+            mock_result1.tools_detected = []
 
-        with patch("services.snipers.entrypoint.run_manual_attack", mock_manual_flow):
-            async for _ in execute_exploit_stream(request):
-                pass
-            # Logging happens during execution
+            mock_phase1.execute = AsyncMock(return_value=mock_result1)
 
-
-class TestExecuteExploitStreamSweepMode:
-    """Test execute_exploit_stream() with SWEEP mode."""
-
-    @pytest.mark.asyncio
-    async def test_sweep_mode_with_categories(self):
-        """Test sweep mode with categories."""
-        request = ExploitStreamRequest(
-            target_url="http://localhost:8000/api/chat",
-            mode=AttackMode.SWEEP,
-            categories=[ProbeCategory.JAILBREAK, ProbeCategory.ENCODING]
-        )
-
-        async def mock_sweep_flow(req):
-            yield AttackEvent(type="plan", data={"categories": 2})
-            yield AttackEvent(type="result", data={"probes": 10})
-            yield AttackEvent(type="complete", data={})
-
-        with patch("services.snipers.entrypoint.run_sweep_attack", mock_sweep_flow):
-            events = []
-            async for event in execute_exploit_stream(request):
-                events.append(event)
-
-            assert len(events) == 3
-            assert events[0].type == "plan"
-
-    @pytest.mark.asyncio
-    async def test_sweep_mode_no_categories(self):
-        """Test sweep mode without categories (should use all)."""
-        request = ExploitStreamRequest(
-            target_url="http://localhost:8000/api/chat",
-            mode=AttackMode.SWEEP
-        )
-
-        async def mock_sweep_flow(req):
-            yield AttackEvent(type="complete", data={})
-
-        with patch("services.snipers.entrypoint.run_sweep_attack", mock_sweep_flow):
-            events = []
-            async for event in execute_exploit_stream(request):
-                events.append(event)
-
-            assert len(events) == 1
-
-
-class TestExecuteExploitStreamGuidedMode:
-    """Test execute_exploit_stream() with GUIDED mode."""
-
-    @pytest.mark.asyncio
-    async def test_guided_mode_without_campaign(self):
-        """Test guided mode without campaign_id."""
-        request = ExploitStreamRequest(
-            target_url="http://localhost:8000/api/chat",
-            mode=AttackMode.GUIDED,
-            probe_name="encoding"
-        )
-
-        async def mock_guided_flow(req, findings):
-            yield AttackEvent(type="plan", data={"probe": "encoding"})
-            yield AttackEvent(type="complete", data={})
-
-        with patch("services.snipers.entrypoint.run_guided_attack", mock_guided_flow):
-            events = []
-            async for event in execute_exploit_stream(request):
-                events.append(event)
-
-            assert len(events) == 2
-
-    @pytest.mark.asyncio
-    async def test_guided_mode_with_campaign_no_intel(self):
-        """Test guided mode with campaign_id but no intel available."""
-        request = ExploitStreamRequest(
-            target_url="http://localhost:8000/api/chat",
-            mode=AttackMode.GUIDED,
-            campaign_id="campaign-001",
-            probe_name="encoding"
-        )
-
-        async def mock_guided_flow(req, findings):
-            yield AttackEvent(type="complete", data={})
-
-        async def mock_load_intel(campaign_id):
-            raise ValueError("Campaign not found")
-
-        with patch("services.snipers.entrypoint.run_guided_attack", mock_guided_flow):
-            with patch("services.snipers.entrypoint.load_campaign_intel", mock_load_intel):
-                events = []
-                async for event in execute_exploit_stream(request):
-                    events.append(event)
-
-                # Should still complete, just without findings
-                assert len(events) >= 1
-
-    @pytest.mark.asyncio
-    async def test_guided_mode_with_campaign_and_findings(self):
-        """Test guided mode with campaign intel extracted."""
-        request = ExploitStreamRequest(
-            target_url="http://localhost:8000/api/chat",
-            mode=AttackMode.GUIDED,
-            campaign_id="campaign-001"
-        )
-
-        # Mock campaign intel
-        mock_intel = {
-            "garak": {
-                "results": [
-                    {
-                        "probe_name": "encoding",
-                        "status": "fail",
-                        "prompt": "test",
-                        "output": "decoded",
-                        "detector_name": "decoder",
-                        "detector_score": 0.9,
-                    }
-                ]
-            }
-        }
-
-        async def mock_load_intel(campaign_id):
-            return mock_intel
-
-        async def mock_guided_flow(req, findings):
-            yield AttackEvent(type="plan", data={"findings": len(findings) if findings else 0})
-            yield AttackEvent(type="complete", data={})
-
-        with patch("services.snipers.entrypoint.load_campaign_intel", mock_load_intel):
-            with patch("services.snipers.entrypoint.run_guided_attack", mock_guided_flow):
-                events = []
-                async for event in execute_exploit_stream(request):
-                    events.append(event)
-
-                # Should have extracted findings and passed to flow
-                assert any(e.type == "plan" for e in events)
-
-
-class TestExecuteExploitStreamErrorHandling:
-    """Test error handling in execute_exploit_stream()."""
-
-    @pytest.mark.asyncio
-    async def test_invalid_mode_rejected_by_pydantic(self):
-        """Test that invalid mode is rejected by Pydantic validation."""
-        # Pydantic should raise ValidationError for invalid mode
-        import pydantic
-        with pytest.raises(pydantic.ValidationError):
-            ExploitStreamRequest(
-                target_url="http://localhost:8000/api/chat",
-                mode="unknown_mode",  # Invalid mode - not in AttackMode enum
-                custom_payload="test"
+            # Setup phase 2 and 3 to skip for brevity
+            mock_phase2 = AsyncMock()
+            mock_phase2_class.return_value = mock_phase2
+            mock_phase2.execute = AsyncMock(
+                side_effect=Exception("Phase 2 not needed for this test")
             )
 
-    @pytest.mark.asyncio
-    async def test_flow_exception_handling(self):
-        """Test handling when flow raises exception."""
-        request = ExploitStreamRequest(
-            target_url="http://localhost:8000/api/chat",
-            mode=AttackMode.MANUAL,
-            custom_payload="test"
-        )
+            mock_phase3 = AsyncMock()
+            mock_phase3_class.return_value = mock_phase3
+            mock_phase3.execute = AsyncMock(
+                side_effect=Exception("Phase 3 not needed for this test")
+            )
 
-        async def mock_manual_flow_error(req):
-            yield AttackEvent(type="error", data={"message": "Flow error"})
-            # Exception would be caught by the generator
-
-        with patch("services.snipers.entrypoint.run_manual_attack", mock_manual_flow_error):
+            # Verify framing types are passed
             events = []
-            async for event in execute_exploit_stream(request):
+            try:
+                async for event in execute_full_attack_streaming(
+                    campaign_id="test",
+                    target_url="http://localhost",
+                    payload_count=1,
+                    framing_types=["compliance_audit", "debugging"],
+                ):
+                    events.append(event)
+            except:
+                pass
+
+            # Verify phase1 was called with framing types
+            call_args = mock_phase1.execute.call_args
+            assert call_args[1]["framing_types"] == ["compliance_audit", "debugging"]
+
+
+class TestAdaptiveAttackStreaming:
+    """Test execute_adaptive_attack_streaming() function."""
+
+    @pytest.mark.asyncio
+    async def test_adaptive_attack_streaming_yields_events(self):
+        """Test that adaptive streaming yields events correctly."""
+        with patch(
+            "services.snipers.entrypoint.run_adaptive_attack_streaming"
+        ) as mock_run:
+            # Mock streaming events
+            async def mock_stream():
+                yield {
+                    "type": "attack_started",
+                    "message": "Starting",
+                    "timestamp": "2025-01-01T00:00:00Z",
+                }
+                yield {
+                    "type": "iteration_start",
+                    "message": "Iteration 1",
+                    "data": {"iteration": 1},
+                    "timestamp": "2025-01-01T00:00:00Z",
+                }
+                yield {
+                    "type": "iteration_complete",
+                    "message": "Iteration complete",
+                    "data": {"iteration": 1, "is_successful": True, "score": 0.95},
+                    "timestamp": "2025-01-01T00:00:00Z",
+                }
+                yield {
+                    "type": "attack_complete",
+                    "message": "Complete",
+                    "data": {
+                        "campaign_id": "test",
+                        "target_url": "http://localhost",
+                        "is_successful": True,
+                        "total_iterations": 1,
+                        "best_score": 0.95,
+                    },
+                    "timestamp": "2025-01-01T00:00:00Z",
+                }
+
+            mock_run.return_value = mock_stream()
+
+            # Collect events
+            events = []
+            async for event in execute_adaptive_attack_streaming(
+                campaign_id="test",
+                target_url="http://localhost",
+                max_iterations=5,
+            ):
                 events.append(event)
 
-            # Should get error event
-            assert any(e.type == "error" for e in events)
+            # Verify we got events
+            assert len(events) == 4
+            assert events[0]["type"] == "attack_started"
+            assert events[-1]["type"] == "attack_complete"
 
     @pytest.mark.asyncio
-    async def test_campaign_intel_load_with_invalid_garak_data(self):
-        """Test loading campaign intel with invalid garak data."""
-        request = ExploitStreamRequest(
-            target_url="http://localhost:8000/api/chat",
-            mode=AttackMode.GUIDED,
-            campaign_id="campaign-001"
-        )
+    async def test_adaptive_attack_streaming_with_success_scorers(self):
+        """Test streaming with success scorer filters."""
+        with patch(
+            "services.snipers.entrypoint.run_adaptive_attack_streaming"
+        ) as mock_run:
+            async def mock_stream():
+                yield {"type": "attack_started", "timestamp": "2025-01-01T00:00:00Z"}
+                yield {"type": "attack_complete", "timestamp": "2025-01-01T00:00:00Z"}
 
-        # Intel with malformed garak data
-        mock_intel = {
-            "garak": "invalid_string_instead_of_dict"
-        }
+            mock_run.return_value = mock_stream()
 
-        async def mock_load_intel(campaign_id):
-            return mock_intel
-
-        async def mock_guided_flow(req, findings):
-            yield AttackEvent(type="complete", data={})
-
-        with patch("services.snipers.entrypoint.load_campaign_intel", mock_load_intel):
-            with patch("services.snipers.entrypoint.run_guided_attack", mock_guided_flow):
-                # Should handle gracefully
-                events = []
-                try:
-                    async for event in execute_exploit_stream(request):
-                        events.append(event)
-                except Exception as e:
-                    # May raise or yield error, both are acceptable
-                    logger.info(f"Exception handled: {e}")
-
-
-class TestExecuteExploitStreamModeRouting:
-    """Test correct routing to flow functions based on mode."""
-
-    @pytest.mark.asyncio
-    async def test_manual_mode_routes_to_manual_flow(self):
-        """Test MANUAL mode routes to run_manual_attack."""
-        request = ExploitStreamRequest(
-            target_url="http://localhost:8000/api/chat",
-            mode=AttackMode.MANUAL,
-            custom_payload="payload"
-        )
-
-        manual_called = False
-
-        async def mock_manual_flow(req):
-            nonlocal manual_called
-            manual_called = True
-            yield AttackEvent(type="complete", data={})
-
-        async def mock_sweep_flow(req):
-            raise AssertionError("Sweep flow should not be called")
-
-        async def mock_guided_flow(req, findings):
-            raise AssertionError("Guided flow should not be called")
-
-        with patch("services.snipers.entrypoint.run_manual_attack", mock_manual_flow):
-            with patch("services.snipers.entrypoint.run_sweep_attack", mock_sweep_flow):
-                with patch("services.snipers.entrypoint.run_guided_attack", mock_guided_flow):
-                    async for _ in execute_exploit_stream(request):
-                        pass
-
-                    assert manual_called
-
-    @pytest.mark.asyncio
-    async def test_sweep_mode_routes_to_sweep_flow(self):
-        """Test SWEEP mode routes to run_sweep_attack."""
-        request = ExploitStreamRequest(
-            target_url="http://localhost:8000/api/chat",
-            mode=AttackMode.SWEEP,
-            categories=[ProbeCategory.JAILBREAK]
-        )
-
-        sweep_called = False
-
-        async def mock_manual_flow(req):
-            raise AssertionError("Manual flow should not be called")
-
-        async def mock_sweep_flow(req):
-            nonlocal sweep_called
-            sweep_called = True
-            yield AttackEvent(type="complete", data={})
-
-        async def mock_guided_flow(req, findings):
-            raise AssertionError("Guided flow should not be called")
-
-        with patch("services.snipers.entrypoint.run_manual_attack", mock_manual_flow):
-            with patch("services.snipers.entrypoint.run_sweep_attack", mock_sweep_flow):
-                with patch("services.snipers.entrypoint.run_guided_attack", mock_guided_flow):
-                    async for _ in execute_exploit_stream(request):
-                        pass
-
-                    assert sweep_called
-
-    @pytest.mark.asyncio
-    async def test_guided_mode_routes_to_guided_flow(self):
-        """Test GUIDED mode routes to run_guided_attack."""
-        request = ExploitStreamRequest(
-            target_url="http://localhost:8000/api/chat",
-            mode=AttackMode.GUIDED,
-            probe_name="encoding"
-        )
-
-        guided_called = False
-
-        async def mock_manual_flow(req):
-            raise AssertionError("Manual flow should not be called")
-
-        async def mock_sweep_flow(req):
-            raise AssertionError("Sweep flow should not be called")
-
-        async def mock_guided_flow(req, findings):
-            nonlocal guided_called
-            guided_called = True
-            yield AttackEvent(type="complete", data={})
-
-        with patch("services.snipers.entrypoint.run_manual_attack", mock_manual_flow):
-            with patch("services.snipers.entrypoint.run_sweep_attack", mock_sweep_flow):
-                with patch("services.snipers.entrypoint.run_guided_attack", mock_guided_flow):
-                    async for _ in execute_exploit_stream(request):
-                        pass
-
-                    assert guided_called
-
-
-class TestExecuteExploitStreamEventStreaming:
-    """Test event streaming behavior."""
-
-    @pytest.mark.asyncio
-    async def test_events_are_attack_event_objects(self):
-        """Test that all yielded events are AttackEvent objects."""
-        request = ExploitStreamRequest(
-            target_url="http://localhost:8000/api/chat",
-            mode=AttackMode.MANUAL,
-            custom_payload="test"
-        )
-
-        async def mock_manual_flow(req):
-            yield AttackEvent(type="plan", data={})
-            yield AttackEvent(type="payload", data={"step": 1})
-            yield AttackEvent(type="result", data={})
-            yield AttackEvent(type="complete", data={})
-
-        with patch("services.snipers.entrypoint.run_manual_attack", mock_manual_flow):
-            async for event in execute_exploit_stream(request):
-                assert isinstance(event, AttackEvent)
-                assert hasattr(event, "type")
-                assert hasattr(event, "data")
-                assert hasattr(event, "timestamp")
-
-    @pytest.mark.asyncio
-    async def test_events_preserve_ordering(self):
-        """Test that event order is preserved."""
-        request = ExploitStreamRequest(
-            target_url="http://localhost:8000/api/chat",
-            mode=AttackMode.MANUAL,
-            custom_payload="test"
-        )
-
-        async def mock_manual_flow(req):
-            yield AttackEvent(type="plan", data={"order": 1})
-            yield AttackEvent(type="payload", data={"order": 2})
-            yield AttackEvent(type="response", data={"order": 3})
-            yield AttackEvent(type="result", data={"order": 4})
-            yield AttackEvent(type="complete", data={"order": 5})
-
-        with patch("services.snipers.entrypoint.run_manual_attack", mock_manual_flow):
+            # Call with success scorers
             events = []
-            async for event in execute_exploit_stream(request):
+            async for event in execute_adaptive_attack_streaming(
+                campaign_id="test",
+                target_url="http://localhost",
+                max_iterations=5,
+                success_scorers=["jailbreak", "prompt_leak"],
+                success_threshold=0.8,
+            ):
                 events.append(event)
 
-            assert len(events) == 5
-            for i, event in enumerate(events, 1):
-                assert event.data.get("order") == i
+            # Verify parameters were passed
+            call_args = mock_run.call_args
+            assert call_args[1]["success_scorers"] == ["jailbreak", "prompt_leak"]
+            assert call_args[1]["success_threshold"] == 0.8
 
     @pytest.mark.asyncio
-    async def test_streaming_with_large_payload(self):
-        """Test streaming with large data payloads."""
-        request = ExploitStreamRequest(
-            target_url="http://localhost:8000/api/chat",
-            mode=AttackMode.MANUAL,
-            custom_payload="x" * 100000
-        )
+    async def test_adaptive_attack_streaming_with_custom_config(self):
+        """Test streaming with custom configuration."""
+        with patch(
+            "services.snipers.entrypoint.run_adaptive_attack_streaming"
+        ) as mock_run:
+            async def mock_stream():
+                yield {"type": "attack_started", "timestamp": "2025-01-01T00:00:00Z"}
 
-        async def mock_manual_flow(req):
-            yield AttackEvent(type="plan", data={"large": "x" * 50000})
-            yield AttackEvent(type="complete", data={})
+            mock_run.return_value = mock_stream()
 
-        with patch("services.snipers.entrypoint.run_manual_attack", mock_manual_flow):
-            event_count = 0
-            async for event in execute_exploit_stream(request):
-                event_count += 1
-                if event.type == "plan":
-                    assert len(event.data["large"]) == 50000
+            # Call with custom config
+            events = []
+            async for event in execute_adaptive_attack_streaming(
+                campaign_id="test",
+                target_url="http://localhost",
+                max_iterations=10,
+                payload_count=3,
+                framing_types=["qa_testing"],
+                converter_names=["converter1"],
+            ):
+                events.append(event)
 
-            assert event_count == 2
+            # Verify all parameters were passed
+            call_args = mock_run.call_args
+            assert call_args[1]["max_iterations"] == 10
+            assert call_args[1]["payload_count"] == 3
+            assert call_args[1]["framing_types"] == ["qa_testing"]
+            assert call_args[1]["converter_names"] == ["converter1"]
