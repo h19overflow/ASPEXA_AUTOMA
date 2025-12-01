@@ -7,11 +7,11 @@ Strategies are selected based on target domain and historical effectiveness.
 
 from typing import Protocol
 
-from services.snipers.tools.prompt_articulation.config import (
+from services.snipers.utils.prompt_articulation.config import (
     DEFAULT_STRATEGIES,
     DOMAIN_STRATEGY_BOOST,
 )
-from services.snipers.tools.prompt_articulation.models.framing_strategy import (
+from services.snipers.utils.prompt_articulation.models.framing_strategy import (
     FramingStrategy,
     FramingType,
 )

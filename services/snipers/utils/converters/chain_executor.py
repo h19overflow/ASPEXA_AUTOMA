@@ -15,7 +15,7 @@ import logging
 from typing import Any
 
 from services.snipers.chain_discovery.models import ConverterChain
-from services.snipers.tools.pyrit_bridge import ConverterFactory, PayloadTransformer
+from services.snipers.utils.pyrit.pyrit_bridge import ConverterFactory, PayloadTransformer
 
 logger = logging.getLogger(__name__)
 

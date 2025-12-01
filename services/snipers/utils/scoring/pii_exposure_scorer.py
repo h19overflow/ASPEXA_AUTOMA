@@ -8,7 +8,7 @@ Provides detailed PII type breakdown (name, email, SSN, credit card, etc).
 import re
 import logging
 from typing import Optional
-from services.snipers.scoring.models import PIIType
+from services.snipers.utils.scoring.models import PIIType
 
 logger = logging.getLogger(__name__)
 

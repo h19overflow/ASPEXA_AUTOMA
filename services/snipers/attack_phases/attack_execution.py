@@ -33,16 +33,16 @@ import httpx
 from libs.persistence import S3PersistenceAdapter
 from libs.config.settings import get_settings
 
-from services.snipers.agent.nodes.composite_scoring_node import CompositeScoringNodePhase34
-from services.snipers.agent.nodes.learning_adaptation_node import LearningAdaptationNode
+from services.snipers.utils.nodes.composite_scoring_node import CompositeScoringNodePhase34
+from services.snipers.utils.nodes.learning_adaptation_node import LearningAdaptationNode
 from services.snipers.chain_discovery.models import ConverterChain
 from services.snipers.models import (
     AttackResponse,
     ConvertedPayload,
     Phase3Result,
 )
-from services.snipers.persistence.s3_adapter import S3InterfaceAdapter
-from services.snipers.scoring.models import CompositeScore, SeverityLevel
+from services.snipers.utils.persistence.s3_adapter import S3InterfaceAdapter
+from services.snipers.utils.scoring.models import CompositeScore, SeverityLevel
 
 logger = logging.getLogger(__name__)
 

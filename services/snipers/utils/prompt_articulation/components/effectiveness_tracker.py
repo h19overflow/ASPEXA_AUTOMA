@@ -9,11 +9,11 @@ import json
 import logging
 from typing import Protocol
 
-from services.snipers.tools.prompt_articulation.models.effectiveness_record import (
+from services.snipers.utils.prompt_articulation.models.effectiveness_record import (
     EffectivenessRecord,
     EffectivenessSummary,
 )
-from services.snipers.tools.prompt_articulation.models.framing_strategy import FramingType
+from services.snipers.utils.prompt_articulation.models.framing_strategy import FramingType
 
 logger = logging.getLogger(__name__)
 

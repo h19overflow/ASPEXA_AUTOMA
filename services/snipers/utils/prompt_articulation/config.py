@@ -5,7 +5,7 @@ Purpose: Centralized framing strategies, domain boosts, and default settings.
 Separates configuration from logic for easy tuning.
 """
 
-from services.snipers.tools.prompt_articulation.models.framing_strategy import (
+from services.snipers.utils.prompt_articulation.models.framing_strategy import (
     FramingStrategy,
     FramingType,
 )

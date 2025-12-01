@@ -1,14 +1,14 @@
 """Payload articulation data models."""
 
-from services.snipers.tools.prompt_articulation.models.effectiveness_record import (
+from services.snipers.utils.prompt_articulation.models.effectiveness_record import (
     EffectivenessRecord,
     EffectivenessSummary,
 )
-from services.snipers.tools.prompt_articulation.models.framing_strategy import (
+from services.snipers.utils.prompt_articulation.models.framing_strategy import (
     FramingStrategy,
     FramingType,
 )
-from services.snipers.tools.prompt_articulation.models.payload_context import (
+from services.snipers.utils.prompt_articulation.models.payload_context import (
     AttackHistory,
     PayloadContext,
     TargetInfo,

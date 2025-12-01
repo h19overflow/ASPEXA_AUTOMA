@@ -4,7 +4,7 @@ Provides LLM-powered payload crafting with contextual framing,
 effectiveness tracking, and learning capabilities.
 """
 
-from services.snipers.tools.prompt_articulation.components import (
+from services.snipers.utils.prompt_articulation.components import (
     ArticulatedPayload,
     EffectivenessProvider,
     EffectivenessTracker,
@@ -14,13 +14,13 @@ from services.snipers.tools.prompt_articulation.components import (
     PayloadGenerator,
     PersistenceProvider,
 )
-from services.snipers.tools.prompt_articulation.config import (
+from services.snipers.utils.prompt_articulation.config import (
     DEFAULT_FORMAT_CONTROL,
     DEFAULT_STRATEGIES,
     DOMAIN_STRATEGY_BOOST,
     EFFECTIVENESS_SAVE_INTERVAL,
 )
-from services.snipers.tools.prompt_articulation.models import (
+from services.snipers.utils.prompt_articulation.models import (
     AttackHistory,
     EffectivenessRecord,
     EffectivenessSummary,

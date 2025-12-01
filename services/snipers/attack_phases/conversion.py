@@ -31,7 +31,7 @@ from typing import Any
 
 from services.snipers.chain_discovery.models import ConverterChain
 from services.snipers.models import ConvertedPayload, Phase2Result
-from services.snipers.tools.converters.chain_executor import ChainExecutor
+from services.snipers.utils.converters.chain_executor import ChainExecutor
 
 logger = logging.getLogger(__name__)
 

@@ -72,7 +72,7 @@ from services.snipers.adaptive_attack import (
     run_adaptive_attack_streaming,
     AdaptiveAttackState,
 )
-from services.snipers.persistence.s3_adapter import (
+from services.snipers.utils.persistence.s3_adapter import (
     persist_exploit_result,
     format_exploit_result,
 )

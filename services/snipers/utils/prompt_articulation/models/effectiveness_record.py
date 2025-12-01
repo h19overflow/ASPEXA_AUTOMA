@@ -10,7 +10,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from services.snipers.tools.prompt_articulation.models.framing_strategy import FramingType
+from services.snipers.utils.prompt_articulation.models.framing_strategy import FramingType
 
 
 class EffectivenessRecord(BaseModel):

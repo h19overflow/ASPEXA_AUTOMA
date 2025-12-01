@@ -15,8 +15,8 @@ Configuration via state.payload_config:
 import logging
 from typing import Any
 
-from services.snipers.agent.state import ExploitAgentState, PayloadConfig, CustomFraming
-from services.snipers.tools.prompt_articulation import (
+from services.snipers._archive.agent_state_legacy import ExploitAgentState, PayloadConfig, CustomFraming
+from services.snipers.utils.prompt_articulation import (
     PayloadContext,
     TargetInfo,
     AttackHistory,
@@ -24,7 +24,7 @@ from services.snipers.tools.prompt_articulation import (
     PayloadGenerator,
     EffectivenessTracker,
 )
-from services.snipers.tools.prompt_articulation.models.framing_strategy import FramingType
+from services.snipers.utils.prompt_articulation.models.framing_strategy import FramingType
 
 logger = logging.getLogger(__name__)
 
@@ -300,7 +300,7 @@ class PayloadArticulationNodePhase3:
         Returns:
             Tuple of (payloads list, framing names list)
         """
-        from services.snipers.tools.prompt_articulation.models.framing_strategy import (
+        from services.snipers.utils.prompt_articulation.models.framing_strategy import (
             FramingStrategy,
         )
 

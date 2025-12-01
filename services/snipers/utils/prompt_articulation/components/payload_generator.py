@@ -13,17 +13,17 @@ from langchain.agents import create_agent
 from langchain_core.prompts import ChatPromptTemplate
 from pydantic import BaseModel, Field
 
-from services.snipers.tools.prompt_articulation.components.format_control import (
+from services.snipers.utils.prompt_articulation.components.format_control import (
     FormatControl,
     FormatControlType,
 )
-from services.snipers.tools.prompt_articulation.components.framing_library import (
+from services.snipers.utils.prompt_articulation.components.framing_library import (
     FramingLibrary,
 )
-from services.snipers.tools.prompt_articulation.models.framing_strategy import (
+from services.snipers.utils.prompt_articulation.models.framing_strategy import (
     FramingType,
 )
-from services.snipers.tools.prompt_articulation.models.payload_context import (
+from services.snipers.utils.prompt_articulation.models.payload_context import (
     PayloadContext,
 )
 

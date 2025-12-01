@@ -18,7 +18,7 @@ from pyrit.prompt_converter import (
     PromptConverter,
 )
 
-from services.snipers.tools.converters import (
+from services.snipers.utils.converters import (
     HtmlEntityConverter,
     JsonEscapeConverter,
     XmlEscapeConverter,

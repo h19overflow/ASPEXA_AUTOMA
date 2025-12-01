@@ -165,7 +165,7 @@ def get_chat_target(
 
     if _default_chat_target is None:
         # Ensure PyRIT is initialized
-        from services.snipers.core.pyrit_init import init_pyrit
+        from services.snipers.utils.pyrit.pyrit_init import init_pyrit
         init_pyrit()
 
         from libs.connectivity.adapters.gemini_chat_target import GeminiChatTarget

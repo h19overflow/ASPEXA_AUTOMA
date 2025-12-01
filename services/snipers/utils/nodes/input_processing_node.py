@@ -8,7 +8,7 @@ Uses existing load_campaign_intel() from persistence layer.
 import logging
 from typing import Any
 
-from services.snipers.persistence.s3_adapter import load_campaign_intel
+from services.snipers.utils.persistence.s3_adapter import load_campaign_intel
 
 logger = logging.getLogger(__name__)
 

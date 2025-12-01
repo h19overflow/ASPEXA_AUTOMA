@@ -7,10 +7,10 @@ Analyzes failure causes and prepares state for retry or escalation.
 
 import logging
 from typing import Any
-from services.snipers.agent.state import ExploitAgentState
+from services.snipers._archive.agent_state_legacy import ExploitAgentState
 from services.snipers.chain_discovery.models import ConverterChain, ChainMetadata
 from services.snipers.chain_discovery.pattern_database import PatternDatabaseAdapter
-from services.snipers.scoring.models import SeverityLevel
+from services.snipers.utils.scoring.models import SeverityLevel
 
 logger = logging.getLogger(__name__)
 

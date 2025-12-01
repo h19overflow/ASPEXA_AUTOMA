@@ -9,7 +9,7 @@ Uses multi-strategy chain discovery:
 
 import logging
 from typing import Any
-from services.snipers.agent.state import ExploitAgentState
+from services.snipers._archive.agent_state_legacy import ExploitAgentState
 from services.snipers.chain_discovery.pattern_database import PatternDatabaseAdapter
 from services.snipers.chain_discovery.chain_generator import (
     HeuristicChainGenerator,

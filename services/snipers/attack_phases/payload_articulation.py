@@ -28,12 +28,12 @@ import logging
 from libs.persistence import S3PersistenceAdapter
 from libs.config.settings import get_settings
 
-from services.snipers.agent.nodes.input_processing_node import InputProcessingNode
-from services.snipers.agent.nodes.converter_selection_phase3 import ConverterSelectionNodePhase3
-from services.snipers.agent.nodes.payload_articulation_node import PayloadArticulationNodePhase3
+from services.snipers.utils.nodes.input_processing_node import InputProcessingNode
+from services.snipers.utils.nodes.converter_selection_node import ConverterSelectionNodePhase3
+from services.snipers.utils.nodes.payload_articulation_node import PayloadArticulationNodePhase3
 from services.snipers.models import Phase1Result
-from services.snipers.persistence.s3_adapter import S3InterfaceAdapter
-from services.snipers.tools.llm_provider import get_default_agent
+from services.snipers.utils.persistence.s3_adapter import S3InterfaceAdapter
+from services.snipers.utils.llm_provider import get_default_agent
 
 logger = logging.getLogger(__name__)
 

@@ -14,8 +14,8 @@ Returns weighted composite score with detailed evidence.
 import asyncio
 import logging
 from typing import Any
-from services.snipers.agent.state import ExploitAgentState
-from services.snipers.scoring import (
+from services.snipers._archive.agent_state_legacy import ExploitAgentState
+from services.snipers.utils.scoring import (
     JailbreakScorer,
     PromptLeakScorer,
     DataLeakScorer,
