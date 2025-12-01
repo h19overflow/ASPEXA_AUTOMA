@@ -6,12 +6,12 @@ RegexScorer, PatternScorer, and CompositeScorer.
 """
 import pytest
 
-from services.snipers.tools.scorers import (
+from services.snipers.utils.scorers import (
     RegexScorer,
     PatternScorer,
     CompositeScorer,
 )
-from services.snipers.tools.scorers.base import ScoreResult
+from services.snipers.utils.scorers.base import ScoreResult
 
 
 class TestRegexScorer:

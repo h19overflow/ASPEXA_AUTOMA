@@ -1,0 +1,169 @@
+2025-12-01 18:36:20 - faker.factory - DEBUG - Looking for locale `en_US` in provider `faker.providers.address`.
+2025-12-01 18:36:20 - faker.factory - DEBUG - Provider `faker.providers.address` has been localized to `en_US`.
+2025-12-01 18:36:20 - faker.factory - DEBUG - Looking for locale `en_US` in provider `faker.providers.automotive`.
+2025-12-01 18:36:20 - faker.factory - DEBUG - Provider `faker.providers.automotive` has been localized to `en_US`.
+2025-12-01 18:36:20 - faker.factory - DEBUG - Looking for locale `en_US` in provider `faker.providers.bank`.
+2025-12-01 18:36:20 - faker.factory - DEBUG - Specified locale `en_US` is not available for provider `faker.providers.bank`. Locale reset to `en_GB` for this provider.
+2025-12-01 18:36:20 - faker.factory - DEBUG - Looking for locale `en_US` in provider `faker.providers.barcode`.
+2025-12-01 18:36:20 - faker.factory - DEBUG - Provider `faker.providers.barcode` has been localized to `en_US`.
+2025-12-01 18:36:20 - faker.factory - DEBUG - Looking for locale `en_US` in provider `faker.providers.color`.
+2025-12-01 18:36:20 - faker.factory - DEBUG - Provider `faker.providers.color` has been localized to `en_US`.
+2025-12-01 18:36:20 - faker.factory - DEBUG - Looking for locale `en_US` in provider `faker.providers.company`.
+2025-12-01 18:36:20 - faker.factory - DEBUG - Provider `faker.providers.company` has been localized to `en_US`.
+2025-12-01 18:36:20 - faker.factory - DEBUG - Looking for locale `en_US` in provider `faker.providers.credit_card`.
+2025-12-01 18:36:20 - faker.factory - DEBUG - Provider `faker.providers.credit_card` has been localized to `en_US`.
+2025-12-01 18:36:20 - faker.factory - DEBUG - Looking for locale `en_US` in provider `faker.providers.currency`.
+2025-12-01 18:36:20 - faker.factory - DEBUG - Provider `faker.providers.currency` has been localized to `en_US`.
+2025-12-01 18:36:20 - faker.factory - DEBUG - Looking for locale `en_US` in provider `faker.providers.date_time`.
+2025-12-01 18:36:20 - faker.factory - DEBUG - Provider `faker.providers.date_time` has been localized to `en_US`.
+2025-12-01 18:36:20 - faker.factory - DEBUG - Provider `faker.providers.doi` does not feature localization. Specified locale `en_US` is not utilized for this provider.
+2025-12-01 18:36:20 - faker.factory - DEBUG - Provider `faker.providers.emoji` does not feature localization. Specified locale `en_US` is not utilized for this provider.
+2025-12-01 18:36:20 - faker.factory - DEBUG - Provider `faker.providers.file` does not feature localization. Specified locale `en_US` is not utilized for this provider.
+2025-12-01 18:36:20 - faker.factory - DEBUG - Looking for locale `en_US` in provider `faker.providers.geo`.
+2025-12-01 18:36:20 - faker.factory - DEBUG - Provider `faker.providers.geo` has been localized to `en_US`.
+2025-12-01 18:36:20 - faker.factory - DEBUG - Looking for locale `en_US` in provider `faker.providers.internet`.
+2025-12-01 18:36:20 - faker.factory - DEBUG - Provider `faker.providers.internet` has been localized to `en_US`.
+2025-12-01 18:36:20 - faker.factory - DEBUG - Looking for locale `en_US` in provider `faker.providers.isbn`.
+2025-12-01 18:36:20 - faker.factory - DEBUG - Provider `faker.providers.isbn` has been localized to `en_US`.
+2025-12-01 18:36:20 - faker.factory - DEBUG - Looking for locale `en_US` in provider `faker.providers.job`.
+2025-12-01 18:36:20 - faker.factory - DEBUG - Provider `faker.providers.job` has been localized to `en_US`.
+2025-12-01 18:36:20 - faker.factory - DEBUG - Looking for locale `en_US` in provider `faker.providers.lorem`.
+2025-12-01 18:36:20 - faker.factory - DEBUG - Provider `faker.providers.lorem` has been localized to `en_US`.
+2025-12-01 18:36:20 - faker.factory - DEBUG - Looking for locale `en_US` in provider `faker.providers.misc`.
+2025-12-01 18:36:20 - faker.factory - DEBUG - Provider `faker.providers.misc` has been localized to `en_US`.
+2025-12-01 18:36:20 - faker.factory - DEBUG - Looking for locale `en_US` in provider `faker.providers.passport`.
+2025-12-01 18:36:20 - faker.factory - DEBUG - Provider `faker.providers.passport` has been localized to `en_US`.
+2025-12-01 18:36:20 - faker.factory - DEBUG - Looking for locale `en_US` in provider `faker.providers.person`.
+2025-12-01 18:36:20 - faker.factory - DEBUG - Provider `faker.providers.person` has been localized to `en_US`.
+2025-12-01 18:36:20 - faker.factory - DEBUG - Looking for locale `en_US` in provider `faker.providers.phone_number`.
+2025-12-01 18:36:20 - faker.factory - DEBUG - Provider `faker.providers.phone_number` has been localized to `en_US`.
+2025-12-01 18:36:20 - faker.factory - DEBUG - Provider `faker.providers.profile` does not feature localization. Specified locale `en_US` is not utilized for this provider.
+2025-12-01 18:36:20 - faker.factory - DEBUG - Provider `faker.providers.python` does not feature localization. Specified locale `en_US` is not utilized for this provider.
+2025-12-01 18:36:20 - faker.factory - DEBUG - Provider `faker.providers.sbn` does not feature localization. Specified locale `en_US` is not utilized for this provider.
+2025-12-01 18:36:20 - faker.factory - DEBUG - Looking for locale `en_US` in provider `faker.providers.ssn`.
+2025-12-01 18:36:20 - faker.factory - DEBUG - Provider `faker.providers.ssn` has been localized to `en_US`.
+2025-12-01 18:36:20 - faker.factory - DEBUG - Provider `faker.providers.user_agent` does not feature localization. Specified locale `en_US` is not utilized for this provider.
+2025-12-01 18:36:20 - asyncio - DEBUG - Using proactor: IocpProactor
+2025-12-01 18:36:20 - asyncio - DEBUG - Using proactor: IocpProactor
+2025-12-01 18:36:20 - botocore.hooks - DEBUG - Changing event name from creating-client-class.iot-data to creating-client-class.iot-data-plane
+2025-12-01 18:36:20 - botocore.hooks - DEBUG - Changing event name from before-call.apigateway to before-call.api-gateway
+2025-12-01 18:36:20 - botocore.hooks - DEBUG - Changing event name from request-created.machinelearning.Predict to request-created.machine-learning.Predict
+2025-12-01 18:36:20 - botocore.hooks - DEBUG - Changing event name from before-parameter-build.autoscaling.CreateLaunchConfiguration to before-parameter-build.auto-scaling.CreateLaunchConfiguration
+2025-12-01 18:36:20 - botocore.hooks - DEBUG - Changing event name from before-parameter-build.route53 to before-parameter-build.route-53
+2025-12-01 18:36:20 - botocore.hooks - DEBUG - Changing event name from request-created.cloudsearchdomain.Search to request-created.cloudsearch-domain.Search
+2025-12-01 18:36:20 - botocore.hooks - DEBUG - Changing event name from docs.*.autoscaling.CreateLaunchConfiguration.complete-section to docs.*.auto-scaling.CreateLaunchConfiguration.complete-section
+2025-12-01 18:36:20 - botocore.hooks - DEBUG - Changing event name from before-parameter-build.logs.CreateExportTask to before-parameter-build.cloudwatch-logs.CreateExportTask
+2025-12-01 18:36:20 - botocore.hooks - DEBUG - Changing event name from docs.*.logs.CreateExportTask.complete-section to docs.*.cloudwatch-logs.CreateExportTask.complete-section
+2025-12-01 18:36:20 - botocore.hooks - DEBUG - Changing event name from before-parameter-build.cloudsearchdomain.Search to before-parameter-build.cloudsearch-domain.Search
+2025-12-01 18:36:20 - botocore.hooks - DEBUG - Changing event name from docs.*.cloudsearchdomain.Search.complete-section to docs.*.cloudsearch-domain.Search.complete-section
+2025-12-01 18:36:20 - botocore.utils - DEBUG - IMDS ENDPOINT: http://169.254.169.254/
+2025-12-01 18:36:20 - botocore.credentials - DEBUG - Looking for credentials via: env
+2025-12-01 18:36:20 - botocore.credentials - DEBUG - Looking for credentials via: assume-role
+2025-12-01 18:36:20 - botocore.credentials - DEBUG - Looking for credentials via: assume-role-with-web-identity
+2025-12-01 18:36:20 - botocore.credentials - DEBUG - Looking for credentials via: sso
+2025-12-01 18:36:20 - botocore.credentials - DEBUG - Looking for credentials via: shared-credentials-file
+2025-12-01 18:36:20 - botocore.credentials - INFO - Found credentials in shared credentials file: ~/.aws/credentials
+2025-12-01 18:36:20 - botocore.loaders - DEBUG - Loading JSON file: C:\Users\User\AppData\Local\Programs\Python\Python313\Lib\site-packages\botocore\data\endpoints.json
+2025-12-01 18:36:20 - botocore.loaders - DEBUG - Loading JSON file: C:\Users\User\AppData\Local\Programs\Python\Python313\Lib\site-packages\botocore\data\sdk-default-configuration.json
+2025-12-01 18:36:20 - botocore.hooks - DEBUG - Event choose-service-name: calling handler <function handle_service_name_alias at 0x00000250EC9819E0>
+2025-12-01 18:36:20 - botocore.loaders - DEBUG - Loading JSON file: C:\Users\User\AppData\Local\Programs\Python\Python313\Lib\site-packages\botocore\data\s3\2006-03-01\service-2.json.gz
+2025-12-01 18:36:20 - botocore.loaders - DEBUG - Loading JSON file: C:\Users\User\AppData\Local\Programs\Python\Python313\Lib\site-packages\botocore\data\s3\2006-03-01\service-2.sdk-extras.json
+2025-12-01 18:36:20 - botocore.loaders - DEBUG - Loading JSON file: C:\Users\User\AppData\Local\Programs\Python\Python313\Lib\site-packages\botocore\data\s3\2006-03-01\endpoint-rule-set-1.json.gz
+2025-12-01 18:36:20 - botocore.loaders - DEBUG - Loading JSON file: C:\Users\User\AppData\Local\Programs\Python\Python313\Lib\site-packages\botocore\data\partitions.json
+2025-12-01 18:36:20 - botocore.hooks - DEBUG - Event creating-client-class.s3: calling handler <function add_generate_presigned_post at 0x00000250E96EA840>
+2025-12-01 18:36:20 - botocore.hooks - DEBUG - Event creating-client-class.s3: calling handler <function lazy_call.<locals>._handler at 0x0000025090410360>
+2025-12-01 18:36:20 - botocore.hooks - DEBUG - Event creating-client-class.s3: calling handler <function add_generate_presigned_url at 0x00000250E96EA5C0>
+2025-12-01 18:36:20 - botocore.configprovider - DEBUG - Looking for endpoint for s3 via: environment_service
+2025-12-01 18:36:20 - botocore.configprovider - DEBUG - Looking for endpoint for s3 via: environment_global
+2025-12-01 18:36:20 - botocore.configprovider - DEBUG - Looking for endpoint for s3 via: config_service
+2025-12-01 18:36:20 - botocore.configprovider - DEBUG - Looking for endpoint for s3 via: config_global
+2025-12-01 18:36:20 - botocore.configprovider - DEBUG - No configured endpoint found.
+2025-12-01 18:36:20 - botocore.endpoint - DEBUG - Setting s3 timeout as (60, 60)
+2025-12-01 18:36:20 - botocore.loaders - DEBUG - Loading JSON file: C:\Users\User\AppData\Local\Programs\Python\Python313\Lib\site-packages\botocore\data\_retry.json
+2025-12-01 18:36:20 - botocore.client - DEBUG - Registering retry handlers for service: s3
+2025-12-01 18:36:20 - botocore.utils - DEBUG - Registering S3 region redirector handler
+2025-12-01 18:36:20 - botocore.utils - DEBUG - Registering S3Express Identity Resolver
+2025-12-01 18:36:20 - botocore.hooks - DEBUG - Event before-parameter-build.s3.PutObject: calling handler <function validate_ascii_metadata at 0x00000250EC983600>
+2025-12-01 18:36:20 - botocore.hooks - DEBUG - Event before-parameter-build.s3.PutObject: calling handler <function sse_md5 at 0x00000250EC9828E0>
+2025-12-01 18:36:20 - botocore.hooks - DEBUG - Event before-parameter-build.s3.PutObject: calling handler <function convert_body_to_file_like_object at 0x00000250EC9A0040>
+2025-12-01 18:36:20 - botocore.hooks - DEBUG - Event before-parameter-build.s3.PutObject: calling handler <function validate_bucket_name at 0x00000250EC982840>
+2025-12-01 18:36:20 - botocore.hooks - DEBUG - Event before-parameter-build.s3.PutObject: calling handler <function remove_bucket_from_url_paths_from_model at 0x00000250EC9A0AE0>
+2025-12-01 18:36:20 - botocore.hooks - DEBUG - Event before-parameter-build.s3.PutObject: calling handler <bound method S3RegionRedirectorv2.annotate_request_context of <botocore.utils.S3RegionRedirectorv2 object at 0x0000025091F89A90>>
+2025-12-01 18:36:20 - botocore.hooks - DEBUG - Event before-parameter-build.s3.PutObject: calling handler <bound method ClientCreator._inject_s3_input_parameters of <botocore.client.ClientCreator object at 0x000002509043B620>>
+2025-12-01 18:36:20 - botocore.hooks - DEBUG - Event before-parameter-build.s3.PutObject: calling handler <function generate_idempotent_uuid at 0x00000250EC982660>
+2025-12-01 18:36:20 - botocore.hooks - DEBUG - Event before-parameter-build.s3.PutObject: calling handler <function _handle_request_validation_mode_member at 0x00000250EC9A11C0>
+2025-12-01 18:36:20 - botocore.hooks - DEBUG - Event before-endpoint-resolution.s3: calling handler <function customize_endpoint_resolver_builtins at 0x00000250EC9A0CC0>
+2025-12-01 18:36:20 - botocore.hooks - DEBUG - Event before-endpoint-resolution.s3: calling handler <bound method S3RegionRedirectorv2.redirect_from_cache of <botocore.utils.S3RegionRedirectorv2 object at 0x0000025091F89A90>>
+2025-12-01 18:36:20 - botocore.regions - DEBUG - Calling endpoint provider with parameters: {'Bucket': 'aspexa-audit-aspexa-automa-20251125145756465900000001', 'Region': 'ap-southeast-2', 'UseFIPS': False, 'UseDualStack': False, 'ForcePathStyle': False, 'Accelerate': False, 'UseGlobalEndpoint': False, 'Key': 'scans/exploit/test-campaign-6d081040.json', 'DisableMultiRegionAccessPoints': False, 'UseArnRegion': True}
+2025-12-01 18:36:20 - botocore.regions - DEBUG - Endpoint provider result: https://aspexa-audit-aspexa-automa-20251125145756465900000001.s3.ap-southeast-2.amazonaws.com
+2025-12-01 18:36:20 - botocore.regions - DEBUG - Selecting from endpoint provider's list of auth schemes: "sigv4". User selected auth scheme is: "None"
+2025-12-01 18:36:20 - botocore.regions - DEBUG - Selected auth type "v4" as "v4" with signing context params: {'region': 'ap-southeast-2', 'signing_name': 's3', 'disableDoubleEncoding': True}
+2025-12-01 18:36:20 - botocore.hooks - DEBUG - Event before-call.s3.PutObject: calling handler <function add_expect_header at 0x00000250EC982C00>
+2025-12-01 18:36:20 - botocore.handlers - DEBUG - Adding expect 100 continue header to request.
+2025-12-01 18:36:20 - botocore.hooks - DEBUG - Event before-call.s3.PutObject: calling handler <bound method S3ExpressIdentityResolver.apply_signing_cache_key of <botocore.utils.S3ExpressIdentityResolver object at 0x0000025091F89D30>>
+2025-12-01 18:36:20 - botocore.hooks - DEBUG - Event before-call.s3.PutObject: calling handler <function add_recursion_detection_header at 0x00000250EC982160>
+2025-12-01 18:36:20 - botocore.hooks - DEBUG - Event before-call.s3.PutObject: calling handler <function inject_api_version_header_if_needed at 0x00000250EC9A0180>
+2025-12-01 18:36:20 - botocore.endpoint - DEBUG - Making request for OperationModel(name=PutObject) with params: {'url_path': '/scans/exploit/test-campaign-6d081040.json', 'query_string': {}, 'method': 'PUT', 'headers': {'Content-Type': 'application/json', 'User-Agent': 'Boto3/1.39.10 md/Botocore#1.39.10 ua/2.1 os/windows#11 md/arch#amd64 lang/python#3.13.5 md/pyimpl#CPython m/D,b,Z cfg/retry-mode#legacy Botocore/1.39.10', 'Expect': '100-continue', 'Transfer-Encoding': 'chunked', 'Content-Encoding': 'aws-chunked', 'X-Amz-Trailer': 'x-amz-checksum-crc32', 'X-Amz-Decoded-Content-Length': '609', 'x-amz-sdk-checksum-algorithm': 'CRC32'}, 'body': <botocore.httpchecksum.AwsChunkedWrapper object at 0x0000025091F8ACF0>, 'auth_path': '/aspexa-audit-aspexa-automa-20251125145756465900000001/scans/exploit/test-campaign-6d081040.json', 'url': 'https://aspexa-audit-aspexa-automa-20251125145756465900000001.s3.ap-southeast-2.amazonaws.com/scans/exploit/test-campaign-6d081040.json', 'context': {'client_region': 'ap-southeast-2', 'client_config': <botocore.config.Config object at 0x0000025091EB3770>, 'has_streaming_input': True, 'auth_type': 'v4', 'unsigned_payload': None, 'auth_options': ['aws.auth#sigv4'], 's3_redirect': {'redirected': False, 'bucket': 'aspexa-audit-aspexa-automa-20251125145756465900000001', 'params': {'Bucket': 'aspexa-audit-aspexa-automa-20251125145756465900000001', 'Key': 'scans/exploit/test-campaign-6d081040.json', 'Body': <_io.BytesIO object at 0x0000025091F6D620>, 'ContentType': 'application/json'}}, 'input_params': {'Bucket': 'aspexa-audit-aspexa-automa-20251125145756465900000001', 'Key': 'scans/exploit/test-campaign-6d081040.json'}, 'signing': {'region': 'ap-southeast-2', 'signing_name': 's3', 'disableDoubleEncoding': True}, 'endpoint_properties': {'authSchemes': [{'disableDoubleEncoding': True, 'name': 'sigv4', 'signingName': 's3', 'signingRegion': 'ap-southeast-2'}]}, 'checksum': {'request_algorithm_header': {'name': 'x-amz-sdk-checksum-algorithm', 'value': 'CRC32'}, 'request_algorithm': {'algorithm': 'crc32', 'in': 'trailer', 'name': 'x-amz-checksum-crc32'}}}}
+2025-12-01 18:36:20 - botocore.hooks - DEBUG - Event request-created.s3.PutObject: calling handler <bound method RequestSigner.handler of <botocore.signers.RequestSigner object at 0x0000025091EB3620>>
+2025-12-01 18:36:20 - botocore.hooks - DEBUG - Event choose-signer.s3.PutObject: calling handler <bound method ClientCreator._default_s3_presign_to_sigv2 of <botocore.client.ClientCreator object at 0x000002509043B620>>
+2025-12-01 18:36:20 - botocore.hooks - DEBUG - Event choose-signer.s3.PutObject: calling handler <function set_operation_specific_signer at 0x00000250EC9823E0>
+2025-12-01 18:36:20 - botocore.hooks - DEBUG - Event before-sign.s3.PutObject: calling handler <function remove_arn_from_signing_path at 0x00000250EC9A0C20>
+2025-12-01 18:36:20 - botocore.hooks - DEBUG - Event before-sign.s3.PutObject: calling handler <function _set_extra_headers_for_unsigned_request at 0x00000250EC9A1260>
+2025-12-01 18:36:20 - botocore.hooks - DEBUG - Event before-sign.s3.PutObject: calling handler <bound method S3ExpressIdentityResolver.resolve_s3express_identity of <botocore.utils.S3ExpressIdentityResolver object at 0x0000025091F89D30>>
+2025-12-01 18:36:20 - botocore.auth - DEBUG - Calculating signature using v4 auth.
+2025-12-01 18:36:20 - botocore.auth - DEBUG - CanonicalRequest:
+PUT
+/scans/exploit/test-campaign-6d081040.json
+
+content-encoding:aws-chunked
+content-type:application/json
+host:aspexa-audit-aspexa-automa-20251125145756465900000001.s3.ap-southeast-2.amazonaws.com
+x-amz-content-sha256:STREAMING-UNSIGNED-PAYLOAD-TRAILER
+x-amz-date:20251201T103620Z
+x-amz-decoded-content-length:609
+x-amz-sdk-checksum-algorithm:CRC32
+x-amz-trailer:x-amz-checksum-crc32
+
+content-encoding;content-type;host;x-amz-content-sha256;x-amz-date;x-amz-decoded-content-length;x-amz-sdk-checksum-algorithm;x-amz-trailer
+STREAMING-UNSIGNED-PAYLOAD-TRAILER
+2025-12-01 18:36:20 - botocore.auth - DEBUG - StringToSign:
+AWS4-HMAC-SHA256
+20251201T103620Z
+20251201/ap-southeast-2/s3/aws4_request
+a7672af8f5c023f30116f46203bd5e1a6858e902103634db03f21d2730a509a0
+2025-12-01 18:36:20 - botocore.auth - DEBUG - Signature:
+1e048b63e421e4f332543789d7d500efc978026d50f973f25c377852902cac04
+2025-12-01 18:36:20 - botocore.hooks - DEBUG - Event request-created.s3.PutObject: calling handler <bound method UserAgentString.rebuild_and_replace_user_agent_handler of <botocore.useragent.UserAgentString object at 0x0000025091F45D10>>
+2025-12-01 18:36:20 - botocore.hooks - DEBUG - Event request-created.s3.PutObject: calling handler <function add_retry_headers at 0x00000250EC9A0A40>
+2025-12-01 18:36:20 - botocore.endpoint - DEBUG - Sending http request: <AWSPreparedRequest stream_output=False, method=PUT, url=https://aspexa-audit-aspexa-automa-20251125145756465900000001.s3.ap-southeast-2.amazonaws.com/scans/exploit/test-campaign-6d081040.json, headers={'Content-Type': b'application/json', 'User-Agent': b'Boto3/1.39.10 md/Botocore#1.39.10 ua/2.1 os/windows#11 md/arch#amd64 lang/python#3.13.5 md/pyimpl#CPython m/D,b,Z,U cfg/retry-mode#legacy Botocore/1.39.10', 'Expect': b'100-continue', 'Transfer-Encoding': b'chunked', 'Content-Encoding': b'aws-chunked', 'X-Amz-Trailer': b'x-amz-checksum-crc32', 'X-Amz-Decoded-Content-Length': b'609', 'x-amz-sdk-checksum-algorithm': b'CRC32', 'X-Amz-Date': b'20251201T103620Z', 'X-Amz-Content-SHA256': b'STREAMING-UNSIGNED-PAYLOAD-TRAILER', 'Authorization': b'AWS4-HMAC-SHA256 Credential=AKIAYMDDTNIIRT26LEZT/20251201/ap-southeast-2/s3/aws4_request, SignedHeaders=content-encoding;content-type;host;x-amz-content-sha256;x-amz-date;x-amz-decoded-content-length;x-amz-sdk-checksum-algorithm;x-amz-trailer, Signature=1e048b63e421e4f332543789d7d500efc978026d50f973f25c377852902cac04', 'amz-sdk-invocation-id': b'fef9ec1d-fdd4-465b-95e3-d65e7504ade2', 'amz-sdk-request': b'attempt=1'}>
+2025-12-01 18:36:20 - botocore.httpsession - DEBUG - Certificate path: C:\Users\User\AppData\Local\Programs\Python\Python313\Lib\site-packages\certifi\cacert.pem
+2025-12-01 18:36:20 - urllib3.connectionpool - DEBUG - Starting new HTTPS connection (1): aspexa-audit-aspexa-automa-20251125145756465900000001.s3.ap-southeast-2.amazonaws.com:443
+2025-12-01 18:36:21 - botocore.awsrequest - DEBUG - Waiting for 100 Continue response.
+2025-12-01 18:36:21 - botocore.awsrequest - DEBUG - 100 Continue response seen, now sending request body.
+2025-12-01 18:36:21 - urllib3.connectionpool - DEBUG - https://aspexa-audit-aspexa-automa-20251125145756465900000001.s3.ap-southeast-2.amazonaws.com:443 "PUT /scans/exploit/test-campaign-6d081040.json HTTP/1.1" 200 0
+2025-12-01 18:36:21 - botocore.hooks - DEBUG - Event before-parse.s3.PutObject: calling handler <function _handle_200_error at 0x00000250EC9A0FE0>
+2025-12-01 18:36:21 - botocore.hooks - DEBUG - Event before-parse.s3.PutObject: calling handler <function handle_expires_header at 0x00000250EC9A0E00>
+2025-12-01 18:36:21 - botocore.parsers - DEBUG - Response headers: {'x-amz-id-2': 'vEv57RWlxSZY/70O++7Ms5znwbf4LuxOQg1i9PEn2YMKiWXHnvkXB3OysZzlhNZxYk8/WJdTUIM=', 'x-amz-request-id': 'V133M3WNE4022TH3', 'Date': 'Mon, 01 Dec 2025 10:36:22 GMT', 'x-amz-version-id': 'BYib7SS4NU__eX.B_w7flI2oh3JY8fup', 'x-amz-server-side-encryption': 'AES256', 'ETag': '"ff52f2fb04a214b5c6c5bb9475d4d683"', 'x-amz-checksum-crc32': 'H2+BzA==', 'x-amz-checksum-type': 'FULL_OBJECT', 'Content-Length': '0', 'Server': 'AmazonS3'}
+2025-12-01 18:36:21 - botocore.parsers - DEBUG - Response body:
+b''
+2025-12-01 18:36:21 - botocore.hooks - DEBUG - Event needs-retry.s3.PutObject: calling handler <function _update_status_code at 0x00000250EC9A1120>
+2025-12-01 18:36:21 - botocore.hooks - DEBUG - Event needs-retry.s3.PutObject: calling handler <botocore.retryhandler.RetryHandler object at 0x0000025091F89940>
+2025-12-01 18:36:21 - botocore.retryhandler - DEBUG - No retry needed.
+2025-12-01 18:36:21 - botocore.hooks - DEBUG - Event needs-retry.s3.PutObject: calling handler <bound method S3RegionRedirectorv2.redirect_from_error of <botocore.utils.S3RegionRedirectorv2 object at 0x0000025091F89A90>>
+2025-12-01 18:36:21 - services.snipers.utils.persistence.s3_adapter - INFO - Saved exploit to S3: scans/exploit/test-campaign-6d081040.json
+2025-12-01 18:36:21 - services.snipers.utils.persistence.s3_adapter - INFO - Campaign test-campaign: EXPLOIT stage complete (campaign should be COMPLETE)
+2025-12-01 18:36:21 - asyncio - DEBUG - Using proactor: IocpProactor
+2025-12-01 18:36:21 - services.snipers.entrypoint - ERROR - Streaming attack failed: Phase 2 not needed for this test
+Traceback (most recent call last):
+  File "C:\Users\User\Projects\Aspexa_Automa\services\snipers\entrypoint.py", line 323, in execute_full_attack_streaming
+    result2 = await phase2.execute(
+              ^^^^^^^^^^^^^^^^^^^^^
+    ...<3 lines>...
+    )
+    ^
+  File "C:\Users\User\AppData\Local\Programs\Python\Python313\Lib\unittest\mock.py", line 2321, in _execute_mock_call
+    raise effect
+Exception: Phase 2 not needed for this test
+2025-12-01 18:36:21 - asyncio - DEBUG - Using proactor: IocpProactor
+2025-12-01 18:36:21 - asyncio - DEBUG - Using proactor: IocpProactor
+2025-12-01 18:36:21 - asyncio - DEBUG - Using proactor: IocpProactor

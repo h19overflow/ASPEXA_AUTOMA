@@ -56,15 +56,15 @@ SelfAskTrueFalseScorer = MockSelfAskTrueFalseScorer
 TrueFalseQuestion = MockTrueFalseQuestion
 PromptChatTarget = MockPromptChatTarget
 
-from services.snipers.scoring.jailbreak_scorer import (
+from services.snipers.utils.scoring.jailbreak_scorer import (
     JailbreakScorer,
     create_jailbreak_scorer,
 )
-from services.snipers.scoring.prompt_leak_scorer import (
+from services.snipers.utils.scoring.prompt_leak_scorer import (
     PromptLeakScorer,
     create_prompt_leak_scorer,
 )
-from services.snipers.scoring.composite_attack_scorer import CompositeAttackScorer
+from services.snipers.utils.scoring.composite_attack_scorer import CompositeAttackScorer
 
 
 # ============================================================================

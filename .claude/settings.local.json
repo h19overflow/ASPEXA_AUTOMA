@@ -1,9 +1,23 @@
 {
   "permissions": {
     "allow": [
-      "Bash(python -m pytest:*)",
-      "Bash(python:*)",
-      "Bash(PYTHONPATH=/c/Users/User/Projects/Aspexa_Automa python -m pytest:*)"
+      "Bash(tree:*)",
+      "Bash(cat:*)",
+      "Bash(New-Item -ItemType Directory -Path \"utils\" -Force)",
+      "Bash(New-Item -ItemType Directory -Path \"utils\\nodes\" -Force)",
+      "Bash(New-Item -ItemType Directory -Path \"utils\\scoring\" -Force)",
+      "Bash(New-Item -ItemType Directory -Path \"utils\\persistence\" -Force)",
+      "Bash(New-Item -ItemType Directory -Path \"utils\\converters\" -Force)",
+      "Bash(New-Item -ItemType Directory -Path \"utils\\prompt_articulation\" -Force)",
+      "Bash(New-Item -ItemType Directory -Path \"utils\\prompt_articulation\\components\" -Force)",
+      "Bash(New-Item -ItemType Directory -Path \"utils\\prompt_articulation\\models\" -Force)",
+      "Bash(New-Item -ItemType Directory -Path \"utils\\pyrit\" -Force)",
+      "Bash(New-Item -ItemType Directory -Path \"_archive\" -Force)",
+      "Bash(New-Item -ItemType Directory -Path \"_archive\\scorers_legacy\" -Force)",
+      "Bash(find:*)",
+      "Bash(while read file)",
+      "Bash(do sed -i 's|from services\\.snipers\\.agent\\.state import|from services.snipers._archive.agent_state_legacy import|g' \"$file\" sed -i 's|from services\\.snipers\\.tools\\.pyrit_bridge import|from services.snipers.utils.pyrit.pyrit_bridge import|g' \"$file\" sed -i 's|from services\\.snipers\\.core\\.pyrit_init import|from services.snipers.utils.pyrit.pyrit_init import|g' \"$file\" sed -i 's|from services\\.snipers\\.scoring import|from services.snipers.utils.scoring import|g' \"$file\" sed -i 's|from services\\.snipers\\.scoring\\.|from services.snipers.utils.scoring.|g' \"$file\" sed -i 's|from services\\.snipers\\.persistence\\.s3_adapter import|from services.snipers.utils.persistence.s3_adapter import|g' \"$file\" sed -i 's|from services\\.snipers\\.tools\\.prompt_articulation|from services.snipers.utils.prompt_articulation|g' \"$file\" sed -i 's|from services\\.snipers\\.tools\\.converters import|from services.snipers.utils.converters import|g' \"$file\" done)",
+      "Bash(python:*)"
     ],
     "deny": [],
     "ask": []

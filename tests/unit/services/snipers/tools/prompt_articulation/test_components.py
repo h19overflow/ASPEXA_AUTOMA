@@ -8,20 +8,20 @@ import pytest
 import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from services.snipers.tools.prompt_articulation.components import (
+from services.snipers.utils.prompt_articulation.components import (
     EffectivenessTracker,
     FormatControl,
     FormatControlType,
     FramingLibrary,
     PayloadGenerator,
 )
-from services.snipers.tools.prompt_articulation.models import (
+from services.snipers.utils.prompt_articulation.models import (
     AttackHistory,
     FramingType,
     PayloadContext,
     TargetInfo,
 )
-from services.snipers.tools.prompt_articulation.config import DEFAULT_STRATEGIES
+from services.snipers.utils.prompt_articulation.config import DEFAULT_STRATEGIES
 
 
 class TestFormatControl:
@@ -297,7 +297,7 @@ class TestPayloadGenerator:
 
     def test_articulated_payload_model(self):
         """Test ArticulatedPayload model creation."""
-        from services.snipers.tools.prompt_articulation.components import (
+        from services.snipers.utils.prompt_articulation.components import (
             ArticulatedPayload,
         )
 

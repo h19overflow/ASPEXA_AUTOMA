@@ -14,11 +14,11 @@ are used for payload obfuscation in AI security testing.
 import pytest
 from pyrit.prompt_converter import ConverterResult
 
-from services.snipers.tools.converters.leetspeak import LeetspeakConverter
-from services.snipers.tools.converters.morse_code import MorseCodeConverter
-from services.snipers.tools.converters.character_space import CharacterSpaceConverter
-from services.snipers.tools.converters.homoglyph import HomoglyphConverter
-from services.snipers.tools.converters.unicode_substitution import UnicodeSubstitutionConverter
+from services.snipers.utils.converters.leetspeak import LeetspeakConverter
+from services.snipers.utils.converters.morse_code import MorseCodeConverter
+from services.snipers.utils.converters.character_space import CharacterSpaceConverter
+from services.snipers.utils.converters.homoglyph import HomoglyphConverter
+from services.snipers.utils.converters.unicode_substitution import UnicodeSubstitutionConverter
 
 
 class TestLeetspeakConverter:

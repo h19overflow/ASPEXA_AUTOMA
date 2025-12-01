@@ -61,7 +61,7 @@ class TestScorerIntegration:
 
     def test_scorer_pipeline(self, sample_pattern_analysis):
         """Test complete scorer pipeline."""
-        from services.snipers.tools.scorers import (
+        from services.snipers.utils.scorers import (
             RegexScorer,
             PatternScorer,
             CompositeScorer
@@ -90,7 +90,7 @@ class TestScorerIntegration:
         self, sample_pattern_analysis, sample_attack_result
     ):
         """Test scorer with attack result context."""
-        from services.snipers.tools.scorers import CompositeScorer, RegexScorer, PatternScorer
+        from services.snipers.utils.scorers import CompositeScorer, RegexScorer, PatternScorer
         from services.snipers.models import AttackResult
 
         # Create scorer
@@ -197,7 +197,7 @@ class TestConverterFactoryIntegration:
 
     def test_converter_chain(self):
         """Test applying multiple converters in chain."""
-        from services.snipers.tools.pyrit_bridge import (
+        from services.snipers.utils.pyrit.pyrit_bridge import (
             ConverterFactory,
             PayloadTransformer
         )
@@ -231,7 +231,7 @@ class TestConverterFactoryIntegration:
 
     def test_unavailable_converter_handling(self):
         """Test handling of unavailable converters."""
-        from services.snipers.tools.pyrit_bridge import (
+        from services.snipers.utils.pyrit.pyrit_bridge import (
             ConverterFactory,
             PayloadTransformer
         )
@@ -300,7 +300,7 @@ class TestWorkflowIntegration:
             PayloadGeneration,
             AttackResult
         )
-        from services.snipers.tools.scorers import RegexScorer
+        from services.snipers.utils.scorers import RegexScorer
 
         # Mock pattern analysis result
         pattern = PatternAnalysis(
@@ -365,7 +365,7 @@ class TestEndToEndFlow:
             AttackPlan,
             AttackResult
         )
-        from services.snipers.tools.scorers import CompositeScorer, RegexScorer, PatternScorer
+        from services.snipers.utils.scorers import CompositeScorer, RegexScorer, PatternScorer
 
         # Step 1: Parse
         parser = GarakReportParser()
