@@ -31,10 +31,14 @@ async def articulate_node(state: AdaptiveAttackState) -> dict[str, Any]:
     campaign_id = state["campaign_id"]
     payload_count = state.get("payload_count", 2)
     framing_types = state.get("framing_types")
+    custom_framing = state.get("custom_framing")  # LLM-generated framing
 
     logger.info(f"\n[Iteration {iteration + 1}] Phase 1: Articulating payloads")
     logger.info(f"  Payload count: {payload_count}")
-    logger.info(f"  Framing types: {framing_types or 'auto'}")
+    if custom_framing:
+        logger.info(f"  Custom framing: {custom_framing.get('name', 'unknown')}")
+    else:
+        logger.info(f"  Framing types: {framing_types or 'auto'}")
 
     try:
         phase1 = PayloadArticulation()
@@ -42,6 +46,7 @@ async def articulate_node(state: AdaptiveAttackState) -> dict[str, Any]:
             campaign_id=campaign_id,
             payload_count=payload_count,
             framing_types=framing_types,
+            custom_framing=custom_framing,  # Pass LLM-generated framing
         )
 
         # Track tried framings

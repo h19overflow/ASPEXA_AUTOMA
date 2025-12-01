@@ -32,6 +32,10 @@ from services.snipers.adaptive_attack.nodes import (
     evaluate_node,
     adapt_node,
 )
+from services.snipers.adaptive_attack.components.turn_logger import (
+    reset_turn_logger,
+    get_turn_logger,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -149,6 +153,9 @@ async def run_adaptive_attack(
         logger.info(f"Success scorers: {success_scorers} >= {success_threshold}")
     logger.info("=" * 70 + "\n")
 
+    # Reset turn logger for new run
+    reset_turn_logger()
+
     # Create initial state
     initial_state = create_initial_state(
         campaign_id=campaign_id,
@@ -176,5 +183,13 @@ async def run_adaptive_attack(
     logger.info(f"Best score: {final_state.get('best_score', 0.0):.2f}")
     logger.info(f"Best iteration: {final_state.get('best_iteration', 0)}")
     logger.info("=" * 70 + "\n")
+
+    # Log final result to turn logger
+    get_turn_logger().log_result(
+        is_successful=final_state.get("is_successful", False),
+        total_iterations=final_state.get("iteration", 0) + 1,
+        best_score=final_state.get("best_score", 0.0),
+        best_iteration=final_state.get("best_iteration", 0),
+    )
 
     return final_state

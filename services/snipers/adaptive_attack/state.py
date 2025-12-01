@@ -15,6 +15,11 @@ from typing import Any, Literal, TypedDict
 from dataclasses import dataclass, field
 
 from services.snipers.models import Phase1Result, Phase2Result, Phase3Result
+from services.snipers.adaptive_attack.models.chain_discovery import (
+    ChainDiscoveryContext,
+    ChainDiscoveryDecision,
+    ChainSelectionResult,
+)
 
 
 # Failure causes that trigger different adaptations
@@ -35,6 +40,7 @@ AdaptationAction = Literal[
     "increase_payload_count",  # Generate more payloads
     "reduce_concurrency",      # Slow down requests
     "retry_same",              # Retry with same parameters
+    "llm_strategy_generated",  # LLM generated custom strategy
 ]
 
 # Available scorer types for success criteria
@@ -100,6 +106,22 @@ class AdaptiveAttackState(TypedDict, total=False):
 
     # === History (for learning) ===
     iteration_history: list[dict[str, Any]]
+
+    # === Response Data (for LLM analysis) ===
+    target_responses: list[str]  # Raw response texts from Phase 3
+
+    # === Custom Framing (from LLM) ===
+    custom_framing: dict[str, str] | None  # LLM-generated framing dict
+    payload_guidance: str | None  # Instructions for payload articulation
+
+    # === Adaptation Reasoning ===
+    adaptation_reasoning: str  # LLM's reasoning chain
+    defense_analysis: dict[str, Any]  # Parsed defense signals
+
+    # === Chain Discovery (NEW) ===
+    chain_discovery_context: ChainDiscoveryContext | None  # Extracted failure intelligence
+    chain_discovery_decision: ChainDiscoveryDecision | None  # LLM chain candidates
+    chain_selection_result: ChainSelectionResult | None  # Full selection observability
 
     # === Control Flow ===
     next_node: str | None
@@ -197,6 +219,22 @@ def create_initial_state(
 
         # History
         iteration_history=[],
+
+        # Response data (for LLM analysis)
+        target_responses=[],
+
+        # Custom framing (from LLM)
+        custom_framing=None,
+        payload_guidance=None,
+
+        # Adaptation reasoning
+        adaptation_reasoning="",
+        defense_analysis={},
+
+        # Chain discovery
+        chain_discovery_context=None,
+        chain_discovery_decision=None,
+        chain_selection_result=None,
 
         # Control flow
         next_node="articulate",

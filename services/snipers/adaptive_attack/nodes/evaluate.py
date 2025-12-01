@@ -10,6 +10,7 @@ import logging
 from typing import Any
 
 from services.snipers.adaptive_attack.state import AdaptiveAttackState, FailureCause
+from services.snipers.adaptive_attack.components.turn_logger import get_turn_logger
 
 logger = logging.getLogger(__name__)
 
@@ -101,6 +102,9 @@ def evaluate_node(state: AdaptiveAttackState) -> dict[str, Any]:
     logger.info(f"  Overall score: {total_score:.2f}")
     logger.info(f"  Success: {is_successful}")
 
+    # Log turns to JSON file for observation
+    _log_turns_to_file(state, iteration, scorer_confidences)
+
     # Record iteration in history
     iteration_history = list(state.get("iteration_history", []))
     iteration_history.append({
@@ -153,9 +157,76 @@ def evaluate_node(state: AdaptiveAttackState) -> dict[str, Any]:
     logger.info(f"  → Failure cause: {failure_cause}")
     logger.info(f"  → Continuing to adapt (iteration {iteration + 2}/{max_iterations})")
 
+    # Extract target responses for LLM analysis
+    target_responses = []
+    if phase3_result and phase3_result.attack_responses:
+        target_responses = [r.response for r in phase3_result.attack_responses if r.response]
+        logger.info(f"  → Extracted {len(target_responses)} responses for LLM analysis")
+
     return {
         "iteration_history": iteration_history,
         "failure_cause": failure_cause,
         "iteration": iteration + 1,
+        "target_responses": target_responses,  # NEW: Pass to adapt node for LLM analysis
         "next_node": "adapt",
     }
+
+
+def _log_turns_to_file(
+    state: AdaptiveAttackState,
+    iteration: int,
+    scorer_confidences: dict[str, float],
+) -> None:
+    """Log attack turns to JSON file for observation."""
+    phase1_result = state.get("phase1_result")
+    phase2_result = state.get("phase2_result")
+    phase3_result = state.get("phase3_result")
+
+    if not phase3_result or not phase3_result.attack_responses:
+        return
+
+    turn_logger = get_turn_logger()
+
+    # Set metadata on first iteration
+    if iteration == 0:
+        turn_logger.set_metadata(
+            campaign_id=state.get("campaign_id", "unknown"),
+            target_url=state.get("target_url", "unknown"),
+        )
+
+    # Get original payloads from phase1
+    original_payloads = []
+    if phase1_result and hasattr(phase1_result, "articulated_payloads"):
+        original_payloads = phase1_result.articulated_payloads
+
+    # Get converted payloads from phase2
+    converted_payloads = []
+    if phase2_result and hasattr(phase2_result, "payloads"):
+        converted_payloads = [p.converted for p in phase2_result.payloads]
+
+    # Get framing info
+    framing_type = None
+    if phase1_result and hasattr(phase1_result, "framing_type"):
+        framing_type = phase1_result.framing_type
+
+    # Get converters
+    converters = state.get("converter_names") or []
+    if phase2_result and hasattr(phase2_result, "converter_names"):
+        converters = phase2_result.converter_names
+
+    # Log each turn
+    for i, attack_response in enumerate(phase3_result.attack_responses):
+        original = original_payloads[i] if i < len(original_payloads) else ""
+        converted = converted_payloads[i] if i < len(converted_payloads) else attack_response.payload
+
+        turn_logger.log_turn(
+            iteration=iteration + 1,
+            payload_index=i + 1,
+            payload_original=original,
+            payload_converted=converted,
+            response=attack_response.response,
+            framing_type=framing_type,
+            converters=converters,
+            scores=scorer_confidences,
+            custom_framing=state.get("custom_framing"),
+        )

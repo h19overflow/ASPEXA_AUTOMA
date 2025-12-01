@@ -8,9 +8,8 @@ Uses multi-strategy chain discovery:
 """
 
 import logging
-from typing import Any, Optional
+from typing import Any
 from services.snipers.agent.state import ExploitAgentState
-from services.snipers.chain_discovery.models import ConverterChain
 from services.snipers.chain_discovery.pattern_database import PatternDatabaseAdapter
 from services.snipers.chain_discovery.chain_generator import (
     HeuristicChainGenerator,

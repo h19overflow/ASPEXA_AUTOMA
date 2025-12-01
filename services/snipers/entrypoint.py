@@ -44,6 +44,8 @@ Usage:
 """
 
 import logging
+import time
+import uuid
 from dataclasses import dataclass
 from typing import Any
 
@@ -54,6 +56,10 @@ from services.snipers.attack_phases import (
 )
 from services.snipers.models import Phase1Result, Phase2Result, Phase3Result
 from services.snipers.adaptive_attack import run_adaptive_attack, AdaptiveAttackState
+from services.snipers.persistence.s3_adapter import (
+    persist_exploit_result,
+    format_exploit_result,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -98,6 +104,8 @@ async def execute_full_attack(
     Returns:
         FullAttackResult with all phase results and summary
     """
+    start_time = time.time()
+
     logger.info("\n" + "=" * 70)
     logger.info("SNIPERS: FULL ATTACK EXECUTION")
     logger.info("=" * 70)
@@ -131,6 +139,8 @@ async def execute_full_attack(
         max_concurrent=max_concurrent,
     )
 
+    execution_time = time.time() - start_time
+
     # Build complete result
     full_result = FullAttackResult(
         campaign_id=campaign_id,
@@ -145,15 +155,53 @@ async def execute_full_attack(
         payloads_sent=len(result3.attack_responses),
     )
 
+    # Persist to S3 and update campaign stage
+    scan_id = f"{campaign_id}-{uuid.uuid4().hex[:8]}"
+    state_dict = _full_result_to_state_dict(full_result)
+    exploit_result = format_exploit_result(
+        state=state_dict,
+        audit_id=campaign_id,
+        target_url=target_url,
+        execution_time=execution_time,
+    )
+    await persist_exploit_result(
+        campaign_id=campaign_id,
+        scan_id=scan_id,
+        exploit_result=exploit_result,
+        target_url=target_url,
+    )
+    logger.info(f"Persisted exploit result: {scan_id}")
+
     logger.info("\n" + "=" * 70)
     logger.info("ATTACK COMPLETE")
     logger.info("=" * 70)
     logger.info(f"Success: {full_result.is_successful}")
     logger.info(f"Severity: {full_result.overall_severity}")
     logger.info(f"Score: {full_result.total_score:.2f}")
+    logger.info(f"Scan ID: {scan_id}")
     logger.info("=" * 70 + "\n")
 
     return full_result
+
+
+def _full_result_to_state_dict(result: FullAttackResult) -> dict:
+    """Convert FullAttackResult to state dict for format_exploit_result."""
+    return {
+        "probe_name": result.phase1.framing_type,
+        "pattern_analysis": result.phase1.context_summary,
+        "converter_selection": {
+            "selected_converters": result.phase2.converter_names,
+        } if result.phase2 else None,
+        "attack_results": [
+            {
+                "success": resp.error is None and result.is_successful,
+                "payload": resp.payload,
+                "response": resp.response,
+            }
+            for resp in result.phase3.attack_responses
+        ],
+        "recon_intelligence": result.phase1.context_summary.get("recon_used"),
+    }
 
 
 async def execute_adaptive_attack(
@@ -186,7 +234,9 @@ async def execute_adaptive_attack(
     Returns:
         AdaptiveAttackState with final results and iteration history
     """
-    return await run_adaptive_attack(
+    start_time = time.time()
+
+    result = await run_adaptive_attack(
         campaign_id=campaign_id,
         target_url=target_url,
         max_iterations=max_iterations,
@@ -196,6 +246,68 @@ async def execute_adaptive_attack(
         success_scorers=success_scorers,
         success_threshold=success_threshold,
     )
+
+    execution_time = time.time() - start_time
+
+    # Persist to S3 and update campaign stage
+    scan_id = f"{campaign_id}-adaptive-{uuid.uuid4().hex[:8]}"
+    state_dict = _adaptive_result_to_state_dict(result)
+    exploit_result = format_exploit_result(
+        state=state_dict,
+        audit_id=campaign_id,
+        target_url=target_url,
+        execution_time=execution_time,
+    )
+    await persist_exploit_result(
+        campaign_id=campaign_id,
+        scan_id=scan_id,
+        exploit_result=exploit_result,
+        target_url=target_url,
+    )
+    logger.info(f"Persisted adaptive attack result: {scan_id}")
+
+    return result
+
+
+def _adaptive_result_to_state_dict(state: AdaptiveAttackState) -> dict:
+    """Convert AdaptiveAttackState to state dict for format_exploit_result."""
+    phase3 = state.get("phase3_result")
+    phase1 = state.get("phase1_result")
+
+    # Build attack results from phase3 if available
+    attack_results = []
+    if phase3:
+        for resp in phase3.attack_responses:
+            attack_results.append({
+                "success": resp.error is None and state.get("is_successful", False),
+                "payload": resp.payload,
+                "response": resp.response,
+            })
+
+    # Get converter selection from chain selection result or phase1
+    converter_selection = None
+    chain_selection = state.get("chain_selection_result")
+    if chain_selection:
+        converter_selection = {
+            "selected_converters": chain_selection.selected_chain or [],
+        }
+    elif phase1 and phase1.selected_chain:
+        converter_selection = {
+            "selected_converters": phase1.selected_chain.converter_names,
+        }
+
+    return {
+        "probe_name": phase1.framing_type if phase1 else "adaptive",
+        "pattern_analysis": phase1.context_summary if phase1 else {},
+        "converter_selection": converter_selection,
+        "attack_results": attack_results,
+        "recon_intelligence": phase1.context_summary.get("recon_used") if phase1 else None,
+        # Adaptive-specific fields for logging
+        "iteration_count": state.get("iteration", 0) + 1,
+        "best_score": state.get("best_score", 0.0),
+        "best_iteration": state.get("best_iteration", 0),
+        "adaptation_reasoning": state.get("adaptation_reasoning", ""),
+    }
 
 
 async def main():
@@ -302,7 +414,7 @@ async def main():
 
 
 def _print_adaptive_results(result: AdaptiveAttackState) -> None:
-    """Print adaptive attack results."""
+    """Print adaptive attack results with chain discovery intelligence."""
     print("\n" + "=" * 70)
     print("ADAPTIVE ATTACK RESULTS")
     print("=" * 70)
@@ -324,6 +436,64 @@ def _print_adaptive_results(result: AdaptiveAttackState) -> None:
         print(f"  [{entry['iteration']}] {success} - Score: {score:.2f}")
         print(f"      Framing: {framing}, Converters: {converters}")
 
+    # Show chain discovery context if available
+    chain_context = result.get("chain_discovery_context")
+    if chain_context:
+        print(f"\n--- Chain Discovery Intelligence ---")
+        print(f"Defense Signals: {chain_context.defense_signals}")
+        print(f"Root Cause: {chain_context.failure_root_cause}")
+        print(f"Defense Evolution: {chain_context.defense_evolution}")
+        print(f"Best Chain So Far: {chain_context.best_chain_so_far or 'None'}")
+        if chain_context.unexplored_directions:
+            print(f"Unexplored Directions:")
+            for direction in chain_context.unexplored_directions[:3]:
+                print(f"    - {direction}")
+        if chain_context.required_properties:
+            print(f"Required Properties:")
+            for prop in chain_context.required_properties:
+                print(f"    - {prop}")
+
+    # Show chain discovery decision if available
+    chain_decision = result.get("chain_discovery_decision")
+    if chain_decision:
+        print(f"\n--- Chain Discovery Decision ---")
+        print(f"Primary Defense Target: {chain_decision.primary_defense_target}")
+        print(f"Mode: {chain_decision.exploration_vs_exploitation}")
+        print(f"Confidence: {chain_decision.confidence:.2f}")
+        print(f"Generated Chains:")
+        for i, chain in enumerate(chain_decision.chains[:3]):
+            print(f"    {i+1}. {chain.converters} (expected: {chain.expected_effectiveness:.2f})")
+            print(f"       Strategy: {chain.defense_bypass_strategy[:60]}...")
+
+    # Show chain selection result with full observability
+    chain_selection = result.get("chain_selection_result")
+    if chain_selection:
+        print(f"\n--- Chain Selection (Full Observability) ---")
+        print(f"Selected Chain: {chain_selection.selected_chain}")
+        print(f"Selection Method: {chain_selection.selection_method}")
+        print(f"Selection Reasoning: {chain_selection.selection_reasoning[:150]}...")
+
+        # Show all candidates with rankings
+        if chain_selection.all_candidates:
+            print(f"\nAll Candidates (ranked by effectiveness):")
+            for candidate in chain_selection.all_candidates[:5]:
+                print(f"    #{candidate['rank']}: {candidate['converters']} "
+                      f"(eff: {candidate['expected_effectiveness']:.2f})")
+                print(f"         Strategy: {candidate['defense_bypass_strategy'][:50]}...")
+
+        # Show defense match details
+        if chain_selection.defense_match_details.get("matches_found"):
+            print(f"\nDefense Matches Found:")
+            for match in chain_selection.defense_match_details["matches_found"]:
+                print(f"    Chain: {match['chain']}")
+                print(f"    Matched: {match['matched_defenses']}")
+
+        # Show rejected chains
+        if chain_selection.rejected_chains:
+            print(f"\nRejected Chains ({len(chain_selection.rejected_chains)} total):")
+            for rejected in chain_selection.rejected_chains[:3]:
+                print(f"    {rejected['chain']}: {rejected['reason']}")
+
     # Show final phase 3 results if available
     phase3 = result.get("phase3_result")
     if phase3:
@@ -334,6 +504,13 @@ def _print_adaptive_results(result: AdaptiveAttackState) -> None:
         print(f"\n--- Scorer Results ---")
         for scorer_name, score_result in phase3.composite_score.scorer_results.items():
             print(f"  {scorer_name}: {score_result.severity.value} ({score_result.confidence:.2f})")
+
+    # Show adaptation reasoning if available
+    adaptation_reasoning = result.get("adaptation_reasoning")
+    if adaptation_reasoning:
+        print(f"\n--- Adaptation Reasoning ---")
+        reasoning_preview = adaptation_reasoning[:200]
+        print(f"  {reasoning_preview}...")
 
     print("\n" + "=" * 70)
     print("ADAPTIVE ATTACK COMPLETE")
