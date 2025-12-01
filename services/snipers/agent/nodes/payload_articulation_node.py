@@ -162,26 +162,63 @@ class PayloadArticulationNodePhase3:
                 )
 
                 # Generate multiple payloads with different framing strategies
+                # Use retry logic to mitigate transient LLM failures
+                max_retries = 2
+                generation_errors: list[str] = []
+
                 for framing_type in framing_types_to_use:
-                    try:
-                        payload = await generator.generate(context, framing_type=framing_type)
-                        payloads.append(payload.content)
-                        framing_types_used.append(framing_type)
+                    payload_generated = False
 
-                        self.logger.info(
-                            f"Generated payload with {framing_type.value} framing",
-                            extra={
-                                "campaign_id": campaign_id,
-                                "framing_type": framing_type.value,
-                                "payload_length": len(payload.content)
-                            }
-                        )
+                    for attempt in range(max_retries + 1):
+                        try:
+                            payload = await generator.generate(context, framing_type=framing_type)
+                            payloads.append(payload.content)
+                            framing_types_used.append(framing_type)
+                            payload_generated = True
 
-                    except Exception as e:
-                        self.logger.error(
-                            f"Payload generation failed for {framing_type.value}: {e}",
+                            self.logger.info(
+                                f"Generated payload with {framing_type.value} framing",
+                                extra={
+                                    "campaign_id": campaign_id,
+                                    "framing_type": framing_type.value,
+                                    "payload_length": len(payload.content),
+                                    "attempt": attempt + 1,
+                                }
+                            )
+                            break  # Success, move to next framing type
+
+                        except Exception as e:
+                            error_msg = f"{framing_type.value} attempt {attempt + 1}: {e}"
+                            self.logger.warning(
+                                f"Payload generation attempt failed: {error_msg}",
+                                extra={"campaign_id": campaign_id, "attempt": attempt + 1}
+                            )
+
+                            if attempt == max_retries:
+                                # Final attempt failed, record the error
+                                generation_errors.append(error_msg)
+                                self.logger.error(
+                                    f"Payload generation failed after {max_retries + 1} attempts for {framing_type.value}",
+                                    extra={"campaign_id": campaign_id, "error": str(e)}
+                                )
+
+                    if not payload_generated:
+                        self.logger.warning(
+                            f"Skipping framing type {framing_type.value} after all retries failed",
                             extra={"campaign_id": campaign_id}
                         )
+
+                # Log summary of generation errors if any
+                if generation_errors:
+                    self.logger.warning(
+                        f"Payload generation completed with {len(generation_errors)} failures out of {len(framing_types_to_use)} attempts",
+                        extra={
+                            "campaign_id": campaign_id,
+                            "successful": len(payloads),
+                            "failed": len(generation_errors),
+                            "errors": generation_errors,
+                        }
+                    )
 
             # Fallback if no payloads generated
             if not payloads and objective:
@@ -290,29 +327,61 @@ class PayloadArticulationNodePhase3:
 
         payloads = []
         framing_names = []
+        max_retries = 2
+        generation_errors: list[str] = []
 
         for i in range(payload_count):
-            try:
-                # Generate using the custom strategy
-                payload = await generator.generate(context, framing_type=FramingType.QA_TESTING)
-                payloads.append(payload.content)
-                framing_names.append(f"{framing_name}_{i+1}" if payload_count > 1 else framing_name)
+            payload_generated = False
 
-                self.logger.info(
-                    f"Generated payload with custom framing '{framing_name}'",
-                    extra={
-                        "campaign_id": campaign_id,
-                        "framing_name": framing_name,
-                        "payload_length": len(payload.content),
-                        "payload_index": i + 1,
-                    }
+            for attempt in range(max_retries + 1):
+                try:
+                    # Generate using the custom strategy
+                    payload = await generator.generate(context, framing_type=FramingType.QA_TESTING)
+                    payloads.append(payload.content)
+                    framing_names.append(f"{framing_name}_{i+1}" if payload_count > 1 else framing_name)
+                    payload_generated = True
+
+                    self.logger.info(
+                        f"Generated payload with custom framing '{framing_name}'",
+                        extra={
+                            "campaign_id": campaign_id,
+                            "framing_name": framing_name,
+                            "payload_length": len(payload.content),
+                            "payload_index": i + 1,
+                            "attempt": attempt + 1,
+                        }
+                    )
+                    break  # Success
+
+                except Exception as e:
+                    error_msg = f"Custom framing {i+1} attempt {attempt + 1}: {e}"
+                    self.logger.warning(
+                        f"Custom framing payload generation attempt failed: {error_msg}",
+                        extra={"campaign_id": campaign_id, "attempt": attempt + 1}
+                    )
+
+                    if attempt == max_retries:
+                        generation_errors.append(error_msg)
+                        self.logger.error(
+                            f"Custom framing payload generation failed after {max_retries + 1} attempts",
+                            extra={"campaign_id": campaign_id, "framing_name": framing_name, "error": str(e)}
+                        )
+
+            if not payload_generated:
+                self.logger.warning(
+                    f"Skipping custom payload {i+1} after all retries failed",
+                    extra={"campaign_id": campaign_id}
                 )
 
-            except Exception as e:
-                self.logger.error(
-                    f"Custom framing payload generation failed: {e}",
-                    extra={"campaign_id": campaign_id, "framing_name": framing_name}
-                )
+        if generation_errors:
+            self.logger.warning(
+                f"Custom framing generation completed with {len(generation_errors)} failures",
+                extra={
+                    "campaign_id": campaign_id,
+                    "successful": len(payloads),
+                    "failed": len(generation_errors),
+                }
+            )
 
         return payloads, framing_names
 
@@ -333,17 +402,25 @@ class PayloadArticulationNodePhase3:
             library: FramingLibrary for strategy lookup
 
         Returns:
-            List of FramingType enums to use
+            List of FramingType enums to use (cycles if count > available types)
         """
-        # If user specified framing types, use those
+        # If user specified framing types, use those (cycle if needed)
         if requested_types:
-            result = []
-            for ft_str in requested_types[:count]:
+            valid_types = []
+            for ft_str in requested_types:
                 try:
-                    result.append(FramingType(ft_str))
+                    valid_types.append(FramingType(ft_str))
                 except ValueError:
                     self.logger.warning(f"Unknown framing type: {ft_str}, skipping")
-            return result if result else [FramingType.QA_TESTING]
+
+            if not valid_types:
+                valid_types = [FramingType.QA_TESTING]
+
+            # Cycle through valid types to reach requested count
+            result = []
+            for i in range(count):
+                result.append(valid_types[i % len(valid_types)])
+            return result
 
         # Auto-select: cycle through all available framing types
         all_types = list(FramingType)
@@ -360,7 +437,11 @@ class PayloadArticulationNodePhase3:
                     filtered.append(ft)
             all_types = filtered if filtered else list(FramingType)
 
-        return all_types[:count]
+        # Cycle through available types to reach requested count
+        result = []
+        for i in range(count):
+            result.append(all_types[i % len(all_types)])
+        return result
 
 
 # Module-level async wrapper

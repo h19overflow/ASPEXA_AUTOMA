@@ -308,3 +308,42 @@ class AdaptiveAttackResponse(BaseModel):
     iteration_history: list[IterationHistoryItem]
     final_phase3: Optional[Phase3Response] = None
     adaptation_reasoning: Optional[str] = None
+
+
+# =============================================================================
+# SSE Streaming Events
+# =============================================================================
+
+class SniperStreamEventType(str, Enum):
+    """Event types for SSE streaming during attack execution."""
+    # Phase markers
+    ATTACK_STARTED = "attack_started"
+    PHASE1_START = "phase1_start"
+    PHASE1_PROGRESS = "phase1_progress"
+    PHASE1_COMPLETE = "phase1_complete"
+    PHASE2_START = "phase2_start"
+    PHASE2_PROGRESS = "phase2_progress"
+    PHASE2_COMPLETE = "phase2_complete"
+    PHASE3_START = "phase3_start"
+    PHASE3_PROGRESS = "phase3_progress"
+    PHASE3_COMPLETE = "phase3_complete"
+    ATTACK_COMPLETE = "attack_complete"
+    # Data events
+    PAYLOAD_GENERATED = "payload_generated"
+    PAYLOAD_CONVERTED = "payload_converted"
+    ATTACK_SENT = "attack_sent"
+    RESPONSE_RECEIVED = "response_received"
+    SCORE_CALCULATED = "score_calculated"
+    # Error events
+    ERROR = "error"
+    WARNING = "warning"
+
+
+class SniperStreamEvent(BaseModel):
+    """Single SSE event during attack execution."""
+    type: SniperStreamEventType
+    phase: Optional[str] = Field(None, description="Current phase (phase1, phase2, phase3)")
+    message: str = Field(..., description="Human-readable message")
+    data: Optional[dict[str, Any]] = Field(None, description="Event-specific data")
+    timestamp: str = Field(..., description="ISO timestamp")
+    progress: Optional[float] = Field(None, ge=0, le=1, description="Progress 0-1 within current phase")

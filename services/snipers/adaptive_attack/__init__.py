@@ -34,6 +34,7 @@ from services.snipers.adaptive_attack.graph import (
     build_adaptive_attack_graph,
     get_adaptive_attack_graph,
     run_adaptive_attack,
+    run_adaptive_attack_streaming,
 )
 
 __all__ = [
@@ -48,4 +49,5 @@ __all__ = [
     "build_adaptive_attack_graph",
     "get_adaptive_attack_graph",
     "run_adaptive_attack",
+    "run_adaptive_attack_streaming",
 ]
