@@ -173,8 +173,15 @@ async def run_adaptive_attack(
     # Get compiled graph
     graph = get_adaptive_attack_graph()
 
+    # Calculate recursion limit: 5 nodes per iteration + buffer
+    # Each iteration visits: articulate → convert → execute → evaluate → adapt
+    recursion_limit = (max_iterations * 5) + 10
+
     # Run graph to completion
-    final_state = await graph.ainvoke(initial_state)
+    final_state = await graph.ainvoke(
+        initial_state,
+        config={"recursion_limit": recursion_limit},
+    )
 
     # Log final results
     logger.info("\n" + "=" * 70)
@@ -274,13 +281,20 @@ async def run_adaptive_attack_streaming(
     # Get compiled graph
     graph = get_adaptive_attack_graph()
 
+    # Calculate recursion limit: 5 nodes per iteration + buffer
+    # Each iteration visits: articulate → convert → execute → evaluate → adapt
+    recursion_limit = (max_iterations * 5) + 10
+
     # Track current iteration for events
     current_iteration = 0
     final_state = initial_state
 
     try:
         # Use astream to get intermediate states
-        async for state_update in graph.astream(initial_state):
+        async for state_update in graph.astream(
+            initial_state,
+            config={"recursion_limit": recursion_limit},
+        ):
             # state_update is a dict with node name -> output
             for node_name, node_output in state_update.items():
                 # Merge updates into final_state tracking

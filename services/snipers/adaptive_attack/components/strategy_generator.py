@@ -38,7 +38,7 @@ class StrategyGenerator:
         """
         if agent is None:
             agent = create_agent(
-                model="google_genai:gemini-2.5-pro",
+                model="google_genai:gemini-2.5-flash",
                 response_format=ToolStrategy(AdaptationDecision),
             )
         self._agent = agent
@@ -52,6 +52,7 @@ class StrategyGenerator:
         tried_converters: list[list[str]],
         objective: str,
         pre_analysis: dict[str, Any],
+        config: dict = None,
     ) -> AdaptationDecision:
         """
         Generate adaptation decision via LLM.
@@ -81,12 +82,15 @@ class StrategyGenerator:
 
         self.logger.info("Generating adaptation strategy via LLM")
 
-        result = await self._agent.ainvoke({
-            "messages": [
-                {"role": "system", "content": ADAPTATION_SYSTEM_PROMPT},
-                {"role": "user", "content": user_prompt},
-            ]
-        })
+        result = await self._agent.ainvoke(
+            {
+                "messages": [
+                    {"role": "system", "content": ADAPTATION_SYSTEM_PROMPT},
+                    {"role": "user", "content": user_prompt},
+                ]
+            },
+            config=config or {},
+        )
 
         decision: AdaptationDecision | None = result.get("structured_response")
 

@@ -462,9 +462,9 @@ class TestChainDiscoveryAgentSelectBestChain:
         )
 
         context = ChainDiscoveryContext()
-        best_chain = agent.select_best_chain(decision, context)
+        result = agent.select_best_chain(decision, context)
 
-        assert best_chain == ["base64"]
+        assert result.selected_chain == ["base64"]
 
     def test_select_best_chain_targets_defense(self):
         """Test chain targeting detected defenses is preferred."""
@@ -495,11 +495,11 @@ class TestChainDiscoveryAgentSelectBestChain:
         # Context with defense_signals - matching keyword_filter (spaces replace underscores in comparison)
         context = ChainDiscoveryContext(defense_signals=["keyword_filter"])
 
-        best_chain = agent.select_best_chain(decision, context)
+        result = agent.select_best_chain(decision, context)
 
         # Should prefer chain targeting keyword_filter even with lower effectiveness
         # The logic checks if "keyword filter" (with spaces) matches in strategy text
-        assert best_chain == ["homoglyph"]
+        assert result.selected_chain == ["homoglyph"]
 
     def test_select_best_chain_fallback_when_empty(self):
         """Test fallback selection when no chains available."""
@@ -526,9 +526,9 @@ class TestChainDiscoveryAgentSelectBestChain:
         decision.chains = []
 
         context = ChainDiscoveryContext()
-        best_chain = agent.select_best_chain(decision, context)
+        result = agent.select_best_chain(decision, context)
 
-        assert best_chain == ["homoglyph"]
+        assert result.selected_chain == ["homoglyph"]
 
     def test_select_best_chain_first_when_no_defense_target(self):
         """Test selecting first chain when no defense targeting."""
@@ -558,10 +558,10 @@ class TestChainDiscoveryAgentSelectBestChain:
 
         context = ChainDiscoveryContext(defense_signals=[])
 
-        best_chain = agent.select_best_chain(decision, context)
+        result = agent.select_best_chain(decision, context)
 
         # Should pick highest effectiveness
-        assert best_chain == ["homoglyph"]
+        assert result.selected_chain == ["homoglyph"]
 
 
 class TestChainDiscoveryAgentIntegration:
@@ -609,11 +609,11 @@ class TestChainDiscoveryAgentIntegration:
         )
 
         # Select
-        best_chain = agent.select_best_chain(decision, context)
+        result = agent.select_best_chain(decision, context)
 
-        assert best_chain is not None
-        assert len(best_chain) > 0
-        assert all(c in AVAILABLE_CONVERTERS for c in best_chain)
+        assert result is not None
+        assert len(result.selected_chain) > 0
+        assert all(c in AVAILABLE_CONVERTERS for c in result.selected_chain)
 
     @pytest.mark.asyncio
     async def test_handles_llm_with_invalid_converters(self):

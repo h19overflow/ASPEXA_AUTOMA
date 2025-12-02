@@ -560,6 +560,7 @@ async def execute_adaptive_attack_streaming(
     Execute adaptive attack with SSE streaming events.
 
     Yields streaming events for real-time monitoring of each iteration.
+    Persists the final result to S3 after completion.
 
     Args:
         campaign_id: Campaign ID to load intelligence from S3
@@ -574,6 +575,10 @@ async def execute_adaptive_attack_streaming(
     Yields:
         Dict representation of streaming events for SSE
     """
+    start_time = time.time()
+    scan_id = f"{campaign_id}-adaptive-{uuid.uuid4().hex[:8]}"
+    final_state: dict[str, Any] | None = None
+
     async for event in run_adaptive_attack_streaming(
         campaign_id=campaign_id,
         target_url=target_url,
@@ -584,7 +589,59 @@ async def execute_adaptive_attack_streaming(
         success_scorers=success_scorers,
         success_threshold=success_threshold,
     ):
+        # Capture the attack_complete event to extract final state for persistence
+        if event.get("type") == "attack_complete":
+            final_state = event.get("data", {})
+            # Inject the scan_id into the event data
+            if event.get("data"):
+                event["data"]["scan_id"] = scan_id
+
         yield event
+
+    # Persist to S3 after streaming completes
+    if final_state:
+        execution_time = time.time() - start_time
+
+        # Build state dict from final_state for format_exploit_result
+        phase1_data = final_state.get("phase1", {})
+        phase3_data = final_state.get("phase3", {})
+
+        state_dict = {
+            "probe_name": phase1_data.get("framing_type", "adaptive") if phase1_data else "adaptive",
+            "pattern_analysis": {},
+            "converter_selection": {
+                "selected_converters": final_state.get("phase2", {}).get("converter_names", []) if final_state.get("phase2") else [],
+            },
+            "attack_results": [
+                {
+                    "success": final_state.get("is_successful", False),
+                    "payload": r.get("payload", ""),
+                    "response": r.get("response", ""),
+                }
+                for r in (phase3_data.get("attack_responses", []) if phase3_data else [])
+            ],
+            "recon_intelligence": None,
+            # Adaptive-specific fields
+            "iteration_count": final_state.get("total_iterations", 1),
+            "best_score": final_state.get("best_score", 0.0),
+            "best_iteration": final_state.get("best_iteration", 0),
+            "adaptation_reasoning": final_state.get("adaptation_reasoning", ""),
+        }
+
+        exploit_result = format_exploit_result(
+            state=state_dict,
+            audit_id=campaign_id,
+            target_url=target_url,
+            execution_time=execution_time,
+        )
+
+        await persist_exploit_result(
+            campaign_id=campaign_id,
+            scan_id=scan_id,
+            exploit_result=exploit_result,
+            target_url=target_url,
+        )
+        logger.info(f"Persisted adaptive streaming attack result: {scan_id}")
 
 
 async def execute_adaptive_attack(

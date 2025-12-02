@@ -168,6 +168,10 @@ def format_exploit_result(
 
     Returns:
         Dict matching libs/persistence/scan_models.py::ExploitResult
+        Also includes fields for ExploitResultViewer compatibility:
+        - status: VULNERABLE/SAFE
+        - breach_detected: bool
+        - kill_chain: conversation steps
     """
     attack_results = state.get("attack_results", [])
 
@@ -181,26 +185,68 @@ def format_exploit_result(
             else:
                 failed += 1
 
+    # Determine breach status
+    breach_detected = successful > 0
+    status = "VULNERABLE" if breach_detected else "SAFE"
+
+    # Build kill chain from attack results (payload -> response pairs)
+    kill_chain = []
+    for result in attack_results:
+        if isinstance(result, dict):
+            # Add attacker payload
+            payload = result.get("payload", "")
+            if payload:
+                kill_chain.append({
+                    "role": "attacker",
+                    "content": payload,
+                })
+            # Add target response
+            response = result.get("response", "")
+            if response:
+                kill_chain.append({
+                    "role": "target",
+                    "content": response,
+                })
+
+    # Get converters used
+    converters_used = []
+    if state.get("converter_selection"):
+        converters_used = state.get("converter_selection", {}).get("selected_converters", [])
+
     return {
+        # Core identification
         "audit_id": audit_id,
         "target_url": target_url,
         "timestamp": datetime.utcnow().isoformat() + "Z",
+
+        # ExploitResultViewer compatibility fields
+        "status": status,
+        "breach_detected": breach_detected,
+        "kill_chain": kill_chain,
+        "artifact_type": "kill_chain" if kill_chain else "metrics",
+
+        # Detailed probe results
         "probes_attacked": [{
             "probe_name": state.get("probe_name", "unknown"),
             "pattern_analysis": state.get("pattern_analysis"),
-            "converters_used": (
-                state.get("converter_selection", {}).get("selected_converters", [])
-                if state.get("converter_selection") else []
-            ),
+            "converters_used": converters_used,
             "attempts": attack_results,
             "success_count": successful,
             "fail_count": failed,
         }],
+
+        # Summary statistics
         "total_attacks": len(attack_results),
         "successful_attacks": successful,
         "failed_attacks": failed,
         "recon_intelligence_used": state.get("recon_intelligence") is not None,
         "execution_time_seconds": round(execution_time, 2),
+
+        # Adaptive attack fields (if present)
+        "iteration_count": state.get("iteration_count"),
+        "best_score": state.get("best_score"),
+        "best_iteration": state.get("best_iteration"),
+        "adaptation_reasoning": state.get("adaptation_reasoning"),
     }
 
 

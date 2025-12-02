@@ -58,7 +58,7 @@ class ChainDiscoveryAgent:
         """
         if agent is None:
             agent = create_agent(
-                model="google_genai:gemini-2.5-pro",
+                model="google_genai:gemini-2.5-flash",
                 response_format=ToolStrategy(ChainDiscoveryDecision),
             )
         self._agent = agent
@@ -69,6 +69,7 @@ class ChainDiscoveryAgent:
         context: ChainDiscoveryContext,
         tried_converters: list[list[str]],
         objective: str,
+        config: dict = None,
     ) -> ChainDiscoveryDecision:
         """
         Generate converter chain candidates via LLM.
@@ -94,12 +95,15 @@ class ChainDiscoveryAgent:
         self.logger.info(f"  Context: {len(context.defense_signals)} defense signals")
         self.logger.info(f"  Tried chains: {len(tried_converters)}")
 
-        result = await self._agent.ainvoke({
-            "messages": [
-                {"role": "system", "content": CHAIN_DISCOVERY_SYSTEM_PROMPT},
-                {"role": "user", "content": user_prompt},
-            ]
-        })
+        result = await self._agent.ainvoke(
+            {
+                "messages": [
+                    {"role": "system", "content": CHAIN_DISCOVERY_SYSTEM_PROMPT},
+                    {"role": "user", "content": user_prompt},
+                ]
+            },
+            config=config or {},
+        )
 
         decision: ChainDiscoveryDecision | None = result.get("structured_response")
 

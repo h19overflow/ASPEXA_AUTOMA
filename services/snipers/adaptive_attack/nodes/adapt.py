@@ -10,6 +10,7 @@ import asyncio
 import logging
 from typing import Any
 
+from libs.monitoring import CallbackHandler
 from services.snipers.adaptive_attack.state import (
     AdaptiveAttackState,
     FRAMING_TYPES,
@@ -88,10 +89,12 @@ async def _adapt_node_async(state: AdaptiveAttackState) -> dict[str, Any]:
 
     # === Step 3: Generate chain candidates via ChainDiscoveryAgent ===
     chain_agent = ChainDiscoveryAgent()
+    chain_handler = CallbackHandler()
     chain_decision = await chain_agent.generate(
         context=chain_discovery_context,
         tried_converters=tried_converters,
         objective=objective,
+        config={"callbacks": [chain_handler], "run_name": "ChainDiscovery"},
     )
     logger.info(f"  Chain discovery: {len(chain_decision.chains)} candidates generated")
 
@@ -104,6 +107,7 @@ async def _adapt_node_async(state: AdaptiveAttackState) -> dict[str, Any]:
 
     # === Step 4: Generate overall strategy via StrategyGenerator ===
     generator = StrategyGenerator()
+    strategy_handler = CallbackHandler()
     decision = await generator.generate(
         responses=responses,
         iteration_history=history,
@@ -111,6 +115,7 @@ async def _adapt_node_async(state: AdaptiveAttackState) -> dict[str, Any]:
         tried_converters=tried_converters,
         objective=objective,
         pre_analysis=pre_analysis,
+        config={"callbacks": [strategy_handler], "run_name": "StrategyGenerator"},
     )
 
     # Log decision
