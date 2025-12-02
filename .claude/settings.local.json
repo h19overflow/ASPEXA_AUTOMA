@@ -17,7 +17,14 @@
       "Bash(find:*)",
       "Bash(while read file)",
       "Bash(do sed -i 's|from services\\.snipers\\.agent\\.state import|from services.snipers._archive.agent_state_legacy import|g' \"$file\" sed -i 's|from services\\.snipers\\.tools\\.pyrit_bridge import|from services.snipers.utils.pyrit.pyrit_bridge import|g' \"$file\" sed -i 's|from services\\.snipers\\.core\\.pyrit_init import|from services.snipers.utils.pyrit.pyrit_init import|g' \"$file\" sed -i 's|from services\\.snipers\\.scoring import|from services.snipers.utils.scoring import|g' \"$file\" sed -i 's|from services\\.snipers\\.scoring\\.|from services.snipers.utils.scoring.|g' \"$file\" sed -i 's|from services\\.snipers\\.persistence\\.s3_adapter import|from services.snipers.utils.persistence.s3_adapter import|g' \"$file\" sed -i 's|from services\\.snipers\\.tools\\.prompt_articulation|from services.snipers.utils.prompt_articulation|g' \"$file\" sed -i 's|from services\\.snipers\\.tools\\.converters import|from services.snipers.utils.converters import|g' \"$file\" done)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Bash(dir:*)",
+      "Bash(npx tsc --noEmit)",
+      "Bash(npm run type-check:*)",
+      "Bash(npm run:*)",
+      "Bash(npx tsc:*)",
+      "Bash(New-Item -ItemType Directory -Path \"services\\snipers\\utils\\prompt_articulation\\schemas\" -Force)",
+      "Bash(mkdir:*)"
     ],
     "deny": [],
     "ask": []

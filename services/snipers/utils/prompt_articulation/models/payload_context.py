@@ -8,9 +8,14 @@ to enable context-aware prompt crafting.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, TYPE_CHECKING
 
 from pydantic import BaseModel, Field
+
+if TYPE_CHECKING:
+    from services.snipers.utils.prompt_articulation.models.tool_intelligence import (
+        ReconIntelligence,
+    )
 
 
 class TargetInfo(BaseModel):
@@ -49,13 +54,27 @@ class PayloadContext:
     history: AttackHistory
     observed_defenses: list[str] = field(default_factory=list)
     objective: str = ""
+    recon_intelligence: "ReconIntelligence | None" = None
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize for LLM prompt injection."""
-        return {
+        base_dict = {
             "domain": self.target.domain,
             "tools": self.target.tools,
             "failed_approaches": self.history.failed_approaches,
             "successful_patterns": self.history.successful_patterns,
             "objective": self.objective,
         }
+
+        # Add recon intelligence if available
+        if self.recon_intelligence:
+            base_dict["recon_tools"] = [
+                {
+                    "name": tool.tool_name,
+                    "parameters": [p.name for p in tool.parameters],
+                    "business_rules": tool.business_rules,
+                }
+                for tool in self.recon_intelligence.tools
+            ]
+
+        return base_dict

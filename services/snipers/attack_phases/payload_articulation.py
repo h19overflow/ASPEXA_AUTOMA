@@ -34,6 +34,9 @@ from services.snipers.utils.nodes.payload_articulation_node import PayloadArticu
 from services.snipers.models import Phase1Result
 from services.snipers.utils.persistence.s3_adapter import S3InterfaceAdapter
 from services.snipers.utils.llm_provider import get_default_agent
+from services.snipers.utils.prompt_articulation.extractors.recon_extractor import (
+    ReconIntelligenceExtractor,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -103,6 +106,27 @@ class PayloadArticulation:
         self.logger.info("-" * 40)
         state = await self.input_processor.process_input(campaign_id)
 
+        # Extract structured recon intelligence immediately
+        extractor = ReconIntelligenceExtractor()
+        recon_blueprint = state.get("recon_intelligence") or {}
+        recon_intelligence = extractor.extract(recon_blueprint)
+
+        # Log extracted intelligence
+        self.logger.info(f"  Recon Intelligence Extracted:")
+        self.logger.info(f"    - Tools discovered: {len(recon_intelligence.tools)}")
+        for tool in recon_intelligence.tools:
+            self.logger.info(f"      • {tool.tool_name}")
+            if tool.business_rules:
+                self.logger.info(
+                    f"        Business Rules: {len(tool.business_rules)} rules"
+                )
+            if tool.parameters:
+                formats = [
+                    p.format_constraint for p in tool.parameters if p.format_constraint
+                ]
+                if formats:
+                    self.logger.info(f"        Format Constraints: {formats}")
+
         # Add payload configuration to state
         state["payload_config"] = {
             "payload_count": min(max(1, payload_count), 6),
@@ -110,6 +134,9 @@ class PayloadArticulation:
             "exclude_high_risk": True,
             "custom_framing": custom_framing,
         }
+
+        # Add structured recon intelligence to state
+        state["recon_intelligence_structured"] = recon_intelligence
 
         # Log extracted info
         tools = state["recon_intelligence"].get("tools", [])
@@ -149,6 +176,21 @@ class PayloadArticulation:
         # Step 3: Payload Articulation
         self.logger.info(f"\n[Step 3/3] Payload Articulation")
         self.logger.info("-" * 40)
+
+        # Log whether XML tags will be used
+        has_tool_intel = (
+            recon_intelligence
+            and recon_intelligence.tools
+            and any(t.parameters or t.business_rules for t in recon_intelligence.tools)
+        )
+
+        if has_tool_intel:
+            self.logger.info("  ✓ Using XML-tagged prompts (tool intelligence available)")
+            self.logger.info(
+                f"    Tools to exploit: {[t.tool_name for t in recon_intelligence.tools]}"
+            )
+        else:
+            self.logger.info("  ⚠ Using generic prompts (no tool intelligence)")
 
         payload_result = await self.payload_articulator.articulate_payloads(state)
         articulated_payloads = payload_result.get("articulated_payloads", [])

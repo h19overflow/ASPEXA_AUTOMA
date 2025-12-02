@@ -25,6 +25,9 @@ from services.snipers.utils.prompt_articulation import (
     EffectivenessTracker,
 )
 from services.snipers.utils.prompt_articulation.models.framing_strategy import FramingType
+from services.snipers.utils.prompt_articulation.extractors.recon_extractor import (
+    ReconIntelligenceExtractor,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -100,6 +103,21 @@ class PayloadArticulationNodePhase3:
                 }
             )
 
+            # Extract structured recon intelligence
+            extractor = ReconIntelligenceExtractor()
+            recon_intelligence = extractor.extract(recon_blueprint)
+
+            self.logger.info(
+                f"Extracted {len(recon_intelligence.tools)} tools with full signatures",
+                extra={
+                    "campaign_id": campaign_id,
+                    "tools": [t.tool_name for t in recon_intelligence.tools],
+                    "has_business_rules": any(
+                        t.business_rules for t in recon_intelligence.tools
+                    ),
+                },
+            )
+
             # Build context from available intelligence
             target_domain = self._extract_domain(recon_blueprint)
             discovered_tools = self._extract_tools(recon_blueprint)
@@ -128,6 +146,7 @@ class PayloadArticulationNodePhase3:
                 ),
                 observed_defenses=pattern_analysis.get("defense_mechanisms") or [],
                 objective=objective,
+                recon_intelligence=recon_intelligence,  # NEW: Full structured intelligence
             )
 
             # Check for custom framing in config
@@ -143,6 +162,19 @@ class PayloadArticulationNodePhase3:
             # Initialize payload generator
             library = FramingLibrary(effectiveness_provider=tracker)
             generator = PayloadGenerator(agent=self.llm, framing_library=library)
+
+            # Check if we have tool intelligence to exploit
+            has_tool_intelligence = bool(
+                recon_intelligence
+                and recon_intelligence.tools
+                and any(t.parameters or t.business_rules for t in recon_intelligence.tools)
+            )
+
+            if has_tool_intelligence:
+                self.logger.info(
+                    f"Using XML-tagged prompts for {len(recon_intelligence.tools)} tools",
+                    extra={"campaign_id": campaign_id},
+                )
 
             payloads = []
             framing_types_used: list[Any] = []
@@ -171,7 +203,12 @@ class PayloadArticulationNodePhase3:
 
                     for attempt in range(max_retries + 1):
                         try:
-                            payload = await generator.generate(context, framing_type=framing_type)
+                            # NEW: Pass use_tagged_prompts flag when tool intelligence exists
+                            payload = await generator.generate(
+                                context,
+                                framing_type=framing_type,
+                                use_tagged_prompts=has_tool_intelligence,
+                            )
                             payloads.append(payload.content)
                             framing_types_used.append(framing_type)
                             payload_generated = True
