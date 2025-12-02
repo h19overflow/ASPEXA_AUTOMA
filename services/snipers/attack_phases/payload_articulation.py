@@ -82,6 +82,7 @@ class PayloadArticulation:
         payload_count: int = 1,
         framing_types: list[str] | None = None,
         custom_framing: dict[str, str] | None = None,
+        recon_custom_framing: dict[str, str] | None = None,
     ) -> Phase1Result:
         """
         Execute Phase 1: Input → Chain Selection → Payload Articulation.
@@ -93,6 +94,8 @@ class PayloadArticulation:
                 Options: qa_testing, compliance_audit, documentation, debugging, educational, research
             custom_framing: Custom framing strategy (overrides framing_types)
                 Example: {"name": "IT Support", "system_context": "...", "user_prefix": "...", "user_suffix": "..."}
+            recon_custom_framing: Recon-intelligence-based custom framing (overrides custom_framing and framing_types)
+                Example: {"role": "Tech shop customer", "context": "completing a purchase", "justification": "..."}
 
         Returns:
             Phase1Result with selected chain and articulated payloads
@@ -133,6 +136,7 @@ class PayloadArticulation:
             "framing_types": framing_types,
             "exclude_high_risk": True,
             "custom_framing": custom_framing,
+            "recon_custom_framing": recon_custom_framing,
         }
 
         # Add structured recon intelligence to state

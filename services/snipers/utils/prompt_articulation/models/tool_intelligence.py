@@ -58,6 +58,14 @@ class ReconIntelligence(BaseModel):
     content_filters: list[str] = Field(
         default_factory=list, description="Detected content filters/defenses"
     )
+    system_prompt_leak: str | None = Field(
+        default=None,
+        description="Leaked system prompt revealing target's identity/purpose",
+    )
+    target_self_description: str | None = Field(
+        default=None,
+        description="How the target describes itself (e.g., 'Tech shop chatbot')",
+    )
     raw_intelligence: dict = Field(
         default_factory=dict, description="Original recon data"
     )

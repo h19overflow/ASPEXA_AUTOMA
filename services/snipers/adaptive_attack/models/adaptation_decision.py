@@ -11,6 +11,23 @@ from pydantic import BaseModel, Field
 from services.snipers.adaptive_attack.models.defense_analysis import DefenseAnalysis
 
 
+class ReconCustomFraming(BaseModel):
+    """
+    LLM-discovered custom framing based on recon intelligence.
+
+    Simpler structure focused on role/context alignment with target's
+    self-description from system prompt leaks.
+    """
+
+    role: str = Field(description="Role to frame as (e.g., 'Tech shop customer')")
+    context: str = Field(
+        description="Context for the role (e.g., 'completing a purchase')"
+    )
+    justification: str = Field(
+        description="Why this framing aligns with target's self-description"
+    )
+
+
 class CustomFraming(BaseModel):
     """
     LLM-generated framing strategy.
@@ -55,6 +72,10 @@ class AdaptationDecision(BaseModel):
     custom_framing: CustomFraming | None = Field(
         default=None,
         description="Custom framing if use_custom_framing is True"
+    )
+    recon_custom_framing: ReconCustomFraming | None = Field(
+        default=None,
+        description="Recon-intelligence-based custom framing (role/context alignment)",
     )
     preset_framing: str | None = Field(
         default=None,

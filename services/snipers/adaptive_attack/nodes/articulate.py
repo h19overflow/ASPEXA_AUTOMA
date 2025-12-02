@@ -32,10 +32,13 @@ async def articulate_node(state: AdaptiveAttackState) -> dict[str, Any]:
     payload_count = state.get("payload_count", 2)
     framing_types = state.get("framing_types")
     custom_framing = state.get("custom_framing")  # LLM-generated framing
+    recon_custom_framing = state.get("recon_custom_framing")  # Recon-intelligence-based framing
 
     logger.info(f"\n[Iteration {iteration + 1}] Phase 1: Articulating payloads")
     logger.info(f"  Payload count: {payload_count}")
-    if custom_framing:
+    if recon_custom_framing:
+        logger.info(f"  Recon custom framing: {recon_custom_framing.get('role', 'unknown')} - {recon_custom_framing.get('context', 'unknown')}")
+    elif custom_framing:
         logger.info(f"  Custom framing: {custom_framing.get('name', 'unknown')}")
     else:
         logger.info(f"  Framing types: {framing_types or 'auto'}")
@@ -47,6 +50,7 @@ async def articulate_node(state: AdaptiveAttackState) -> dict[str, Any]:
             payload_count=payload_count,
             framing_types=framing_types,
             custom_framing=custom_framing,  # Pass LLM-generated framing
+            recon_custom_framing=recon_custom_framing,  # Pass recon-based framing
         )
 
         # Track tried framings

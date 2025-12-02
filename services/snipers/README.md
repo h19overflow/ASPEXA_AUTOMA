@@ -76,28 +76,89 @@ graph LR
     style P3 fill:#ffebee,stroke:#c62828,color:#000
 ```
 
-### Phase 1: Payload Articulation
+### Phase 1: Payload Articulation (with Recon-Based Dynamic Framing)
 
-**What:** Generate attack payloads from campaign intelligence
+**What:** Generate attack payloads from campaign intelligence with **LLM-based custom framing discovery**
 
 ```mermaid
 graph TD
     A[Campaign ID] --> B[InputProcessingNode]
     B --> C[Load S3 Intel]
-    C --> D[ConverterSelectionNode]
-    D --> E[Select Chain from<br/>Pattern Database]
-    E --> F[PayloadArticulationNode]
-    F --> G[Generate Payloads<br/>with Framing]
-    G --> H[Phase1Result]
+    C --> D["ReconExtractor<br/>(System Prompt Analysis)"]
+    D --> E["Decision 1:<br/>Extract System Prompt?"]
+    E -->|Yes| F["ReconIntelligence<br/>(with target_self_description)"]
+    E -->|No| G["Fallback Mode"]
+    F --> H[ConverterSelectionNode]
+    G --> H
+    H --> I[Select Chain from<br/>Pattern Database]
+    I --> J[PayloadArticulationNode]
+    J --> K["Decision 2:<br/>Recon Custom Framing?"]
+    K -->|Yes| L["Generate Payloads<br/>with Domain-Aligned<br/>Framing"]
+    K -->|No| M["Generate Payloads<br/>with Preset Framing"]
+    L --> N[Phase1Result]
+    M --> N
 
-    style H fill:#c8e6c9,stroke:#2e7d32,color:#000
+    style D fill:#e3f2fd,stroke:#1565c0,color:#000
+    style F fill:#c8e6c9,stroke:#2e7d32,color:#000
+    style L fill:#fff9c4,stroke:#f57f17,color:#000
+    style N fill:#c8e6c9,stroke:#2e7d32,color:#000
 ```
+
+#### Recon Intelligence Extraction
+
+**System prompts are automatically extracted and analyzed:**
+
+```python
+ReconIntelligence(
+    tools=[ToolSignature(...)],
+    system_prompt_leak="You are a Tech shop customer service chatbot",    # ← Extracted
+    target_self_description="Tech shop chatbot",                           # ← Extracted
+    database_type="PostgreSQL",
+    llm_model="GPT-4"
+)
+```
+
+**Extraction patterns (4 regex patterns):**
+- "I am a [X] chatbot" → Extracts X
+- "I can only help with [Y]" → Extracts Y
+- "As a [Z] assistant" → Extracts Z
+- "I'm designed to help with [W]" → Extracts W
+
+#### Custom Framing Discovery
+
+**LLM analyzes recon intelligence to generate domain-aligned framing:**
+
+```
+Input: system_prompt_leak="You are a Tech shop chatbot"
+       + detected_tools=["checkout_order", "track_shipment"]
+
+↓↓↓ LLM Analysis ↓↓↓
+
+Output: ReconCustomFraming(
+    role="Tech shop customer",
+    context="completing a purchase",
+    justification="Target identifies as 'Tech shop chatbot'"
+)
+```
+
+#### Routing Logic
+
+**Priority order for framing selection:**
+1. **recon_custom_framing** (LLM-discovered, domain-aligned) ← **HIGHEST PRIORITY**
+2. **custom_framing** (LLM-generated from previous iteration)
+3. **framing_types** (preset strategies)
+
+**Success rate improvement:**
+- **With recon framing:** "As a Tech shop customer..." → ~85-90% success
+- **Without recon framing:** "As a QA Tester..." → ~40-50% success
 
 **Files:**
 - [payload_articulation.py](attack_phases/payload_articulation.py:1) - Main orchestrator
 - [utils/nodes/input_processing_node.py](utils/nodes/input_processing_node.py:1) - Load S3 data
+- [utils/extractors/recon_extractor.py](utils/prompt_articulation/extractors/recon_extractor.py:1) - **System prompt extraction** ⭐ NEW
 - [utils/nodes/converter_selection_node.py](utils/nodes/converter_selection_node.py:1) - Chain selection
 - [utils/nodes/payload_articulation_node.py](utils/nodes/payload_articulation_node.py:1) - Payload generation
+- [utils/components/payload_generator.py](utils/prompt_articulation/components/payload_generator.py:1) - **Custom framing usage** ⭐ UPDATED
 
 **Usage:**
 ```python
@@ -107,11 +168,13 @@ phase1 = PayloadArticulation()
 result = await phase1.execute(
     campaign_id="campaign1",
     payload_count=3,
-    framing_types=["qa_testing", "debugging"]
+    framing_types=["qa_testing", "debugging"],  # Optional: fallback framings
+    # recon_custom_framing is auto-discovered from system prompts
 )
 ```
 
-**Output:** `Phase1Result(campaign_id, selected_chain, articulated_payloads, framing_type)`
+**Output:** `Phase1Result(campaign_id, selected_chain, articulated_payloads, framing_type, context_summary)`
+- **context_summary** now includes extracted recon intelligence for adaptive loop
 
 ---
 

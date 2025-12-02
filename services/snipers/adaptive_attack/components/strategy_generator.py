@@ -64,6 +64,7 @@ class StrategyGenerator:
             tried_converters: All converter chains attempted
             objective: Attack objective
             pre_analysis: Rule-based pre-analysis of responses
+            config: Optional config with recon_intelligence
 
         Returns:
             AdaptationDecision with strategy and reasoning
@@ -71,6 +72,20 @@ class StrategyGenerator:
         Raises:
             ValueError: If LLM fails to produce structured output
         """
+        # Extract recon intelligence from config if available
+        recon_intelligence = None
+        if config:
+            recon_intelligence = config.get("recon_intelligence")
+            if recon_intelligence:
+                self.logger.info(
+                    "Recon intelligence available for strategy generation",
+                    extra={
+                        "target_description": recon_intelligence.get(
+                            "target_self_description"
+                        )
+                    },
+                )
+
         user_prompt = build_adaptation_user_prompt(
             responses=responses,
             iteration_history=iteration_history,
@@ -78,6 +93,7 @@ class StrategyGenerator:
             tried_converters=tried_converters,
             objective=objective,
             pre_analysis=pre_analysis,
+            recon_intelligence=recon_intelligence,
         )
 
         self.logger.info("Generating adaptation strategy via LLM")
@@ -99,7 +115,14 @@ class StrategyGenerator:
 
         self.logger.info(
             f"Strategy generated: custom_framing={decision.use_custom_framing}, "
+            f"recon_framing={'Yes' if decision.recon_custom_framing else 'No'}, "
             f"confidence={decision.confidence:.2f}"
         )
+
+        if decision.recon_custom_framing:
+            self.logger.info(
+                f"Recon-based framing discovered: {decision.recon_custom_framing.role} - "
+                f"{decision.recon_custom_framing.context}"
+            )
 
         return decision

@@ -92,6 +92,7 @@ class PayloadArticulationNodePhase3:
             payload_count = min(max(1, config.get("payload_count", 1)), 6)
             requested_framing_types = config.get("framing_types")
             exclude_high_risk = config.get("exclude_high_risk", True)
+            recon_custom_framing = config.get("recon_custom_framing")
 
             self.logger.info(
                 f"Generating {payload_count} attack payload(s) (Phase 2 integration)",
@@ -100,8 +101,14 @@ class PayloadArticulationNodePhase3:
                     "payload_count": payload_count,
                     "requested_framings": requested_framing_types,
                     "exclude_high_risk": exclude_high_risk,
+                    "has_recon_framing": recon_custom_framing is not None,
                 }
             )
+
+            if recon_custom_framing:
+                self.logger.info(
+                    f"Using recon-based custom framing: {recon_custom_framing.get('role')} - {recon_custom_framing.get('context')}"
+                )
 
             # Extract structured recon intelligence
             extractor = ReconIntelligenceExtractor()
@@ -146,7 +153,8 @@ class PayloadArticulationNodePhase3:
                 ),
                 observed_defenses=pattern_analysis.get("defense_mechanisms") or [],
                 objective=objective,
-                recon_intelligence=recon_intelligence,  # NEW: Full structured intelligence
+                recon_intelligence=recon_intelligence,  # Full structured intelligence
+                recon_custom_framing=recon_custom_framing,  # Recon-intelligence-based framing
             )
 
             # Check for custom framing in config

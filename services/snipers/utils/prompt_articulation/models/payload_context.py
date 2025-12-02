@@ -55,6 +55,7 @@ class PayloadContext:
     observed_defenses: list[str] = field(default_factory=list)
     objective: str = ""
     recon_intelligence: "ReconIntelligence | None" = None
+    recon_custom_framing: dict[str, Any] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize for LLM prompt injection."""

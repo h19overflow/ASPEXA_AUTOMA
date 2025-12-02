@@ -71,12 +71,23 @@ class ReconIntelligenceExtractor:
             detected_tools, intelligence_section
         )
 
+        # Extract system prompt leaks
+        system_prompt_leak = intelligence_section.get("system_prompt_leak")
+        target_self_description = intelligence_section.get("target_self_description")
+
+        # Try to extract from responses if not explicitly provided
+        if not target_self_description:
+            responses = recon_blueprint.get("responses", [])
+            if responses:
+                target_self_description = self._extract_self_description(responses)
+
         logger.info(
             f"Extracted {len(tool_signatures)} tool signatures from recon blueprint",
             extra={
                 "tools": [t.tool_name for t in tool_signatures],
                 "llm_model": llm_model,
                 "database": database_type,
+                "target_description": target_self_description,
             },
         )
 
@@ -85,6 +96,8 @@ class ReconIntelligenceExtractor:
             llm_model=llm_model,
             database_type=database_type,
             content_filters=content_filters,
+            system_prompt_leak=system_prompt_leak,
+            target_self_description=target_self_description,
             raw_intelligence=recon_blueprint,
         )
 
@@ -278,3 +291,36 @@ class ReconIntelligenceExtractor:
                 rules.append(f"Known vulnerability: {vuln}")
 
         return rules
+
+    def _extract_self_description(self, responses: list[str]) -> str | None:
+        """
+        Extract target self-description from responses.
+
+        Looks for patterns like:
+        - "I am a [X] chatbot"
+        - "I can only help with [Y]"
+        - "As a [Z] assistant"
+
+        Args:
+            responses: List of target response strings
+
+        Returns:
+            Extracted self-description or None
+        """
+        patterns = [
+            r"I am (?:a |an )?([^.!?\n]+(?:chatbot|assistant|agent|bot))",
+            r"I can only help with ([^.!?\n]+)",
+            r"As (?:a |an )?([^,]+(?:chatbot|assistant|agent)),",
+            r"(?:I'm|I am) (?:here to |designed to )?(?:help|assist) (?:with )?([^.!?\n]+)",
+        ]
+
+        for response in responses:
+            if not isinstance(response, str):
+                continue
+
+            for pattern in patterns:
+                match = re.search(pattern, response, re.IGNORECASE)
+                if match:
+                    return match.group(1).strip()
+
+        return None
