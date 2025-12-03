@@ -153,12 +153,12 @@ Output: ReconCustomFraming(
 - **Without recon framing:** "As a QA Tester..." → ~40-50% success
 
 **Files:**
-- [payload_articulation.py](attack_phases/payload_articulation.py:1) - Main orchestrator
-- [utils/nodes/input_processing_node.py](utils/nodes/input_processing_node.py:1) - Load S3 data
-- [utils/extractors/recon_extractor.py](utils/prompt_articulation/extractors/recon_extractor.py:1) - **System prompt extraction** ⭐ NEW
-- [utils/nodes/converter_selection_node.py](utils/nodes/converter_selection_node.py:1) - Chain selection
-- [utils/nodes/payload_articulation_node.py](utils/nodes/payload_articulation_node.py:1) - Payload generation
-- [utils/components/payload_generator.py](utils/prompt_articulation/components/payload_generator.py:1) - **Custom framing usage** ⭐ UPDATED
+- [payload_articulation.py](attack_phases/payload_articulation.py#L1) - Main orchestrator
+- [utils/nodes/input_processing_node.py](utils/nodes/input_processing_node.py#L1) - Load S3 data
+- [utils/extractors/recon_extractor.py](utils/prompt_articulation/extractors/recon_extractor.py#L1) - **System prompt extraction** ⭐ NEW
+- [utils/nodes/converter_selection_node.py](utils/nodes/converter_selection_node.py#L1) - Chain selection
+- [utils/nodes/payload_articulation_node.py](utils/nodes/payload_articulation_node.py#L1) - Payload generation
+- [utils/components/payload_generator.py](utils/prompt_articulation/components/payload_generator.py#L1) - **Custom framing usage** ⭐ UPDATED
 
 **Usage:**
 ```python
@@ -196,9 +196,9 @@ graph TD
 ```
 
 **Files:**
-- [conversion.py](attack_phases/conversion.py:1) - Main orchestrator
-- [utils/converters/chain_executor.py](utils/converters/chain_executor.py:1) - Execute converter pipeline
-- [utils/converters/*.py](utils/converters/) - 8 custom converters
+- [conversion.py](attack_phases/conversion.py#L1) - Main orchestrator
+- [utils/converters/chain_executor.py](utils/converters/chain_executor.py#L1) - Execute converter pipeline
+- [utils/converters/](utils/converters/) - 8 custom converters
 
 **Usage:**
 ```python
@@ -237,10 +237,10 @@ graph TD
 ```
 
 **Files:**
-- [attack_execution.py](attack_phases/attack_execution.py:1) - Main orchestrator
-- [utils/nodes/composite_scoring_node.py](utils/nodes/composite_scoring_node.py:1) - Score aggregation
-- [utils/nodes/learning_adaptation_node.py](utils/nodes/learning_adaptation_node.py:1) - Pattern learning
-- [utils/scoring/*.py](utils/scoring/) - 5 LLM scorers
+- [attack_execution.py](attack_phases/attack_execution.py#L1) - Main orchestrator
+- [utils/nodes/composite_scoring_node.py](utils/nodes/composite_scoring_node.py#L1) - Score aggregation
+- [utils/nodes/learning_adaptation_node.py](utils/nodes/learning_adaptation_node.py#L1) - Pattern learning
+- [utils/scoring/](utils/scoring/) - 5 LLM scorers
 
 **Usage:**
 ```python
@@ -317,11 +317,11 @@ graph TD
 ```
 
 **Files:**
-- [adaptive_attack/graph.py](adaptive_attack/graph.py:1) - LangGraph definition
+- [adaptive_attack/graph.py](adaptive_attack/graph.py#L1) - LangGraph definition
 - [adaptive_attack/nodes/](adaptive_attack/nodes/) - 5 graph nodes (articulate, convert, execute, evaluate, adapt)
-- [adaptive_attack/components/failure_analyzer.py](adaptive_attack/components/failure_analyzer.py:1) - Analyze why attack failed
-- [adaptive_attack/components/strategy_generator.py](adaptive_attack/components/strategy_generator.py:1) - Generate next strategy
-- [adaptive_attack/components/chain_discovery_agent.py](adaptive_attack/components/chain_discovery_agent.py:1) - LLM-based chain selection
+- [adaptive_attack/components/failure_analyzer.py](adaptive_attack/components/failure_analyzer.py#L1) - Analyze why attack failed
+- [adaptive_attack/components/strategy_generator.py](adaptive_attack/components/strategy_generator.py#L1) - Generate next strategy
+- [adaptive_attack/components/chain_discovery_agent.py](adaptive_attack/components/chain_discovery_agent.py#L1) - LLM-based chain selection
 
 **Usage:**
 ```python

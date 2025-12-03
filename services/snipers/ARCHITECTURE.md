@@ -158,18 +158,18 @@ LangGraph Iteration:
 
 ### Attack Phases
 
-**Phase 1: Payload Articulation** ([payload_articulation.py](attack_phases/payload_articulation.py:1))
+**Phase 1: Payload Articulation** ([payload_articulation.py](attack_phases/payload_articulation.py#L1))
 - Load campaign intelligence from S3
 - Select optimal converter chain
 - Generate articulated attack payloads
 - Output: `Phase1Result` with payloads + chain
 
-**Phase 2: Conversion** ([conversion.py](attack_phases/conversion.py:1))
+**Phase 2: Conversion** ([conversion.py](attack_phases/conversion.py#L1))
 - Apply converter chain to payloads
 - Transform through multiple converters
 - Output: `Phase2Result` with converted payloads
 
-**Phase 3: Attack Execution** ([attack_execution.py](attack_phases/attack_execution.py:1))
+**Phase 3: Attack Execution** ([attack_execution.py](attack_phases/attack_execution.py#L1))
 - Send attacks via HTTP to target
 - Score responses with LLM scorers
 - Record successful chains
@@ -177,7 +177,7 @@ LangGraph Iteration:
 
 ### Adaptive Attack
 
-**LangGraph Loop** ([graph.py](adaptive_attack/graph.py:1))
+**LangGraph Loop** ([graph.py](adaptive_attack/graph.py#L1))
 - Autonomous iteration until success
 - Failure analysis after each attempt
 - Strategy generation for next iteration
@@ -400,10 +400,3 @@ Legacy implementations moved to `_archive/`:
 - **S3 persistence**: All results stored for analysis
 - **Error tracking**: Exceptions logged with context
 
-## Future Work
-
-- [ ] Add support for multi-target campaigns
-- [ ] Implement chain mutation strategies
-- [ ] Add WebSocket-based streaming
-- [ ] Enhance failure analysis with GPT-4
-- [ ] Build dashboard for attack analytics
