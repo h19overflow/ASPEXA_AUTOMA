@@ -13,7 +13,9 @@
       "Bash(\"C:\\Users\\User\\Projects\\Aspexa_Automa\\.venv\\Scripts\\python.exe\" -c \"from services.snipers.utils.prompt_articulation.components.payload_generator import PayloadGenerator, ArticulatedPayload, PAYLOAD_GENERATION_TEMPLATE; print(''Imports successful!'')\")",
       "Bash(\"C:\\Users\\User\\Projects\\Aspexa_Automa\\.venv\\Scripts\\python.exe\" -c \"from services.snipers.utils.prompt_articulation.components.payload_generator import PayloadGenerator, ArticulatedPayload; print(''Imports successful!'')\")",
       "Bash(\"C:\\Users\\User\\Projects\\Aspexa_Automa\\.venv\\Scripts\\python.exe\" -c \"from services.snipers.utils.prompt_articulation import PayloadGenerator, ArticulatedPayload, ArticulationPhase, FormatControl, FormatControlType; print(''All imports successful!'')\")",
-      "Bash(\"C:\\Users\\User\\Projects\\Aspexa_Automa\\.venv\\Scripts\\python.exe\" -c \"from services.snipers.utils.prompt_articulation import ArticulationPhase, PayloadGenerator, PayloadContext; print(''Imports successful!'')\")"
+      "Bash(\"C:\\Users\\User\\Projects\\Aspexa_Automa\\.venv\\Scripts\\python.exe\" -c \"from services.snipers.utils.prompt_articulation import ArticulationPhase, PayloadGenerator, PayloadContext; print(''Imports successful!'')\")",
+      "Bash(\"C:\\Users\\User\\Projects\\Aspexa_Automa\\.venv\\Scripts\\python.exe\" -c \"from services.snipers.utils.prompt_articulation.components.payload_generator import PayloadGenerator; print(''✓ Imports successful!'')\")",
+      "Bash(\"C:\\Users\\User\\Projects\\Aspexa_Automa\\.venv\\Scripts\\python.exe\" -c \"from services.snipers.utils.prompt_articulation.components.payload_generator_prompt import PAYLOAD_GENERATION_SYSTEM_PROMPT; print(''System prompt length:'', len(PAYLOAD_GENERATION_SYSTEM_PROMPT)); print(''✓ System prompt loaded successfully!'')\")"
     ],
     "deny": [],
     "ask": []
