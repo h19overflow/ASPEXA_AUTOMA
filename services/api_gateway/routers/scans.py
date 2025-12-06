@@ -105,33 +105,6 @@ async def get_exploit_scan(scan_id: str, validate: bool = False) -> Dict[str, An
         raise HTTPException(404, f"Exploit scan {scan_id} not found")
 
 
-@router.head("/recon/{scan_id}")
-async def check_recon_exists(scan_id: str):
-    """Check if a recon scan exists (HEAD request)."""
-    exists = await scan_exists(ScanType.RECON, scan_id)
-    if not exists:
-        raise HTTPException(404)
-    return {}
-
-
-@router.head("/garak/{scan_id}")
-async def check_garak_exists(scan_id: str):
-    """Check if a garak scan exists (HEAD request)."""
-    exists = await scan_exists(ScanType.GARAK, scan_id)
-    if not exists:
-        raise HTTPException(404)
-    return {}
-
-
-@router.head("/exploit/{scan_id}")
-async def check_exploit_exists(scan_id: str):
-    """Check if an exploit scan exists (HEAD request)."""
-    exists = await scan_exists(ScanType.EXPLOIT, scan_id)
-    if not exists:
-        raise HTTPException(404)
-    return {}
-
-
 @router.delete("/recon/{scan_id}")
 async def delete_recon_scan(scan_id: str) -> Dict[str, str]:
     """Delete a recon scan from S3."""

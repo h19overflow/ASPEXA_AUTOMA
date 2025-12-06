@@ -81,34 +81,3 @@ async def execute_phase1(request: Phase1Request) -> Phase1Response:
         raise HTTPException(status_code=500, detail=f"Phase 1 execution failed: {e}")
 
 
-@router.get("/framing-types")
-async def list_framing_types() -> dict:
-    """List available framing types for payload articulation."""
-    return {
-        "framing_types": [
-            {
-                "name": "qa_testing",
-                "description": "Frame as QA testing scenario",
-            },
-            {
-                "name": "compliance_audit",
-                "description": "Frame as compliance audit",
-            },
-            {
-                "name": "documentation",
-                "description": "Frame as documentation request",
-            },
-            {
-                "name": "debugging",
-                "description": "Frame as debugging session",
-            },
-            {
-                "name": "educational",
-                "description": "Frame as educational content",
-            },
-            {
-                "name": "research",
-                "description": "Frame as security research",
-            },
-        ]
-    }

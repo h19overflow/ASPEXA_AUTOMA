@@ -44,35 +44,6 @@ def _result_to_response(result) -> Phase2Response:
     )
 
 
-@router.post("", response_model=Phase2Response)
-async def execute_phase2(request: Phase2Request) -> Phase2Response:
-    """
-    Execute Phase 2: Conversion.
-
-    Applies converter chain to payloads.
-    Can be used standalone with manual payloads and converters.
-
-    Returns converted payloads ready for Phase 3.
-    """
-    try:
-        phase2 = Conversion()
-
-        result = await phase2.execute(
-            payloads=request.payloads,
-            converter_names=request.converter_names,
-            converter_params=request.converter_params,
-        )
-
-        return _result_to_response(result)
-
-    except ValueError as e:
-        logger.error(f"Phase 2 validation error: {e}")
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        logger.exception(f"Phase 2 execution error: {e}")
-        raise HTTPException(status_code=500, detail=f"Phase 2 execution failed: {e}")
-
-
 @router.post("/with-phase1", response_model=Phase2Response)
 async def execute_phase2_with_chain(request: Phase2WithChainRequest) -> Phase2Response:
     """
@@ -117,37 +88,3 @@ async def list_converters() -> AvailableConvertersResponse:
     return AvailableConvertersResponse(converters=converters)
 
 
-@router.post("/preview")
-async def preview_conversion(
-    payload: str,
-    converters: list[str],
-) -> ConvertedPayloadResponse:
-    """
-    Preview conversion on a single payload.
-
-    Useful for testing converter combinations before full execution.
-    """
-    try:
-        phase2 = Conversion()
-        result = await phase2.execute(
-            payloads=[payload],
-            converter_names=converters,
-        )
-
-        if not result.payloads:
-            raise HTTPException(status_code=500, detail="No payload converted")
-
-        p = result.payloads[0]
-        return ConvertedPayloadResponse(
-            original=p.original,
-            converted=p.converted,
-            chain_id=p.chain_id,
-            converters_applied=p.converters_applied,
-            errors=p.errors,
-        )
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.exception(f"Preview conversion error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
