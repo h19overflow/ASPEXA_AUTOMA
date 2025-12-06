@@ -16,6 +16,10 @@ from services.snipers.adaptive_attack.models.chain_discovery import (
     ChainSelectionResult,
     ConverterChainCandidate,
 )
+from services.snipers.adaptive_attack.models.failure_analysis import (
+    DefenseSignal,
+    FailureAnalysisDecision,
+)
 
 __all__ = [
     "DefenseAnalysis",
@@ -25,4 +29,6 @@ __all__ = [
     "ChainDiscoveryDecision",
     "ChainSelectionResult",
     "ConverterChainCandidate",
+    "DefenseSignal",
+    "FailureAnalysisDecision",
 ]

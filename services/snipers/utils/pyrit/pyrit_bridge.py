@@ -19,14 +19,13 @@ from pyrit.prompt_converter import (
 )
 
 from services.snipers.utils.converters import (
-    HtmlEntityConverter,
     JsonEscapeConverter,
     XmlEscapeConverter,
-    LeetspeakConverter,
     MorseCodeConverter,
     CharacterSpaceConverter,
     HomoglyphConverter,
     UnicodeSubstitutionConverter,
+    get_suffix_converters,
 )
 
 logger = logging.getLogger(__name__)
@@ -59,10 +58,8 @@ class ConverterFactory:
         url = UrlConverter()
         hex_conv = TextToHexConverter()
         unicode_conf = UnicodeConfusableConverter()
-        html = HtmlEntityConverter()
         json_esc = JsonEscapeConverter()
         xml_esc = XmlEscapeConverter()
-        leetspeak = LeetspeakConverter()
         morse = MorseCodeConverter()
         char_space = CharacterSpaceConverter()
         homoglyph = HomoglyphConverter()
@@ -77,10 +74,8 @@ class ConverterFactory:
             "url": url,
             "hex": hex_conv,
             "unicode_confusable": unicode_conf,
-            "html_entity": html,
             "json_escape": json_esc,
             "xml_escape": xml_esc,
-            "leetspeak": leetspeak,
             "morse_code": morse,
             "character_space": char_space,
             "homoglyph": homoglyph,
@@ -92,15 +87,18 @@ class ConverterFactory:
             "UrlConverter": url,
             "TextToHexConverter": hex_conv,
             "UnicodeConverter": unicode_conf,
-            "HtmlEntityConverter": html,
             "JsonEscapeConverter": json_esc,
             "XmlEscapeConverter": xml_esc,
-            "LeetspeakConverter": leetspeak,
             "MorseCodeConverter": morse,
             "CharacterSpaceConverter": char_space,
             "HomoglyphConverter": homoglyph,
             "UnicodeSubstitutionConverter": unicode_sub,
         }
+
+        # Add suffix converters (GCG, AutoDAN, defense-specific)
+        suffix_converters = get_suffix_converters()
+        self._converters.update(suffix_converters)
+
         logger.info(f"Initialized {len(self._converters)} PyRIT converter mappings")
 
     def get_converter(self, name: str) -> Optional[PromptConverter]:

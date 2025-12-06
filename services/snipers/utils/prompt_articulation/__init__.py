@@ -1,9 +1,15 @@
-"""Prompt Articulation System - Phase 2.
+"""Prompt Articulation System.
 
 Provides LLM-powered payload crafting with contextual framing,
 effectiveness tracking, and learning capabilities.
+
+Main Entry Point:
+    ArticulationPhase - Single source of truth for payload generation
 """
 
+from services.snipers.utils.prompt_articulation.articulation_phase import (
+    ArticulationPhase,
+)
 from services.snipers.utils.prompt_articulation.components import (
     ArticulatedPayload,
     EffectivenessProvider,
@@ -20,6 +26,10 @@ from services.snipers.utils.prompt_articulation.config import (
     DOMAIN_STRATEGY_BOOST,
     EFFECTIVENESS_SAVE_INTERVAL,
 )
+from services.snipers.utils.prompt_articulation.loaders import (
+    CampaignLoader,
+    CampaignIntelligence,
+)
 from services.snipers.utils.prompt_articulation.models import (
     AttackHistory,
     EffectivenessRecord,
@@ -31,6 +41,11 @@ from services.snipers.utils.prompt_articulation.models import (
 )
 
 __all__ = [
+    # Main Entry Point
+    "ArticulationPhase",
+    # Loaders
+    "CampaignLoader",
+    "CampaignIntelligence",
     # Models
     "PayloadContext",
     "TargetInfo",

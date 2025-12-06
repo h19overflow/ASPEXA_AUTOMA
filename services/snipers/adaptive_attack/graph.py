@@ -6,14 +6,14 @@ Role: Orchestrates attack phases with feedback-driven adaptation
 Dependencies: LangGraph, node implementations, state
 
 Graph structure:
-    START → articulate → convert → execute → evaluate → [adapt|END]
-                                                  ↑         ↓
-                                                  └─────────┘
+    START → adapt → articulate → convert → execute → evaluate → [adapt|END]
+               ↑                                          ↓
+               └──────────────────────────────────────────┘
 
 Routing logic:
+- adapt → articulate: Generate strategy and select chain (single source of truth)
 - evaluate → END: if is_successful or max_iterations reached
 - evaluate → adapt: if failure, continue adapting
-- adapt → articulate: restart attack with new parameters
 """
 
 import logging
@@ -75,7 +75,8 @@ def build_adaptive_attack_graph() -> StateGraph:
     builder.add_node("adapt", adapt_node)
 
     # Add edges: linear flow through phases
-    builder.add_edge(START, "articulate")
+    # adapt_node runs FIRST to select initial chain (single source of truth)
+    builder.add_edge(START, "adapt")
     builder.add_edge("articulate", "convert")
     builder.add_edge("convert", "execute")
     builder.add_edge("execute", "evaluate")
@@ -182,16 +183,6 @@ async def run_adaptive_attack(
         initial_state,
         config={"recursion_limit": recursion_limit},
     )
-
-    # Log final results
-    logger.info("\n" + "=" * 70)
-    logger.info("ADAPTIVE ATTACK COMPLETE")
-    logger.info("=" * 70)
-    logger.info(f"Success: {final_state.get('is_successful', False)}")
-    logger.info(f"Iterations: {final_state.get('iteration', 0) + 1}")
-    logger.info(f"Best score: {final_state.get('best_score', 0.0):.2f}")
-    logger.info(f"Best iteration: {final_state.get('best_iteration', 0)}")
-    logger.info("=" * 70 + "\n")
 
     # Log final result to turn logger
     get_turn_logger().log_result(
@@ -318,6 +309,16 @@ async def run_adaptive_attack_streaming(
                         progress=0.0,
                     )
 
+                    # Check for errors first
+                    if node_output.get("error"):
+                        yield make_event(
+                            "error",
+                            f"Phase 1 failed: {node_output['error']}",
+                            phase="phase1",
+                            iteration=current_iteration + 1,
+                            data={"error": node_output["error"], "node": "articulate"},
+                        )
+
                     phase1_result = node_output.get("phase1_result")
                     if phase1_result:
                         # Emit each payload
@@ -356,6 +357,16 @@ async def run_adaptive_attack_streaming(
                         iteration=current_iteration + 1,
                         progress=0.0,
                     )
+
+                    # Check for errors first
+                    if node_output.get("error"):
+                        yield make_event(
+                            "error",
+                            f"Phase 2 failed: {node_output['error']}",
+                            phase="phase2",
+                            iteration=current_iteration + 1,
+                            data={"error": node_output["error"], "node": "convert"},
+                        )
 
                     phase2_result = node_output.get("phase2_result")
                     if phase2_result:
@@ -396,6 +407,16 @@ async def run_adaptive_attack_streaming(
                         data={"target_url": target_url},
                         progress=0.0,
                     )
+
+                    # Check for errors first
+                    if node_output.get("error"):
+                        yield make_event(
+                            "error",
+                            f"Phase 3 failed: {node_output['error']}",
+                            phase="phase3",
+                            iteration=current_iteration + 1,
+                            data={"error": node_output["error"], "node": "execute"},
+                        )
 
                     phase3_result = node_output.get("phase3_result")
                     if phase3_result:

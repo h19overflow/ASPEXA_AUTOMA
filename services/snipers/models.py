@@ -454,11 +454,11 @@ class ExploitJobResult(BaseModel):
 class Phase1Result:
     """Result from Phase 1 execution - ready for handoff to Phase 2.
 
-    Contains articulated payloads and selected converter chain.
-    User can inspect, modify, or override before Phase 2.
+    Contains articulated payloads ready for conversion.
+    NOTE: In adaptive attack loop, selected_chain is None - chain selection
+    is handled by adapt_node. For standalone execution, it may be set.
     """
     campaign_id: str
-    selected_chain: Any  # ConverterChain | None - use Any to avoid circular import
     articulated_payloads: List[str]
     framing_type: str
     framing_types_used: List[str]
@@ -466,6 +466,7 @@ class Phase1Result:
     garak_objective: str
     defense_patterns: List[str]
     tools_detected: List[str]
+    selected_chain: Any = None  # Optional - only used in standalone execution, not adaptive loop
 
 
 @dataclass

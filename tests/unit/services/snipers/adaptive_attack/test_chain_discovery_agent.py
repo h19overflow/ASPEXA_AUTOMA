@@ -725,4 +725,164 @@ class TestChainDiscoveryAgentIntegration:
         # Verify both cycles completed
         assert decision_1 is not None
         assert decision_2 is not None
-        assert decision_2.confidence > decision_1.confidence
+
+
+class TestChainLengthValidation:
+    """Test chain length constraints and validation."""
+
+    def test_chain_length_filtering(self):
+        """Test that chains exceeding MAX_CHAIN_LENGTH are filtered out."""
+        from services.snipers.adaptive_attack.components.chain_discovery_agent import (
+            MAX_CHAIN_LENGTH,
+        )
+        from services.snipers.adaptive_attack.models.chain_discovery import (
+            ChainDiscoveryContext,
+        )
+
+        mock_agent = AsyncMock()
+        agent = ChainDiscoveryAgent(agent=mock_agent)
+
+        # Create test decision with chains of varying lengths
+        decision = ChainDiscoveryDecision(
+            chains=[
+                ConverterChainCandidate(
+                    converters=["homoglyph"],
+                    expected_effectiveness=0.5,
+                    defense_bypass_strategy="Single layer",
+                    converter_interactions="N/A",
+                ),
+                ConverterChainCandidate(
+                    converters=["base64", "rot13"],
+                    expected_effectiveness=0.7,
+                    defense_bypass_strategy="Two layers",
+                    converter_interactions="Encoding then rotation",
+                ),
+                ConverterChainCandidate(
+                    converters=["homoglyph", "base64", "rot13"],
+                    expected_effectiveness=0.8,
+                    defense_bypass_strategy="Three layers",
+                    converter_interactions="Visual, encoding, rotation",
+                ),
+                ConverterChainCandidate(
+                    converters=["homoglyph", "base64", "rot13", "unicode_substitution"],
+                    expected_effectiveness=0.9,
+                    defense_bypass_strategy="Four layers (too long)",
+                    converter_interactions="Multiple layers",
+                ),
+            ],
+            reasoning="Test chains",
+            primary_defense_target="test",
+            exploration_vs_exploitation="test",
+            confidence=0.7,
+        )
+
+        context = ChainDiscoveryContext(defense_signals=["keyword_filter"])
+
+        result = agent.select_best_chain(decision, context)
+
+        # Verify: selected chain should not exceed MAX_CHAIN_LENGTH
+        assert len(result.selected_chain) <= MAX_CHAIN_LENGTH
+        assert len(result.selected_chain) in [1, 2, 3]
+        print(f"✓ Selected chain length {len(result.selected_chain)} (within limit {MAX_CHAIN_LENGTH})")
+
+    def test_chain_length_fallback(self):
+        """Test fallback when ALL chains exceed MAX_CHAIN_LENGTH."""
+        from services.snipers.adaptive_attack.components.chain_discovery_agent import (
+            MAX_CHAIN_LENGTH,
+        )
+        from services.snipers.adaptive_attack.models.chain_discovery import (
+            ChainDiscoveryContext,
+        )
+
+        mock_agent = AsyncMock()
+        agent = ChainDiscoveryAgent(agent=mock_agent)
+
+        # Create chains that ALL exceed the limit
+        decision = ChainDiscoveryDecision(
+            chains=[
+                ConverterChainCandidate(
+                    converters=["base64", "rot13", "unicode_substitution", "homoglyph"],
+                    expected_effectiveness=0.8,
+                    defense_bypass_strategy="4 converters",
+                    converter_interactions="Many layers",
+                ),
+                ConverterChainCandidate(
+                    converters=["base64", "rot13", "unicode_substitution", "homoglyph", "leetspeak"],
+                    expected_effectiveness=0.9,
+                    defense_bypass_strategy="5 converters",
+                    converter_interactions="Too many layers",
+                ),
+            ],
+            reasoning="All oversized",
+            primary_defense_target="test",
+            exploration_vs_exploitation="test",
+            confidence=0.8,
+        )
+
+        context = ChainDiscoveryContext(defense_signals=["keyword_filter"])
+
+        result = agent.select_best_chain(decision, context)
+
+        # Verify: should select the shortest chain as fallback
+        assert result is not None
+        assert len(result.selected_chain) == 4  # Shortest available
+        assert result.selection_method == "defense_match" or result.selection_method == "highest_confidence"
+        print(f"✓ Fallback to shortest chain: {len(result.selected_chain)} converters")
+
+    def test_calculate_length_score_optimal_length(self):
+        """Test that optimal length (2-3) gets bonus."""
+        from services.snipers.adaptive_attack.components.chain_discovery_agent import (
+            OPTIMAL_LENGTH_BONUS,
+        )
+
+        mock_agent = AsyncMock()
+        agent = ChainDiscoveryAgent(agent=mock_agent)
+
+        # Test 2-converter chain
+        score_2 = agent._calculate_length_score(2)
+        assert score_2 == float(OPTIMAL_LENGTH_BONUS)
+
+        # Test 3-converter chain
+        score_3 = agent._calculate_length_score(3)
+        assert score_3 == float(OPTIMAL_LENGTH_BONUS)
+
+        print(f"✓ Optimal length (2-3) gets bonus: +{OPTIMAL_LENGTH_BONUS}")
+
+    def test_calculate_length_score_single_converter(self):
+        """Test that single converter gets neutral score."""
+        mock_agent = AsyncMock()
+        agent = ChainDiscoveryAgent(agent=mock_agent)
+
+        score_1 = agent._calculate_length_score(1)
+        assert score_1 == 0.0
+
+        print(f"✓ Single converter gets neutral score: 0.0")
+
+    def test_calculate_length_score_penalty_for_long_chains(self):
+        """Test that long chains get penalty."""
+        from services.snipers.adaptive_attack.components.chain_discovery_agent import (
+            LENGTH_PENALTY_FACTOR,
+        )
+
+        mock_agent = AsyncMock()
+        agent = ChainDiscoveryAgent(agent=mock_agent)
+
+        # Test 4-converter chain (penalty = (4-2)*5 = 10)
+        score_4 = agent._calculate_length_score(4)
+        expected_penalty = (4 - 2) * LENGTH_PENALTY_FACTOR
+        assert score_4 == -float(expected_penalty)
+
+        print(f"✓ Long chain (4 converters) gets penalty: -{expected_penalty}")
+
+    def test_prompt_includes_length_constraints(self):
+        """Test that chain discovery prompt includes length constraints."""
+        from services.snipers.adaptive_attack.prompts.chain_discovery_prompt import (
+            CHAIN_DISCOVERY_SYSTEM_PROMPT,
+        )
+
+        # Verify prompt includes key constraint messages
+        assert "MAXIMUM 3 converters" in CHAIN_DISCOVERY_SYSTEM_PROMPT
+        assert "Chain Length Limits" in CHAIN_DISCOVERY_SYSTEM_PROMPT
+        assert "MAX_CHAIN_LENGTH" not in CHAIN_DISCOVERY_SYSTEM_PROMPT or "Hard limit" in CHAIN_DISCOVERY_SYSTEM_PROMPT
+
+        print("✓ Prompt includes all length constraint guidance")

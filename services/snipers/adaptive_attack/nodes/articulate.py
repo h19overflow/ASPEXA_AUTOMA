@@ -3,13 +3,13 @@ Articulate Node - Phase 1 Execution.
 
 Purpose: Execute payload articulation phase in adaptive loop
 Role: Generate payloads based on current framing parameters
-Dependencies: PayloadArticulation, AdaptiveAttackState
+Dependencies: ArticulationPhase, AdaptiveAttackState
 """
 
 import logging
 from typing import Any
 
-from services.snipers.attack_phases import PayloadArticulation
+from services.snipers.utils.prompt_articulation import ArticulationPhase
 from services.snipers.adaptive_attack.state import AdaptiveAttackState
 
 logger = logging.getLogger(__name__)
@@ -33,6 +33,8 @@ async def articulate_node(state: AdaptiveAttackState) -> dict[str, Any]:
     framing_types = state.get("framing_types")
     custom_framing = state.get("custom_framing")  # LLM-generated framing
     recon_custom_framing = state.get("recon_custom_framing")  # Recon-intelligence-based framing
+    payload_guidance = state.get("payload_guidance")  # Instructions from adaptation
+    chain_discovery_context = state.get("chain_discovery_context")  # Failure analysis context
 
     logger.info(f"\n[Iteration {iteration + 1}] Phase 1: Articulating payloads")
     logger.info(f"  Payload count: {payload_count}")
@@ -43,14 +45,19 @@ async def articulate_node(state: AdaptiveAttackState) -> dict[str, Any]:
     else:
         logger.info(f"  Framing types: {framing_types or 'auto'}")
 
+    if payload_guidance:
+        logger.info(f"  Payload guidance: {payload_guidance[:100]}...")
+
     try:
-        phase1 = PayloadArticulation()
+        phase1 = ArticulationPhase()
         result = await phase1.execute(
             campaign_id=campaign_id,
             payload_count=payload_count,
             framing_types=framing_types,
             custom_framing=custom_framing,  # Pass LLM-generated framing
             recon_custom_framing=recon_custom_framing,  # Pass recon-based framing
+            payload_guidance=payload_guidance,  # Pass adaptation guidance
+            chain_discovery_context=chain_discovery_context.model_dump() if chain_discovery_context else None,
         )
 
         # Track tried framings

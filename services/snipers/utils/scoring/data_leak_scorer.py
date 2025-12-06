@@ -8,6 +8,9 @@ import re
 import logging
 from typing import Any, Optional, Tuple
 
+from dotenv import load_dotenv
+load_dotenv()
+
 from pydantic import BaseModel, Field
 from langchain.agents import create_agent
 from langchain.agents.structured_output import ToolStrategy

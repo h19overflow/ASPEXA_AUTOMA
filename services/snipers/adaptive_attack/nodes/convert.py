@@ -4,6 +4,8 @@ Convert Node - Phase 2 Execution.
 Purpose: Execute conversion phase in adaptive loop
 Role: Apply converter chain to payloads
 Dependencies: Conversion, AdaptiveAttackState
+
+NOTE: converter_names is always provided by adapt_node (single source of truth).
 """
 
 import logging
@@ -20,6 +22,7 @@ async def convert_node(state: AdaptiveAttackState) -> dict[str, Any]:
     Phase 2: Conversion.
 
     Applies converter chain to payloads.
+    NOTE: converter_names is always provided by adapt_node.
 
     Args:
         state: Current adaptive attack state
@@ -37,14 +40,19 @@ async def convert_node(state: AdaptiveAttackState) -> dict[str, Any]:
             "next_node": "evaluate",
         }
 
+    # Ensure converter_names is set (should always be set by adapt_node)
+    if not converter_names:
+        logger.warning("No converter_names in state! Using empty chain.")
+        converter_names = []
+
     logger.info(f"\n[Iteration {iteration + 1}] Phase 2: Converting payloads")
-    logger.info(f"  Converters: {converter_names or 'from Phase 1'}")
+    logger.info(f"  Converters: {converter_names}")
 
     try:
         phase2 = Conversion()
         result = await phase2.execute(
             payloads=phase1_result.articulated_payloads,
-            chain=phase1_result.selected_chain if not converter_names else None,
+            chain=None,  # Chain selection handled by adapt_node
             converter_names=converter_names,
         )
 
@@ -57,6 +65,14 @@ async def convert_node(state: AdaptiveAttackState) -> dict[str, Any]:
             "phase2_result": result,
             "tried_converters": tried_converters,
             "next_node": "execute",
+            # Preserve adaptation context for next iteration
+            "payload_guidance": state.get("payload_guidance"),
+            "adaptation_reasoning": state.get("adaptation_reasoning"),
+            "chain_discovery_context": state.get("chain_discovery_context"),
+            "chain_discovery_decision": state.get("chain_discovery_decision"),
+            "defense_analysis": state.get("defense_analysis"),
+            "custom_framing": state.get("custom_framing"),
+            "recon_custom_framing": state.get("recon_custom_framing"),
         }
 
     except Exception as e:

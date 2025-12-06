@@ -9,10 +9,14 @@ Dependencies: langchain.agents.create_agent, ToolStrategy, models, prompts
 import logging
 from typing import Any
 
+from dotenv import load_dotenv
+load_dotenv()
+
 from langchain.agents import create_agent
 from langchain.agents.structured_output import ToolStrategy
 
 from services.snipers.adaptive_attack.models.adaptation_decision import AdaptationDecision
+from services.snipers.adaptive_attack.models.chain_discovery import ChainDiscoveryContext
 from services.snipers.adaptive_attack.prompts.adaptation_prompt import (
     ADAPTATION_SYSTEM_PROMPT,
     build_adaptation_user_prompt,
@@ -53,6 +57,7 @@ class StrategyGenerator:
         objective: str,
         pre_analysis: dict[str, Any],
         config: dict = None,
+        chain_discovery_context: ChainDiscoveryContext | None = None,
     ) -> AdaptationDecision:
         """
         Generate adaptation decision via LLM.
@@ -65,6 +70,7 @@ class StrategyGenerator:
             objective: Attack objective
             pre_analysis: Rule-based pre-analysis of responses
             config: Optional config with recon_intelligence
+            chain_discovery_context: Failure analysis context with root cause
 
         Returns:
             AdaptationDecision with strategy and reasoning
@@ -94,6 +100,7 @@ class StrategyGenerator:
             objective=objective,
             pre_analysis=pre_analysis,
             recon_intelligence=recon_intelligence,
+            chain_discovery_context=chain_discovery_context,
         )
 
         self.logger.info("Generating adaptation strategy via LLM")

@@ -7,6 +7,9 @@ Uses LangChain create_agent with Pydantic structured output.
 import logging
 from typing import Any
 
+from dotenv import load_dotenv
+load_dotenv()
+
 from pydantic import BaseModel, Field
 from langchain.agents import create_agent
 from langchain.agents.structured_output import ToolStrategy

@@ -4,6 +4,8 @@ LLM-based contextual payload generator.
 Purpose: Crafts prompts that combine attack objective with framing strategy,
 leveraging target context and historical patterns.
 Uses langchain.agents.create_agent with google_genai:gemini-2.5-flash
+
+BACKUP: 2025-12-03 - Pre Phase 2.5 XML Tag Enhancement
 """
 
 import logging

@@ -37,13 +37,19 @@ class CompositeScoringNodePhase34:
     Provides detailed evidence and severity breakdown.
     """
 
-    def __init__(self):
+    def __init__(self, required_scorers: list[str] | None = None):
         """
         Initialize composite scorer.
+
+        Args:
+            required_scorers: Scorers that MUST succeed for is_successful=True.
+                              If None, any scorer reaching MEDIUM+ counts as success.
+                              Valid values: jailbreak, prompt_leak, data_leak, tool_abuse, pii_exposure
 
         All scorers now use LangChain create_agent with structured output
         instead of PyRIT chat targets.
         """
+        self._required_scorers = required_scorers
         self.logger = logging.getLogger(__name__)
 
     async def score_responses(self, state: ExploitAgentState) -> dict[str, Any]:
@@ -94,10 +100,11 @@ class CompositeScoringNodePhase34:
                 state
             )
 
-            # Compute composite score
+            # Compute composite score with required_scorers filter
             composite_score = CompositeScore.from_results(
                 scorer_results,
-                weights=self._get_scorer_weights()
+                weights=self._get_scorer_weights(),
+                required_scorers=self._required_scorers,
             )
 
             self.logger.info(

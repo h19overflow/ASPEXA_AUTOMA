@@ -4,10 +4,12 @@ Phase 1: Payload Articulation.
 Purpose: Generate articulated attack payloads from campaign intelligence
 Role: First phase of attack flow - produces payloads ready for conversion
 
-Sequential execution of 3 nodes:
+Sequential execution of 2 nodes:
 1. InputProcessingNode - Load and parse S3 campaign intelligence
-2. ConverterSelectionNodePhase3 - Select converter chain
-3. PayloadArticulationNodePhase3 - Generate attack payloads
+2. PayloadArticulationNodePhase3 - Generate attack payloads
+
+NOTE: Chain selection is handled by adapt_node in the adaptive loop.
+      PayloadArticulation does NOT select chains - this is intentional.
 
 Usage:
     from services.snipers.attack_phases import PayloadArticulation
@@ -19,7 +21,7 @@ Usage:
         framing_types=["qa_testing", "debugging"],
     )
 
-    # Result contains articulated_payloads and selected_chain
+    # Result contains articulated_payloads (NO selected_chain)
     # Ready for handoff to Phase 2 (Conversion)
 """
 
@@ -29,7 +31,6 @@ from libs.persistence import S3PersistenceAdapter
 from libs.config.settings import get_settings
 
 from services.snipers.utils.nodes.input_processing_node import InputProcessingNode
-from services.snipers.utils.nodes.converter_selection_node import ConverterSelectionNodePhase3
 from services.snipers.utils.nodes.payload_articulation_node import PayloadArticulationNodePhase3
 from services.snipers.models import Phase1Result
 from services.snipers.utils.persistence.s3_adapter import S3InterfaceAdapter
@@ -45,8 +46,9 @@ class PayloadArticulation:
     """
     Phase 1: Payload Articulation.
 
-    Executes: Input Processing → Chain Selection → Payload Articulation
+    Executes: Input Processing → Payload Articulation
 
+    NOTE: Chain selection is handled by adapt_node (single source of truth).
     Output can be inspected/modified before passing to Phase 2.
     """
 
@@ -60,15 +62,14 @@ class PayloadArticulation:
             region=settings.aws_region,
         )
 
-        # Create interface adapter for chain discovery
+        # Create interface adapter for payload articulation
         self._s3_interface = S3InterfaceAdapter(self._s3_persistence)
 
         # Get LLM agent
         self._llm_agent = get_default_agent()
 
-        # Initialize nodes
+        # Initialize nodes (chain selection removed - handled by adapt_node)
         self.input_processor = InputProcessingNode()
-        self.converter_selector = ConverterSelectionNodePhase3(self._s3_interface)
         self.payload_articulator = PayloadArticulationNodePhase3(
             self._llm_agent,
             self._s3_interface
@@ -85,7 +86,9 @@ class PayloadArticulation:
         recon_custom_framing: dict[str, str] | None = None,
     ) -> Phase1Result:
         """
-        Execute Phase 1: Input → Chain Selection → Payload Articulation.
+        Execute Phase 1: Input → Payload Articulation.
+
+        NOTE: Chain selection is handled by adapt_node (single source of truth).
 
         Args:
             campaign_id: Campaign ID to load intelligence from S3
@@ -98,15 +101,8 @@ class PayloadArticulation:
                 Example: {"role": "Tech shop customer", "context": "completing a purchase", "justification": "..."}
 
         Returns:
-            Phase1Result with selected chain and articulated payloads
+            Phase1Result with articulated payloads (no selected_chain)
         """
-        self.logger.info(f"\n{'='*60}")
-        self.logger.info(f"Phase 1: Payload Articulation - Campaign {campaign_id}")
-        self.logger.info(f"{'='*60}\n")
-
-        # Step 1: Input Processing
-        self.logger.info("[Step 1/3] Input Processing")
-        self.logger.info("-" * 40)
         state = await self.input_processor.process_input(campaign_id)
 
         # Extract structured recon intelligence immediately
@@ -115,8 +111,6 @@ class PayloadArticulation:
         recon_intelligence = extractor.extract(recon_blueprint)
 
         # Log extracted intelligence
-        self.logger.info(f"  Recon Intelligence Extracted:")
-        self.logger.info(f"    - Tools discovered: {len(recon_intelligence.tools)}")
         for tool in recon_intelligence.tools:
             self.logger.info(f"      • {tool.tool_name}")
             if tool.business_rules:
@@ -148,38 +142,15 @@ class PayloadArticulation:
         objective = state["attack_plan"].get("objective", "")
         vulnerabilities = state.get("garak_vulnerabilities", [])
 
-        self.logger.info(f"  Tools detected: {len(tools)}")
         for tool in tools:
             self.logger.info(f"    - {tool}")
 
-        self.logger.info(f"  Defense patterns: {defenses}")
-        self.logger.info(f"  Attack objective: {objective[:80]}...")
 
         if vulnerabilities:
             vuln = vulnerabilities[0]
             self.logger.info(f"  Garak finding: {vuln.get('detector', 'unknown')} (severity: {vuln.get('severity', 'unknown')})")
 
-        # Step 2: Chain Selection
-        self.logger.info(f"\n[Step 2/3] Converter Chain Selection")
-        self.logger.info("-" * 40)
-
-        chain_result = await self.converter_selector.select_converters(state)
-        selected_chain = chain_result.get("selected_converters")
-
-        if selected_chain:
-            self.logger.info(f"  Chain ID: {selected_chain.chain_id}")
-            self.logger.info(f"  Converters: {selected_chain.converter_names}")
-            self.logger.info(f"  Defense patterns: {selected_chain.defense_patterns}")
-
-            # Update state with selected chain
-            state["converter_selection"] = selected_chain
-            state["selected_converters"] = selected_chain
-        else:
-            self.logger.warning("  No chain selected!")
-
-        # Step 3: Payload Articulation
-        self.logger.info(f"\n[Step 3/3] Payload Articulation")
-        self.logger.info("-" * 40)
+        # NOTE: Chain selection removed - handled by adapt_node (single source of truth)
 
         # Log whether XML tags will be used
         has_tool_intel = (
@@ -189,7 +160,6 @@ class PayloadArticulation:
         )
 
         if has_tool_intel:
-            self.logger.info("  ✓ Using XML-tagged prompts (tool intelligence available)")
             self.logger.info(
                 f"    Tools to exploit: {[t.tool_name for t in recon_intelligence.tools]}"
             )
@@ -211,9 +181,9 @@ class PayloadArticulation:
             self.logger.info(f"  Payload {i+1} length: {len(payload)} chars")
 
         # Build result - ready for handoff to Phase 2
+        # NOTE: selected_chain removed - handled by adapt_node
         result = Phase1Result(
             campaign_id=campaign_id,
-            selected_chain=selected_chain,
             articulated_payloads=articulated_payloads,
             framing_type=framing_str,
             framing_types_used=framing_types_used,
@@ -223,97 +193,5 @@ class PayloadArticulation:
             tools_detected=tools,
         )
 
-        self.logger.info(f"\n{'='*60}")
-        self.logger.info("Phase 1 Complete - Ready for Phase 2 (Conversion)")
-        self.logger.info(f"{'='*60}\n")
-
         return result
 
-
-async def main():
-    """Test Phase 1 with campaign fresh1."""
-    import sys
-    import argparse
-
-    # Parse command line arguments
-    parser = argparse.ArgumentParser(description="Phase 1: Payload Articulation")
-    parser.add_argument("--campaign", "-c", default="fresh1", help="Campaign ID")
-    parser.add_argument("--payloads", "-p", type=int, default=1, help="Number of payloads (1-6)")
-    parser.add_argument("--framing", "-f", nargs="*", help="Framing types to use")
-    parser.add_argument("--custom-name", help="Custom framing name")
-    parser.add_argument("--custom-context", help="Custom framing system context")
-    parser.add_argument("--custom-prefix", help="Custom framing user prefix")
-    parser.add_argument("--custom-suffix", default="", help="Custom framing user suffix")
-    args = parser.parse_args()
-
-    # Configure logging
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(message)s',
-        stream=sys.stdout,
-    )
-
-    # Suppress noisy loggers
-    logging.getLogger("botocore").setLevel(logging.WARNING)
-    logging.getLogger("urllib3").setLevel(logging.WARNING)
-    logging.getLogger("boto3").setLevel(logging.WARNING)
-
-    print("\n" + "="*70)
-    print("PHASE 1: PAYLOAD ARTICULATION")
-    print("="*70 + "\n")
-
-    # Build custom framing if provided
-    custom_framing = None
-    if args.custom_name and args.custom_context:
-        custom_framing = {
-            "name": args.custom_name,
-            "system_context": args.custom_context,
-            "user_prefix": args.custom_prefix or "",
-            "user_suffix": args.custom_suffix or "",
-        }
-        print(f"Using custom framing: {args.custom_name}")
-
-    # Initialize and execute
-    phase1 = PayloadArticulation()
-    result = await phase1.execute(
-        campaign_id=args.campaign,
-        payload_count=args.payloads,
-        framing_types=args.framing,
-        custom_framing=custom_framing,
-    )
-
-    # Print detailed results
-    print("\n" + "="*70)
-    print("RESULTS SUMMARY")
-    print("="*70)
-
-    print(f"\nCampaign ID: {result.campaign_id}")
-    print(f"Tools Detected: {result.tools_detected}")
-    print(f"Defense Patterns: {result.defense_patterns}")
-    print(f"Attack Objective: {result.garak_objective}")
-
-    print(f"\n--- Selected Chain ---")
-    if result.selected_chain:
-        print(f"Chain ID: {result.selected_chain.chain_id}")
-        print(f"Converters: {result.selected_chain.converter_names}")
-    else:
-        print("No chain selected")
-
-    print(f"\n--- Articulated Payloads ---")
-    print(f"Framing Type: {result.framing_type}")
-    print(f"Payload Count: {len(result.articulated_payloads)}")
-
-    for i, payload in enumerate(result.articulated_payloads):
-        print(f"\n[Payload {i+1}] ({len(payload)} chars):")
-        print("-" * 50)
-        print(payload)
-        print("-" * 50)
-
-    print("\n" + "="*70)
-    print("PHASE 1 COMPLETE")
-    print("="*70 + "\n")
-
-
-if __name__ == "__main__":
-    import asyncio
-    asyncio.run(main())

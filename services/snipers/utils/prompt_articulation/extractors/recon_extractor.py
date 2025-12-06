@@ -71,8 +71,16 @@ class ReconIntelligenceExtractor:
             detected_tools, intelligence_section
         )
 
-        # Extract system prompt leaks
-        system_prompt_leak = intelligence_section.get("system_prompt_leak")
+        # Extract system prompt leaks (handle list or string)
+        system_prompt_leak_raw = intelligence_section.get("system_prompt_leak")
+        if isinstance(system_prompt_leak_raw, list):
+            # Join list elements into single string
+            system_prompt_leak = "\n".join(str(item) for item in system_prompt_leak_raw)
+        elif isinstance(system_prompt_leak_raw, str):
+            system_prompt_leak = system_prompt_leak_raw
+        else:
+            system_prompt_leak = None
+
         target_self_description = intelligence_section.get("target_self_description")
 
         # Try to extract from responses if not explicitly provided

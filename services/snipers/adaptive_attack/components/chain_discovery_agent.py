@@ -9,6 +9,9 @@ Dependencies: langchain.agents.create_agent, ChainDiscoveryDecision model
 import logging
 from typing import Any
 
+from dotenv import load_dotenv
+load_dotenv()
+
 from langchain.agents import create_agent
 from langchain.agents.structured_output import ToolStrategy
 
@@ -22,12 +25,20 @@ from services.snipers.adaptive_attack.prompts.chain_discovery_prompt import (
     CHAIN_DISCOVERY_SYSTEM_PROMPT,
     build_chain_discovery_user_prompt,
 )
+from services.snipers.utils.converters import SUFFIX_CONVERTER_NAMES
+from services.snipers.utils.prompt_articulation.models.tool_intelligence import ReconIntelligence
 
 logger = logging.getLogger(__name__)
 
+# Maximum converters per chain to prevent over-stacking and unrecognizable payloads
+MAX_CHAIN_LENGTH = 3
+# Length penalty: points deducted per converter over 2
+LENGTH_PENALTY_FACTOR = 5
+# Bonus for optimal length (2-3 converters)
+OPTIMAL_LENGTH_BONUS = 10
 
-# All converters available in the system
-AVAILABLE_CONVERTERS = [
+# Base converters available in the system
+_BASE_CONVERTERS = [
     "homoglyph",
     "unicode_substitution",
     "leetspeak",
@@ -39,6 +50,9 @@ AVAILABLE_CONVERTERS = [
     "xml_escape",
     "json_escape",
 ]
+
+# All converters including suffix converters
+AVAILABLE_CONVERTERS = _BASE_CONVERTERS + SUFFIX_CONVERTER_NAMES
 
 
 class ChainDiscoveryAgent:
@@ -69,6 +83,7 @@ class ChainDiscoveryAgent:
         context: ChainDiscoveryContext,
         tried_converters: list[list[str]],
         objective: str,
+        recon_intelligence: ReconIntelligence | None = None,
         config: dict = None,
     ) -> ChainDiscoveryDecision:
         """
@@ -78,6 +93,7 @@ class ChainDiscoveryAgent:
             context: ChainDiscoveryContext from failure analysis
             tried_converters: All converter chains attempted so far
             objective: Attack objective
+            recon_intelligence: Structured recon data for context-aware chain selection
 
         Returns:
             ChainDiscoveryDecision with chain candidates and reasoning
@@ -89,6 +105,7 @@ class ChainDiscoveryAgent:
             context=context,
             tried_converters=tried_converters,
             objective=objective,
+            recon_intelligence=recon_intelligence,
         )
 
         self.logger.info("[ChainDiscoveryAgent] Generating chain candidates via LLM")
@@ -204,6 +221,41 @@ class ChainDiscoveryAgent:
             converter_interactions="Single converter or basic combination",
         )
 
+    def _calculate_length_score(self, chain_length: int) -> float:
+        """
+        Calculate length-based score adjustment.
+
+        Penalizes longer chains to encourage simpler, more intelligible payloads.
+        - Bonus for 2-3 converters (optimal range)
+        - Penalty for chains over 3 converters (though filtered earlier)
+
+        Args:
+            chain_length: Number of converters in the chain
+
+        Returns:
+            Score adjustment (can be positive or negative)
+        """
+        if 2 <= chain_length <= 3:
+            # Bonus for optimal length
+            self.logger.debug(
+                f"  Optimal length bonus: +{OPTIMAL_LENGTH_BONUS} "
+                f"(chain has {chain_length} converters)"
+            )
+            return float(OPTIMAL_LENGTH_BONUS)
+        elif chain_length > 3:
+            # Penalty for longer chains
+            penalty = (chain_length - 2) * LENGTH_PENALTY_FACTOR
+            self.logger.debug(
+                f"  Length penalty: -{penalty} (chain has {chain_length} converters)"
+            )
+            return -float(penalty)
+        else:
+            # Single converter (neutral, slight penalty)
+            self.logger.debug(
+                f"  Single converter (minimal obfuscation): (chain has {chain_length} converter)"
+            )
+            return 0.0
+
     def select_best_chain(
         self,
         decision: ChainDiscoveryDecision,
@@ -211,6 +263,7 @@ class ChainDiscoveryAgent:
     ) -> ChainSelectionResult:
         """
         Select the best chain from candidates with full observability.
+        Filters chains by MAX_CHAIN_LENGTH to prevent over-stacking.
 
         Args:
             decision: ChainDiscoveryDecision with candidates
@@ -238,19 +291,66 @@ class ChainDiscoveryAgent:
                 rejected_chains=[],
             )
 
+        # Phase 0: Filter chains by MAX_CHAIN_LENGTH
+        self.logger.info(f"\n  === Chain Length Filtering ===")
+        self.logger.info(f"  MAX_CHAIN_LENGTH: {MAX_CHAIN_LENGTH}")
+        self.logger.info(f"  Total candidates: {len(decision.chains)}")
+
+        valid_chains = []
+        oversized_chains = []
+
+        for chain in decision.chains:
+            chain_length = len(chain.converters)
+            if chain_length <= MAX_CHAIN_LENGTH:
+                valid_chains.append(chain)
+                self.logger.debug(
+                    f"    ✓ Chain length {chain_length}: {chain.converters}"
+                )
+            else:
+                oversized_chains.append(chain)
+                rejected_chains.append({
+                    "chain": chain.converters,
+                    "reason": f"Exceeds MAX_CHAIN_LENGTH={MAX_CHAIN_LENGTH} (has {chain_length})",
+                    "strategy_checked": chain.defense_bypass_strategy[:100],
+                })
+                self.logger.debug(
+                    f"    ✗ Chain length {chain_length} (exceeds limit): {chain.converters}"
+                )
+
+        self.logger.info(f"  Valid chains (within limit): {len(valid_chains)}/{len(decision.chains)}")
+
+        # Fallback: if all chains exceed limit, use the shortest one
+        if not valid_chains:
+            self.logger.warning(
+                f"  All chains exceed MAX_CHAIN_LENGTH={MAX_CHAIN_LENGTH}. "
+                f"Using shortest chain as fallback."
+            )
+            shortest = min(decision.chains, key=lambda c: len(c.converters))
+            shortest_length = len(shortest.converters)
+            self.logger.info(
+                f"  Fallback chain length: {shortest_length} converters"
+            )
+            valid_chains = [shortest]
+
         # Sort by expected effectiveness
         sorted_chains = sorted(
-            decision.chains,
+            valid_chains,
             key=lambda c: c.expected_effectiveness,
             reverse=True
         )
 
-        # Build all candidates list with ranking
+        # Build all candidates list with ranking and length scoring
         for rank, chain in enumerate(sorted_chains, 1):
+            # Calculate length-based score adjustment
+            chain_length = len(chain.converters)
+            length_score_adjustment = self._calculate_length_score(chain_length)
+
             all_candidates.append({
                 "rank": rank,
                 "converters": chain.converters,
+                "length": chain_length,
                 "expected_effectiveness": chain.expected_effectiveness,
+                "length_score_adjustment": length_score_adjustment,
                 "defense_bypass_strategy": chain.defense_bypass_strategy,
                 "converter_interactions": chain.converter_interactions,
             })
@@ -261,7 +361,8 @@ class ChainDiscoveryAgent:
         for candidate in all_candidates:
             self.logger.info(
                 f"    #{candidate['rank']}: {candidate['converters']} "
-                f"(eff: {candidate['expected_effectiveness']:.2f})"
+                f"(len: {candidate['length']}, eff: {candidate['expected_effectiveness']:.2f}, "
+                f"length_adj: {candidate['length_score_adjustment']:+.1f})"
             )
 
         # Phase 1: Try to find chains that match detected defenses

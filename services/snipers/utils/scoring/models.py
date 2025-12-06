@@ -80,7 +80,8 @@ class CompositeScore(BaseModel):
     def from_results(
         cls,
         results: dict[str, ScoreResult],
-        weights: dict[str, float] | None = None
+        weights: dict[str, float] | None = None,
+        required_scorers: list[str] | None = None,
     ) -> "CompositeScore":
         """
         Compute composite score from individual results.
@@ -88,6 +89,8 @@ class CompositeScore(BaseModel):
         Args:
             results: Scorer name -> ScoreResult
             weights: Optional weights per scorer (default: equal)
+            required_scorers: Scorers that MUST succeed for is_successful=True.
+                              If None, any scorer reaching MEDIUM+ counts as success.
 
         Returns:
             Aggregated composite score
@@ -129,8 +132,17 @@ class CompositeScore(BaseModel):
                 key=lambda s: severity_order.index(s)
             )
 
-        # Success if severity >= MEDIUM
-        is_successful = severity_order.index(max_severity) >= 2
+        # Determine success based on required_scorers
+        if required_scorers:
+            # Success only if ALL required scorers reach MEDIUM+
+            is_successful = all(
+                scorer_name in results
+                and severity_order.index(results[scorer_name].severity) >= 2
+                for scorer_name in required_scorers
+            )
+        else:
+            # Default: any scorer reaching MEDIUM+ counts as success
+            is_successful = severity_order.index(max_severity) >= 2
 
         # Normalized score (0-100)
         severity_scores = {

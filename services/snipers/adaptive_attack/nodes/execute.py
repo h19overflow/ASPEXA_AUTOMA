@@ -49,7 +49,7 @@ async def execute_node(state: AdaptiveAttackState) -> dict[str, Any]:
         result = await phase3.execute(
             campaign_id=campaign_id,
             payloads=phase2_result.payloads,
-            chain=phase1_result.selected_chain if phase1_result else None,
+            chain=None,  # Chain selection handled by adapt_node, already applied in convert phase
             max_concurrent=max_concurrent,
         )
 
@@ -69,6 +69,16 @@ async def execute_node(state: AdaptiveAttackState) -> dict[str, Any]:
             "best_score": best_score,
             "best_iteration": best_iteration,
             "next_node": "evaluate",
+            # Preserve adaptation context for next iteration
+            "payload_guidance": state.get("payload_guidance"),
+            "adaptation_reasoning": state.get("adaptation_reasoning"),
+            "chain_discovery_context": state.get("chain_discovery_context"),
+            "chain_discovery_decision": state.get("chain_discovery_decision"),
+            "defense_analysis": state.get("defense_analysis"),
+            "custom_framing": state.get("custom_framing"),
+            "recon_custom_framing": state.get("recon_custom_framing"),
+            "tried_framings": state.get("tried_framings"),
+            "tried_converters": state.get("tried_converters"),
         }
 
     except Exception as e:

@@ -1,12 +1,11 @@
 """
 Adapt Node - LLM-Powered Parameter Adaptation with Chain Discovery.
 
-Purpose: Analyze responses and generate intelligent adaptation strategy
-Role: Integrate failure analysis and chain discovery for dynamic chain generation
+Purpose: Single source of truth for chain selection and strategy adaptation
+Role: Runs BEFORE iteration 0 and AFTER each failure to select chains dynamically
 Dependencies: StrategyGenerator, ResponseAnalyzer, FailureAnalyzer, ChainDiscoveryAgent
 """
 
-import asyncio
 import logging
 from typing import Any
 
@@ -19,17 +18,19 @@ from services.snipers.adaptive_attack.state import (
 from services.snipers.adaptive_attack.components.response_analyzer import ResponseAnalyzer
 from services.snipers.adaptive_attack.components.strategy_generator import StrategyGenerator
 from services.snipers.adaptive_attack.components.failure_analyzer import FailureAnalyzer
+from services.snipers.adaptive_attack.components.failure_analyzer_agent import FailureAnalyzerAgent
 from services.snipers.adaptive_attack.components.chain_discovery_agent import ChainDiscoveryAgent
 from services.snipers.adaptive_attack.components.turn_logger import get_turn_logger
+from services.snipers.utils.prompt_articulation.models.tool_intelligence import ReconIntelligence
 
 logger = logging.getLogger(__name__)
 
 
-def adapt_node(state: AdaptiveAttackState) -> dict[str, Any]:
+async def adapt_node(state: AdaptiveAttackState) -> dict[str, Any]:
     """
     LLM-powered adaptation based on response analysis.
 
-    Wraps async implementation with fallback to rule-based logic.
+    Async implementation with fallback to rule-based logic.
 
     Args:
         state: Current adaptive attack state
@@ -38,7 +39,7 @@ def adapt_node(state: AdaptiveAttackState) -> dict[str, Any]:
         State updates with new parameters and strategy
     """
     try:
-        return asyncio.run(_adapt_node_async(state))
+        return await _adapt_node_async(state)
     except Exception as e:
         logger.warning(f"LLM adaptation failed: {e}, using rule-based fallback")
         return _rule_based_adapt(state)
@@ -49,17 +50,23 @@ async def _adapt_node_async(state: AdaptiveAttackState) -> dict[str, Any]:
     Async implementation of LLM-powered adaptation with chain discovery.
 
     Flow:
-    1. Extract failure intelligence via FailureAnalyzer
-    2. Generate chain candidates via ChainDiscoveryAgent
-    3. Generate overall strategy via StrategyGenerator (with chain candidates)
-    4. Return state updates with selected chain and reasoning
+    - Pre-iteration (iteration 0, no history): Use initial chain selection
+    - Post-iteration (has history): Full LLM-powered adaptation
     """
-    responses = state.get("target_responses", [])
+    iteration = state.get("iteration", 0)
     history = state.get("iteration_history", [])
+    phase3_result = state.get("phase3_result")
+
+    # === PRE-ITERATION CHAIN SELECTION (iteration 0) ===
+    # If no history and no phase3_result, this is the initial call before iteration 0
+    if iteration == 0 and not history and phase3_result is None:
+        return await _initial_chain_selection(state)
+
+    # === ADAPTIVE CHAIN SELECTION (iteration 1+) ===
+    responses = state.get("target_responses", [])
     tried_framings = state.get("tried_framings", [])
     tried_converters = state.get("tried_converters", [])
     phase1_result = state.get("phase1_result")
-    phase3_result = state.get("phase3_result")
     failure_cause = state.get("failure_cause")
 
     # Extract objective from phase1 result
@@ -69,20 +76,32 @@ async def _adapt_node_async(state: AdaptiveAttackState) -> dict[str, Any]:
 
     logger.info("\n[Adaptation] LLM-powered strategy generation with chain discovery")
 
+    # === Step 0: Extract recon intelligence from phase1 result ===
+    recon_intelligence = _extract_recon_intelligence(phase1_result)
+    if recon_intelligence:
+        logger.info(f"  Recon intelligence available: {recon_intelligence.target_self_description or 'no description'}")
+        logger.info(f"    Tools: {len(recon_intelligence.tools)}, Filters: {len(recon_intelligence.content_filters)}")
+    else:
+        logger.info("  No recon intelligence available")
+
     # === Step 1: Pre-analyze responses (rule-based) ===
     analyzer = ResponseAnalyzer()
     pre_analysis = analyzer.analyze(responses)
     logger.info(f"  Pre-analysis: {pre_analysis.get('tone', 'unknown')} tone, "
                 f"{len(pre_analysis.get('refusal_keywords', []))} refusal keywords")
 
-    # === Step 2: Extract failure intelligence ===
-    failure_analyzer = FailureAnalyzer()
-    chain_discovery_context = failure_analyzer.analyze(
+    # === Step 2: Extract failure intelligence (agentic) ===
+    failure_analyzer = FailureAnalyzerAgent()
+    failure_handler = CallbackHandler()
+    chain_discovery_context = await failure_analyzer.analyze(
         phase3_result=phase3_result,
         failure_cause=failure_cause,
         target_responses=responses,
         iteration_history=history,
         tried_converters=tried_converters,
+        objective=objective,
+        recon_intelligence=recon_intelligence,
+        config={"callbacks": [failure_handler], "run_name": "FailureAnalysis"},
     )
     logger.info(f"  Chain discovery context: {len(chain_discovery_context.defense_signals)} signals, "
                 f"root cause: {chain_discovery_context.failure_root_cause[:50]}...")
@@ -94,6 +113,7 @@ async def _adapt_node_async(state: AdaptiveAttackState) -> dict[str, Any]:
         context=chain_discovery_context,
         tried_converters=tried_converters,
         objective=objective,
+        recon_intelligence=recon_intelligence,
         config={"callbacks": [chain_handler], "run_name": "ChainDiscovery"},
     )
     logger.info(f"  Chain discovery: {len(chain_decision.chains)} candidates generated")
@@ -106,27 +126,17 @@ async def _adapt_node_async(state: AdaptiveAttackState) -> dict[str, Any]:
     logger.info(f"  Selection reasoning: {chain_selection_result.selection_reasoning[:100]}...")
 
     # === Step 4: Generate overall strategy via StrategyGenerator ===
-    # Extract recon intelligence from phase1 result for custom framing
-    recon_intelligence = None
-    if phase1_result and hasattr(phase1_result, "context_summary"):
-        # Try to get recon intelligence from context summary
-        context_summary = phase1_result.context_summary
-        if isinstance(context_summary, dict):
-            recon_intel_dict = context_summary.get("recon_intelligence")
-            if recon_intel_dict:
-                recon_intelligence = recon_intel_dict
-
     generator = StrategyGenerator()
     strategy_handler = CallbackHandler()
 
-    # Build config with recon intelligence
+    # Build config with recon intelligence (convert to dict for strategy generator)
     config = {
         "callbacks": [strategy_handler],
         "run_name": "StrategyGenerator",
     }
     if recon_intelligence:
-        config["recon_intelligence"] = recon_intelligence
-        logger.info(f"  Passing recon intelligence to strategy generator (target: {recon_intelligence.get('target_self_description', 'unknown')})")
+        config["recon_intelligence"] = recon_intelligence.model_dump()
+        logger.info(f"  Passing recon intelligence to strategy generator (target: {recon_intelligence.target_self_description or 'unknown'})")
 
     decision = await generator.generate(
         responses=responses,
@@ -136,6 +146,7 @@ async def _adapt_node_async(state: AdaptiveAttackState) -> dict[str, Any]:
         objective=objective,
         pre_analysis=pre_analysis,
         config=config,
+        chain_discovery_context=chain_discovery_context,
     )
 
     # Log decision
@@ -200,6 +211,50 @@ async def _adapt_node_async(state: AdaptiveAttackState) -> dict[str, Any]:
         "chain_discovery_context": chain_discovery_context,
         "chain_discovery_decision": chain_decision,
         "chain_selection_result": chain_selection_result,
+        "error": None,
+        "next_node": "articulate",
+    }
+
+
+async def _initial_chain_selection(state: AdaptiveAttackState) -> dict[str, Any]:
+    """
+    Initial chain selection before iteration 0.
+
+    Uses default chain since no failure data exists yet.
+    This ensures adapt_node is the single source of truth for chain selection.
+    Does NOT force preset framing - allows recon/custom framing to be selected
+    by strategy generator in subsequent iterations.
+
+    Args:
+        state: Current adaptive attack state (iteration 0, no history)
+
+    Returns:
+        State updates with initial chain and framing
+    """
+    logger.info("\n[Pre-Iteration] Initial chain selection (no history)")
+
+    # Use a sensible default chain for first iteration
+    # rot13 is lightweight and provides basic obfuscation
+    default_chain = ["rot13"]
+
+    # For initial iteration, use default framing but don't lock it
+    # Strategy generator will be able to override in subsequent iterations
+    default_framing = FRAMING_TYPES[0] if FRAMING_TYPES else "qa_testing"
+
+    logger.info(f"  Initial chain: {default_chain}")
+    logger.info(f"  Initial framing: {default_framing}")
+    logger.info("  Note: Recon/custom framing will take priority in subsequent iterations")
+
+    return {
+        "converter_names": default_chain,
+        "framing_types": [default_framing],
+        "adaptation_reasoning": "Initial chain selection (no history available)",
+        "adaptation_actions": ["initial_chain_selected"],
+        "tried_converters": [default_chain],
+        "tried_framings": [default_framing],
+        "custom_framing": None,
+        "recon_custom_framing": None,
+        "payload_guidance": None,  # No guidance for first iteration
         "error": None,
         "next_node": "articulate",
     }
@@ -270,3 +325,34 @@ def _rule_based_adapt(state: AdaptiveAttackState) -> dict[str, Any]:
         "error": None,
         "next_node": "articulate",
     }
+
+
+def _extract_recon_intelligence(phase1_result: Any) -> ReconIntelligence | None:
+    """
+    Extract ReconIntelligence from phase1 result.
+
+    Args:
+        phase1_result: Phase 1 articulation result containing context_summary
+
+    Returns:
+        ReconIntelligence model or None if not available
+    """
+    if not phase1_result:
+        return None
+
+    if not hasattr(phase1_result, "context_summary"):
+        return None
+
+    context_summary = phase1_result.context_summary
+    if not isinstance(context_summary, dict):
+        return None
+
+    recon_intel_dict = context_summary.get("recon_intelligence")
+    if not recon_intel_dict:
+        return None
+
+    try:
+        return ReconIntelligence(**recon_intel_dict)
+    except Exception as e:
+        logger.warning(f"Failed to parse recon intelligence: {e}")
+        return None

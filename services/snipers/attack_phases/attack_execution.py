@@ -61,6 +61,7 @@ class AttackExecution:
         target_url: str,
         headers: dict[str, str] | None = None,
         timeout: int = 30,
+        success_scorers: list[str] | None = None,
     ):
         """
         Initialize with target configuration.
@@ -69,6 +70,9 @@ class AttackExecution:
             target_url: HTTP endpoint to attack
             headers: Optional HTTP headers
             timeout: Request timeout in seconds
+            success_scorers: Scorers that MUST succeed for is_successful=True.
+                             If None, any scorer reaching MEDIUM+ counts as success.
+                             Valid values: jailbreak, prompt_leak, data_leak, tool_abuse, pii_exposure
         """
         self._target_url = target_url
         self._headers = headers or {"Content-Type": "application/json"}
@@ -82,8 +86,8 @@ class AttackExecution:
         )
         self._s3_interface = S3InterfaceAdapter(self._s3_persistence)
 
-        # Initialize nodes (scorers use LangChain create_agent with structured output)
-        self._scoring_node = CompositeScoringNodePhase34()
+        # Initialize nodes with required scorers filter
+        self._scoring_node = CompositeScoringNodePhase34(required_scorers=success_scorers)
         self._learning_node = LearningAdaptationNode(self._s3_interface)
 
         self.logger = logging.getLogger(__name__)

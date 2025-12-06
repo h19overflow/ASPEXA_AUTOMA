@@ -112,6 +112,7 @@ class AdaptiveAttackState(TypedDict, total=False):
 
     # === Custom Framing (from LLM) ===
     custom_framing: dict[str, str] | None  # LLM-generated framing dict
+    recon_custom_framing: dict[str, str] | None  # Recon-intelligence-based framing dict
     payload_guidance: str | None  # Instructions for payload articulation
 
     # === Adaptation Reasoning ===
@@ -225,6 +226,7 @@ def create_initial_state(
 
         # Custom framing (from LLM)
         custom_framing=None,
+        recon_custom_framing=None,
         payload_guidance=None,
 
         # Adaptation reasoning

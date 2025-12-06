@@ -56,6 +56,12 @@ class PayloadContext:
     objective: str = ""
     recon_intelligence: "ReconIntelligence | None" = None
     recon_custom_framing: dict[str, Any] | None = None
+    # Root cause fields from failure analysis
+    root_cause: str | None = None
+    failure_root_cause: str | None = None
+    exploitation_opportunity: str | None = None
+    # Adaptation feedback for next iteration
+    payload_guidance: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize for LLM prompt injection."""

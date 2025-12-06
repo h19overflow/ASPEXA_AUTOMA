@@ -258,6 +258,264 @@ result = await phase3.execute(
 
 ---
 
+## Deep Exploitation Module
+
+**What:** Advanced orchestration mode using deep agents for autonomous multi-iteration attacks with intelligent context delegation
+
+```mermaid
+graph TD
+    A[Orchestrator Agent] --> B{Invoke Tool}
+    B -->|execute_attack| C[Phase 1-2-3 Pipeline]
+    B -->|task| D[Response Analyzer]
+    B -->|task| E[Failure Analyzer]
+    B -->|task| F[Chain Discovery]
+    B -->|task| G[Strategy Generator]
+
+    C --> H[Get Results]
+    D --> H
+    E --> H
+    F --> H
+    G --> H
+
+    H --> I{Continue?}
+    I -->|Success| J[End]
+    I -->|Failed| B
+
+    style A fill:#e3f2fd,stroke:#1565c0,color:#000
+    style C fill:#fff9c4,stroke:#f57f17,color:#000
+    style J fill:#c8e6c9,stroke:#2e7d32,color:#000
+```
+
+### Architecture: Deep Agents Pattern
+
+Unlike traditional LangGraph state machines, Deep Exploitation uses **deep agents** - autonomous LLM agents that can:
+- Execute tools (run attacks)
+- Delegate work to subagents via `task()` tool
+- Dynamically decide next steps based on feedback
+- Maintain conversation context across iterations
+
+**Key Difference:** No predefined graph edges. The LLM decides the flow.
+
+### Orchestrator Agent
+
+**Role:** Main decision-maker for multi-iteration attacks
+
+**Tools:**
+- `execute_attack` - Run Phase 1-2-3 pipeline with specified chain and framing
+
+**Subagents (Dynamic Delegation):**
+
+```mermaid
+graph TD
+    A[Orchestrator] --> B[response-analyzer<br/>Rule-based defense pattern detection]
+    A --> C[failure-analyzer<br/>LLM-powered root cause analysis]
+    A --> D[chain-discovery<br/>LLM suggests optimal converters]
+    A --> E[strategy-generator<br/>LLM creates next adaptation]
+
+    style B fill:#ffebee,stroke:#c62828,color:#000
+    style C fill:#fff9c4,stroke:#f57f17,color:#000
+    style D fill:#e3f2fd,stroke:#1565c0,color:#000
+    style E fill:#c8e6c9,stroke:#2e7d32,color:#000
+```
+
+### Subagent Descriptions
+
+1. **Response Analyzer** (Rule-based, lightweight)
+   - Detects refusal keywords
+   - Identifies policy citations
+   - Measures tone and confusion signals
+   - No LLM needed - pattern matching only
+   - Model: `gemini-2.0-flash`
+
+2. **Failure Analyzer** (LLM-powered agent)
+   - Semantic understanding of failures
+   - Extracts root cause (not just keywords)
+   - Generates actionable defense signals
+   - Returns `ChainDiscoveryContext` for next chain
+
+3. **Chain Discovery** (LLM-powered agent)
+   - Analyzes failure context
+   - Suggests new converter chains
+   - Evaluates converter effectiveness
+   - Returns `ChainSelectionResult` with ranking
+
+4. **Strategy Generator** (LLM-powered agent)
+   - Creates adaptation strategies
+   - Generates custom framing
+   - Plans next attack direction
+   - Returns `AdaptationDecision` with guidance
+
+### State Management
+
+Minimal, context-efficient state:
+
+```python
+DeepExploitationState(
+    # Inputs
+    campaign_id: str
+    target_url: str
+    max_iterations: int
+    success_threshold: float
+    success_scorers: list[str]
+
+    # Current iteration
+    iteration: int
+    phase1_result: Phase1Result | None
+    phase2_result: Phase2Result | None
+    phase3_result: Phase3Result | None
+
+    # Adaptation tracking (compressed)
+    tried_converters: list[list[str]]  # Just chain names
+    tried_framings: list[str]
+    failure_cause: str | None
+
+    # Subagent outputs
+    response_analysis: dict
+    chain_discovery_context: ChainDiscoveryContext | None
+    adaptation_decision: AdaptationDecision | None
+
+    # Results
+    is_successful: bool
+    total_score: float
+    best_score: float
+    iteration_history: list[dict]
+)
+```
+
+### Decision Logger
+
+Detailed trace of agent decisions:
+
+```python
+DecisionLogger(
+    campaign_id: str,
+    target_url: str,
+)
+
+# Logs:
+- Conversation turns (user/assistant messages)
+- Tool calls (with arguments)
+- Decisions made (options considered, chosen, reasoning)
+- Subagent delegations
+- Final result
+```
+
+**Output:** Saved trace file for debugging and audit trails
+
+### Usage
+
+```python
+from services.snipers.deep_exploitation import DeepExploitationOrchestrator
+
+orchestrator = DeepExploitationOrchestrator(
+    model="google_genai:gemini-2.5-pro"  # Or other supported model
+)
+
+result = await orchestrator.run(
+    campaign_id="campaign_123",
+    target_url="http://target/chat",
+    max_iterations=5,
+    success_threshold=0.8,
+    success_scorers=["jailbreak"],  # Optional: specific scorers
+    enable_decision_logging=True,
+)
+
+# Result contains:
+# - is_successful: bool
+# - total_score: float
+# - best_score: float
+# - best_iteration: int
+# - iterations_run: int
+# - final_chain: list[str]
+# - iteration_history: list[dict]
+# - agent_output: str (final LLM response)
+```
+
+### Flow Diagram
+
+```
+┌─────────────────────────────────────┐
+│ Task Instruction (Campaign + Params)│
+└────────────────┬────────────────────┘
+                 │
+                 ▼
+        ┌────────────────┐
+        │ Iteration 0    │
+        └────────────────┘
+                 │
+      ┌──────────┴──────────┐
+      │                     │
+      ▼                     ▼
+   Phase 1-3 Pipeline    Score Check
+      │                     │
+      └──────────┬──────────┘
+                 │
+        ┌────────▼────────┐
+        │ Is Successful?  │
+        └────────┬────────┘
+                 │
+         ┌───────┴────────┐
+    YES │                 │ NO
+        │                 │
+        ▼                 ▼
+     SUCCESS         Response Analysis
+                           │
+                    ┌──────▼──────┐
+                    │   Analyze   │
+                    │  Responses  │
+                    └──────┬──────┘
+                           │
+                    ┌──────▼──────┐
+                    │ Failure     │
+                    │ Analysis    │
+                    └──────┬──────┘
+                           │
+                    ┌──────▼──────┐
+                    │ Chain       │
+                    │ Discovery   │
+                    └──────┬──────┘
+                           │
+                    ┌──────▼──────┐
+                    │ Strategy    │
+                    │ Generation  │
+                    └──────┬──────┘
+                           │
+                    Next Iteration
+```
+
+### Files
+
+- [orchestrator.py](deep_exploitation/orchestrator.py#L1) - Main entry point and execution
+- [graph.py](deep_exploitation/graph.py#L1) - Agent builder
+- [state.py](deep_exploitation/state.py#L1) - State definition
+- [subagents.py](deep_exploitation/subagents.py#L1) - Subagent definitions
+- [tools.py](deep_exploitation/tools.py#L1) - Tool implementations
+- [decision_logger.py](deep_exploitation/decision_logger.py#L1) - Trace logging
+- [prompts/](deep_exploitation/prompts/) - System prompts for orchestrator and subagents
+
+### Key Features
+
+- **Autonomous Orchestration** - LLM decides attack flow, not a rigid graph
+- **Context Isolation** - Each subagent runs in isolated context, preventing token bloat
+- **Token Efficiency** - Large subtask contexts compressed into single results
+- **Flexible Adaptation** - Can skip/reorder analysis based on LLM decision
+- **Full Auditability** - Decision logger traces all choices and reasoning
+- **Backwards Compatible** - Works with existing adaptive_attack components
+
+### Comparison with Adaptive Attack
+
+| Feature | Adaptive Attack | Deep Exploitation |
+|---------|-----------------|-------------------|
+| **Architecture** | LangGraph StateGraph | Deep Agents |
+| **Flow Control** | Predefined graph edges | LLM-decided |
+| **Context** | Full state passed (large) | Compressed context |
+| **Adaptation** | Fixed phases → evaluate → adapt | Dynamic orchestration |
+| **Token Efficiency** | Higher (state grows) | Better (context compressed) |
+| **Flexibility** | Good (predefined) | Excellent (LLM-driven) |
+| **Observability** | Graph traversal logs | Conversation trace |
+
+---
+
 ## Execution Modes
 
 ### 1. Single-Shot Attack

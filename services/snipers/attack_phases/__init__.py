@@ -5,8 +5,8 @@ Provides the three-phase attack flow for payload generation, conversion, and exe
 
 Phase 1: Payload Articulation
     - Loads campaign intelligence from S3
-    - Selects optimal converter chain
     - Generates articulated payloads with framing strategies
+    - Chain selection handled by adapt_node (single source of truth)
 
 Phase 2: Conversion
     - Applies converter chain to payloads
@@ -24,13 +24,11 @@ Usage:
     phase1 = PayloadArticulation()
     result1 = await phase1.execute(campaign_id="fresh1", payload_count=3)
 
-    # User can inspect/modify result1 here
-
     # Phase 2
     phase2 = Conversion()
     result2 = await phase2.execute(
         payloads=result1.articulated_payloads,
-        chain=result1.selected_chain,
+        converter_names=["rot13"],  # Chain from adapt_node
     )
 
     # Phase 3
@@ -38,13 +36,13 @@ Usage:
     result3 = await phase3.execute(
         campaign_id="fresh1",
         payloads=result2.payloads,
-        chain=result1.selected_chain,
     )
-
-    # result3 contains attack responses, scores, and learnings
 """
 
-from services.snipers.attack_phases.payload_articulation import PayloadArticulation
+# Re-export ArticulationPhase as PayloadArticulation for backward compatibility
+from services.snipers.utils.prompt_articulation import (
+    ArticulationPhase as PayloadArticulation,
+)
 from services.snipers.attack_phases.conversion import Conversion
 from services.snipers.attack_phases.attack_execution import AttackExecution
 

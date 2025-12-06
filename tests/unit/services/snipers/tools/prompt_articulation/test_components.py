@@ -288,12 +288,11 @@ class TestPayloadGenerator:
         )
 
     def test_payload_generator_creation(self):
-        """Test creating PayloadGenerator with mocked agent."""
-        mock_agent = MagicMock()
+        """Test creating PayloadGenerator with framing library."""
         library = FramingLibrary()
-        generator = PayloadGenerator(agent=mock_agent, framing_library=library)
-        assert generator.agent is mock_agent
+        generator = PayloadGenerator(framing_library=library)
         assert generator.framing_library is library
+        assert generator.model == "google_genai:gemini-2.5-pro"  # Default model
 
     def test_articulated_payload_model(self):
         """Test ArticulatedPayload model creation."""
@@ -305,13 +304,15 @@ class TestPayloadGenerator:
             content="Test payload content",
             framing_type=FramingType.QA_TESTING,
             format_control=FormatControlType.RAW_OUTPUT,
-            context_summary={"domain": "healthcare", "tools_count": 2},
+            reasoning="Test reasoning",
+            embedding_technique="VERIFICATION_REVERSAL",
         )
 
         assert payload.content == "Test payload content"
         assert payload.framing_type == FramingType.QA_TESTING
         assert payload.format_control == FormatControlType.RAW_OUTPUT
-        assert payload.context_summary["domain"] == "healthcare"
+        assert payload.reasoning == "Test reasoning"
+        assert payload.embedding_technique == "VERIFICATION_REVERSAL"
 
 
 @pytest.fixture
