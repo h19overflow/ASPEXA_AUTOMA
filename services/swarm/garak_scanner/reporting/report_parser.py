@@ -1,6 +1,10 @@
 """
 Report parsing and formatting functions.
 
+Purpose: Parse scan results into vulnerability clusters and formatted reports
+Dependencies: libs.contracts.scanning
+Used by: Root __init__.py, entrypoint.py
+
 All functions work with in-memory data (lists of dicts) - no local file I/O.
 Results are persisted to S3 via the persistence layer.
 """
@@ -8,16 +12,24 @@ import logging
 import uuid
 from collections import defaultdict
 from datetime import datetime, timezone
-from typing import Dict, List, Any
+from typing import Any, Dict, List
 
 from libs.contracts.scanning import VulnerabilityCluster, Evidence
-from .utils import get_category_for_probe, get_severity
+
+from .formatters import get_category_for_probe, get_severity
 
 logger = logging.getLogger(__name__)
 
 
 def format_scan_results(results: List[dict]) -> str:
-    """Format probe results into a readable report."""
+    """Format probe results into a readable report.
+
+    Args:
+        results: List of probe result dicts
+
+    Returns:
+        Human-readable report string
+    """
     if not results:
         return "No scan results to report."
 
@@ -249,7 +261,6 @@ def generate_comprehensive_report_from_results(
                 "detector_name": result.get("detector_name", "unknown"),
                 "detector_score": result.get("detector_score", 0.0),
                 "detection_reason": result.get("detection_reason", "Unknown"),
-                # Full prompt and output - no truncation for detailed analysis
                 "prompt": result.get("prompt", ""),
                 "output": result.get("output", ""),
                 "affected_component": affected_component,

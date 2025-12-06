@@ -5,7 +5,6 @@ from fastapi.responses import StreamingResponse
 from typing import AsyncGenerator
 
 from libs.contracts.scanning import ScanJobDispatch, SafetyPolicy, ScanConfigContract
-from libs.persistence import load_scan, ScanType, CampaignRepository
 from services.swarm.entrypoint import execute_scan_streaming
 from services.api_gateway.schemas import ScanStartRequest
 
@@ -42,6 +41,10 @@ async def start_scan_stream(request: ScanStartRequest) -> StreamingResponse:
     """Start vulnerability scanning with real-time log streaming via SSE.
 
     Returns Server-Sent Events with probe results and progress.
+
+    Accepts either:
+    - campaign_id: Swarm service loads recon from S3
+    - blueprint_context: Direct recon data (for testing/manual runs)
     """
     safety_policy = SafetyPolicy(
         allowed_attack_vectors=request.allowed_attack_vectors,
@@ -50,45 +53,15 @@ async def start_scan_stream(request: ScanStartRequest) -> StreamingResponse:
     )
     scan_config = _build_scan_config(request)
 
-    # Load recon if campaign_id provided
-    if request.campaign_id:
-        repo = CampaignRepository()
-        campaign = repo.get(request.campaign_id)
-
-        if not campaign:
-            async def error_gen():
-                yield f"data: {json.dumps({'type': 'error', 'message': f'Campaign {request.campaign_id} not found'})}\n\n"
-            return StreamingResponse(error_gen(), media_type="text/event-stream")
-
-        if not campaign.recon_scan_id:
-            async def error_gen():
-                yield f"data: {json.dumps({'type': 'error', 'message': 'Campaign has no recon data'})}\n\n"
-            return StreamingResponse(error_gen(), media_type="text/event-stream")
-
-        try:
-            recon_data = await load_scan(ScanType.RECON, campaign.recon_scan_id, validate=False)
-        except Exception as err:
-            async def error_gen(error=err):
-                yield f"data: {json.dumps({'type': 'error', 'message': f'Failed to load recon: {error}'})}\n\n"
-            return StreamingResponse(error_gen(), media_type="text/event-stream")
-
-        resolved_target_url = request.target_url or getattr(campaign, "target_url", None)
-
-        scan_dispatch = ScanJobDispatch(
-            job_id=request.campaign_id,
-            blueprint_context=recon_data,
-            safety_policy=safety_policy,
-            scan_config=scan_config,
-            target_url=resolved_target_url,
-        )
-    else:
-        scan_dispatch = ScanJobDispatch(
-            job_id=request.campaign_id or "manual",
-            blueprint_context=request.blueprint_context,
-            safety_policy=safety_policy,
-            scan_config=scan_config,
-            target_url=request.target_url,
-        )
+    # Build dispatch - Swarm service handles recon loading via campaign_id
+    scan_dispatch = ScanJobDispatch(
+        job_id=request.campaign_id or "manual",
+        campaign_id=request.campaign_id,
+        blueprint_context=request.blueprint_context,
+        safety_policy=safety_policy,
+        scan_config=scan_config,
+        target_url=request.target_url,
+    )
 
     async def event_generator() -> AsyncGenerator[str, None]:
         async for event in execute_scan_streaming(scan_dispatch, request.agent_types):

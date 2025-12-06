@@ -16,8 +16,8 @@ from libs.monitoring import observe
 from services.swarm.agents.base import run_planning_agent
 from services.swarm.core.schema import ScanContext
 from services.swarm.core.config import AgentType
-from services.swarm.persistence.s3_adapter import persist_garak_result
-from services.swarm.garak_scanner.scanner import get_scanner
+from services.swarm.persistence.s3_adapter import persist_garak_result, load_recon_for_campaign
+from services.swarm.garak_scanner import get_scanner
 from services.swarm.garak_scanner.models import (
     ScanStartEvent,
     ProbeStartEvent,
@@ -54,8 +54,26 @@ async def execute_scan_streaming(
 
     yield {"type": "log", "message": f"Starting scan with {len(agent_types)} agents"}
 
+    # Load recon data - either from request or from S3
+    blueprint_data = request.blueprint_context
+    if not blueprint_data and request.campaign_id:
+        yield {"type": "log", "message": f"Loading recon from S3 for campaign: {request.campaign_id}"}
+        try:
+            blueprint_data = await load_recon_for_campaign(request.campaign_id)
+            if not blueprint_data:
+                yield {"type": "log", "level": "error", "message": f"No recon data found for campaign {request.campaign_id}"}
+                return
+            yield {"type": "log", "message": "Recon data loaded from S3"}
+        except Exception as e:
+            yield {"type": "log", "level": "error", "message": f"Failed to load recon from S3: {e}"}
+            return
+
+    if not blueprint_data:
+        yield {"type": "log", "level": "error", "message": "No blueprint_context or campaign_id provided"}
+        return
+
     try:
-        blueprint = ReconBlueprint(**request.blueprint_context)
+        blueprint = ReconBlueprint(**blueprint_data)
     except Exception as e:
         yield {"type": "log", "level": "error", "message": f"Invalid blueprint: {e}"}
         return

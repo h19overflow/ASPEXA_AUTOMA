@@ -1,7 +1,9 @@
 """
 WebSocket generator for Garak scanner.
 
-Sends probe prompts to a WebSocket endpoint and collects responses.
+Purpose: Send probe prompts to WebSocket endpoints
+Dependencies: websockets, garak.generators.base
+Used by: execution/scanner.py
 """
 import asyncio
 import json
@@ -60,7 +62,6 @@ class WebSocketGenerator(garak.generators.base.Generator):
             Tuple of (is_valid, error_message)
         """
         try:
-            # Try to connect and immediately close
             async def test_connection():
                 try:
                     async with websockets.connect(
@@ -74,12 +75,9 @@ class WebSocketGenerator(garak.generators.base.Generator):
                     logger.debug(f"WebSocket validation error: {e}")
                     return False
 
-            # Run in new event loop if needed
             try:
                 loop = asyncio.get_event_loop()
                 if loop.is_running():
-                    # We're in an async context, need to handle differently
-                    # For validation, we'll just check URL format
                     return True, None
                 else:
                     result = loop.run_until_complete(test_connection())
@@ -92,52 +90,44 @@ class WebSocketGenerator(garak.generators.base.Generator):
             return False, str(e)
 
     def _extract_response(self, data: dict) -> str:
-        """Extract response text from various API response formats.
-
-        Uses centralized ResponseExtractor for consistency with HTTP clients.
-        """
+        """Extract response text from various API response formats."""
         return self._extractor.extract(data)
 
     async def _send_and_receive(self, prompt: str) -> str:
         """Send a prompt via WebSocket and receive response.
-        
+
         Args:
             prompt: The prompt text to send
-            
+
         Returns:
             Response text or empty string on error
         """
         try:
             request_start = time.time()
-            
-            # Create connection with timeout
+
             async with websockets.connect(
                 self.endpoint_url,
                 extra_headers=self.headers,
                 timeout=self.timeout
             ) as ws:
-                # Send prompt
                 payload = {"prompt": prompt}
                 await ws.send(json.dumps(payload))
-                
-                # Receive response
+
                 response_text = await asyncio.wait_for(ws.recv(), timeout=self.timeout)
-                
+
                 request_duration = time.time() - request_start
                 log_performance_metric("websocket_request_latency", request_duration, "seconds")
-                
-                # Parse JSON response
+
                 try:
                     data = json.loads(response_text)
                     output = self._extract_response(data)
                     self._success_count += 1
                     return output
                 except json.JSONDecodeError:
-                    # Non-JSON response - use raw text
                     logger.warning(f"Non-JSON WebSocket response: {response_text[:100]}")
                     self._success_count += 1
                     return response_text
-                    
+
         except asyncio.TimeoutError:
             self._error_count += 1
             logger.error(f"WebSocket request timeout after {self.timeout}s")
@@ -163,27 +153,21 @@ class WebSocketGenerator(garak.generators.base.Generator):
             generations: Number of response generations to request
 
         Returns:
-            List of response strings. Errors are returned as empty strings
-            to allow detection to still process them.
+            List of response strings. Errors are returned as empty strings.
         """
         results = []
 
-        # Run async operations
         try:
             loop = asyncio.get_event_loop()
             if loop.is_running():
-                # We're in an async context, need to handle differently
-                # Create tasks and gather results
                 import nest_asyncio
                 nest_asyncio.apply()
                 tasks = [self._send_and_receive(prompt) for _ in range(generations)]
                 results = loop.run_until_complete(asyncio.gather(*tasks))
             else:
-                # No running loop, create one
                 tasks = [self._send_and_receive(prompt) for _ in range(generations)]
                 results = asyncio.run(asyncio.gather(*tasks))
         except RuntimeError:
-            # No event loop, create one
             tasks = [self._send_and_receive(prompt) for _ in range(generations)]
             results = asyncio.run(asyncio.gather(*tasks))
 
@@ -198,4 +182,3 @@ class WebSocketGenerator(garak.generators.base.Generator):
             "failed": self._error_count,
             "success_rate": self._success_count / total if total > 0 else 0.0,
         }
-

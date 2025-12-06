@@ -42,9 +42,13 @@ class ScanConfigContract(StrictBaseModel):
 class ScanJobDispatch(StrictBaseModel):
     """IF-03: Scan Job Dispatch (cmd_scan_start)."""
     job_id: str = Field(..., description="Scan job identifier")
-    blueprint_context: Dict[str, Any] = Field(
-        ...,
-        description="The IF-02 ReconBlueprint payload"
+    campaign_id: Optional[str] = Field(
+        default=None,
+        description="Campaign ID to load recon from S3. Use this OR blueprint_context."
+    )
+    blueprint_context: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="The IF-02 ReconBlueprint payload. If not provided, loads from S3 using campaign_id."
     )
     safety_policy: SafetyPolicy
     scan_config: ScanConfigContract = Field(

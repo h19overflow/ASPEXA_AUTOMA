@@ -1,26 +1,15 @@
 {
   "permissions": {
     "allow": [
-      "Bash(\"C:\\Users\\User\\Projects\\Aspexa_Automa\\.venv\\Scripts\\python.exe\" -c:*)",
-      "Bash(\"C:\\Users\\User\\Projects\\Aspexa_Automa\\.venv\\Scripts\\python.exe\" -c \"from services.snipers.deep_exploitation import DeepExploitationOrchestrator, DecisionLogger, get_decision_logger; print(''Imports successful!'')\")",
-      "Bash(python -m pytest:*)",
-      "Bash(\"C:\\Users\\User\\Projects\\Aspexa_Automa\\.venv\\Scripts\\python.exe\" -c \"from services.snipers.adaptive_attack.components.failure_analyzer_agent import FailureAnalyzerAgent; from services.snipers.adaptive_attack.models.failure_analysis import FailureAnalysisDecision, DefenseSignal; from services.snipers.adaptive_attack.prompts.failure_analysis_prompt import FAILURE_ANALYSIS_SYSTEM_PROMPT; print(''Imports successful!'')\")",
-      "Bash(find:*)",
-      "Bash(cat:*)",
-      "Bash(\"C:\\Users\\User\\Projects\\Aspexa_Automa\\.venv\\Scripts\\python.exe\" -c \"from services.snipers.deep_exploitation.subagents import get_all_subagents, analyze_failure; print(''Imports successful!'')\")",
-      "Bash(python:*)",
-      "mcp__ide__getDiagnostics",
-      "Bash(\"C:\\Users\\User\\Projects\\Aspexa_Automa\\.venv\\Scripts\\python.exe\" -c \"from services.snipers.utils.prompt_articulation.components.payload_generator import PayloadGenerator, ArticulatedPayload, PAYLOAD_GENERATION_TEMPLATE; print(''Imports successful!'')\")",
-      "Bash(\"C:\\Users\\User\\Projects\\Aspexa_Automa\\.venv\\Scripts\\python.exe\" -c \"from services.snipers.utils.prompt_articulation.components.payload_generator import PayloadGenerator, ArticulatedPayload; print(''Imports successful!'')\")",
-      "Bash(\"C:\\Users\\User\\Projects\\Aspexa_Automa\\.venv\\Scripts\\python.exe\" -c \"from services.snipers.utils.prompt_articulation import PayloadGenerator, ArticulatedPayload, ArticulationPhase, FormatControl, FormatControlType; print(''All imports successful!'')\")",
-      "Bash(\"C:\\Users\\User\\Projects\\Aspexa_Automa\\.venv\\Scripts\\python.exe\" -c \"from services.snipers.utils.prompt_articulation import ArticulationPhase, PayloadGenerator, PayloadContext; print(''Imports successful!'')\")",
-      "Bash(\"C:\\Users\\User\\Projects\\Aspexa_Automa\\.venv\\Scripts\\python.exe\" -c \"from services.snipers.utils.prompt_articulation.components.payload_generator import PayloadGenerator; print(''✓ Imports successful!'')\")",
-      "Bash(\"C:\\Users\\User\\Projects\\Aspexa_Automa\\.venv\\Scripts\\python.exe\" -c \"from services.snipers.utils.prompt_articulation.components.payload_generator_prompt import PAYLOAD_GENERATION_SYSTEM_PROMPT; print(''System prompt length:'', len(PAYLOAD_GENERATION_SYSTEM_PROMPT)); print(''✓ System prompt loaded successfully!'')\")",
-      "mcp__context7__resolve-library-id",
-      "mcp__context7__get-library-docs",
-      "Bash(\"C:\\Users\\User\\Projects\\Aspexa_Automa\\.venv\\Scripts\\python.exe\" -c \"from services.swarm.core.config import AgentType, ScanApproach, VulnCategory, PROBE_MAP, get_probes_for_agent; print(''Imports successful!''); print(f''AgentType.SQL = {AgentType.SQL}''); print(f''PROBE_MAP has {len(PROBE_MAP)} probes'')\")",
-      "Bash(\"C:\\Users\\User\\Projects\\Aspexa_Automa\\.venv\\Scripts\\python.exe\" -c \"from services.swarm.core.schema import ScanApproach; from services.swarm.agents.base import AgentType, get_all_probe_names, PROBE_CATEGORIES; print(''All dependent imports successful!'')\")",
-      "Bash(\"C:\\Users\\User\\Projects\\Aspexa_Automa\\.venv\\Scripts\\python.exe\" -m pytest tests/unit/services/swarm/test_mapping.py -v)"
+      "Bash(\"C:\\Users\\User\\Projects\\Aspexa_Automa\\.venv\\Scripts\\python.exe\" -c \"from services.swarm.agents.sql import SQL_TOOLS; from services.swarm.agents.auth import AUTH_TOOLS; from services.swarm.agents.jailbreak import JAILBREAK_TOOLS; print(f''SQL Tools: {len(SQL_TOOLS)}''); print(f''Auth Tools: {len(AUTH_TOOLS)}''); print(f''Jailbreak Tools: {len(JAILBREAK_TOOLS)}'')\")",
+      "Bash(for:*)",
+      "Bash(do wc -l \"$f\")",
+      "Bash(done)",
+      "Bash(grep:*)",
+      "Bash(mkdir:*)",
+      "Bash(.venvScriptspython.exe -c \"from services.swarm.garak_scanner import GarakScanner, get_scanner, ProbeResult, HTTPGenerator, RateLimiter, WebSocketGenerator, load_detector, run_detectors_on_attempt, get_detector_triggers, parse_results_to_clusters, format_scan_results, get_results_summary, generate_comprehensive_report_from_results, get_category_for_probe, get_severity; print(''All imports successful!'')\")",
+      "Bash(C:UsersUserProjectsAspexa_Automa.venvScriptspython.exe -c \"from services.swarm.garak_scanner import GarakScanner, get_scanner, ProbeResult, HTTPGenerator, RateLimiter, WebSocketGenerator, load_detector, run_detectors_on_attempt, get_detector_triggers, parse_results_to_clusters, format_scan_results, get_results_summary, generate_comprehensive_report_from_results, get_category_for_probe, get_severity; print(''All imports successful!'')\")",
+      "Bash(python:*)"
     ],
     "deny": [],
     "ask": []

@@ -11,7 +11,7 @@ from pyrit.prompt_target import PromptTarget
 from pyrit.models import PromptRequestResponse
 
 from libs.connectivity.adapters import GarakHttpGenerator as HttpGenerator
-from services.swarm.garak_scanner.websocket_generator import WebSocketGenerator
+from services.swarm.garak_scanner.generators import WebSocketGenerator
 
 logger = logging.getLogger(__name__)
 

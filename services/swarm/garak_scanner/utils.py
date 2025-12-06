@@ -18,7 +18,8 @@ if TYPE_CHECKING:
 
 from libs.contracts.common import VulnerabilityCategory, SeverityLevel
 from .models import ProbeResult
-from .detectors import get_detector_triggers, run_detectors_on_attempt
+# Import from new detection package
+from .detection import get_detector_triggers, run_detectors_on_attempt
 
 logger = logging.getLogger(__name__)
 

@@ -1,9 +1,9 @@
-"""Unit tests for services.swarm.garak_scanner.detectors module."""
+"""Unit tests for services.swarm.garak_scanner.detection module."""
 import pytest
 from unittest.mock import Mock, patch, MagicMock
 from garak.attempt import Attempt
 
-from services.swarm.garak_scanner.detectors import (
+from services.swarm.garak_scanner.detection import (
     load_detector,
     get_detector_triggers,
     run_detectors_on_attempt,
@@ -16,8 +16,8 @@ class TestLoadDetector:
     def test_should_load_detector_by_module_path(self):
         """Should load a detector from fully-qualified module path."""
         # Test that the function splits path correctly and attempts to load
-        with patch('services.swarm.garak_scanner.detectors.importlib.import_module') as mock_import:
-            with patch('services.swarm.garak_scanner.detectors.getattr') as mock_getattr:
+        with patch('services.swarm.garak_scanner.detection.detectors.importlib.import_module') as mock_import:
+            with patch('services.swarm.garak_scanner.detection.detectors.getattr') as mock_getattr:
                 mock_module = Mock()
                 mock_detector_instance = Mock()
                 mock_detector_class = Mock(return_value=mock_detector_instance)
@@ -34,8 +34,8 @@ class TestLoadDetector:
 
     def test_should_add_garak_prefix_if_missing(self):
         """Should add 'garak.detectors.' prefix if not present."""
-        with patch('services.swarm.garak_scanner.detectors.importlib.import_module') as mock_import:
-            with patch('services.swarm.garak_scanner.detectors.getattr'):
+        with patch('services.swarm.garak_scanner.detection.detectors.importlib.import_module') as mock_import:
+            with patch('services.swarm.garak_scanner.detection.detectors.getattr'):
                 mock_module = Mock()
                 mock_import.return_value = mock_module
 
@@ -47,8 +47,8 @@ class TestLoadDetector:
 
     def test_should_handle_dotted_paths_correctly(self):
         """Should correctly split module path and class name."""
-        with patch('services.swarm.garak_scanner.detectors.importlib.import_module') as mock_import:
-            with patch('services.swarm.garak_scanner.detectors.getattr') as mock_getattr:
+        with patch('services.swarm.garak_scanner.detection.detectors.importlib.import_module') as mock_import:
+            with patch('services.swarm.garak_scanner.detection.detectors.getattr') as mock_getattr:
                 mock_module = Mock()
                 mock_detector_class = Mock(return_value=Mock())
                 mock_import.return_value = mock_module
@@ -169,7 +169,7 @@ class TestRunDetectorsOnAttempt:
         attempt = Mock(spec=Attempt)
         attempt.prompt = "test prompt"
 
-        with patch('services.swarm.garak_scanner.detectors.load_detector') as mock_load:
+        with patch('services.swarm.garak_scanner.detection.detectors.load_detector') as mock_load:
             mock_detector = Mock()
             mock_detector.detect = Mock(return_value=[0.8])
             mock_load.return_value = mock_detector
@@ -187,7 +187,7 @@ class TestRunDetectorsOnAttempt:
         """Should prioritize primary_detector over other detector types."""
         attempt = Mock(spec=Attempt)
 
-        with patch('services.swarm.garak_scanner.detectors.load_detector') as mock_load:
+        with patch('services.swarm.garak_scanner.detection.detectors.load_detector') as mock_load:
             mock_detector = Mock()
             mock_detector.detect = Mock(return_value=[0.5])
             mock_load.return_value = mock_detector
@@ -209,7 +209,7 @@ class TestRunDetectorsOnAttempt:
 
         attempt = Mock(spec=Attempt)
 
-        with patch('services.swarm.garak_scanner.detectors.load_detector') as mock_load:
+        with patch('services.swarm.garak_scanner.detection.detectors.load_detector') as mock_load:
             mock_detector = Mock()
             mock_detector.detect = Mock(return_value=[0.3])
             mock_load.return_value = mock_detector
@@ -231,7 +231,7 @@ class TestRunDetectorsOnAttempt:
 
         attempt = Mock(spec=Attempt)
 
-        with patch('services.swarm.garak_scanner.detectors.load_detector') as mock_load:
+        with patch('services.swarm.garak_scanner.detection.detectors.load_detector') as mock_load:
             mock_detector = Mock()
             mock_detector.detect = Mock(return_value=[0.2])
             mock_load.return_value = mock_detector
@@ -245,7 +245,7 @@ class TestRunDetectorsOnAttempt:
         """Should always include MitigationBypass as fallback detector."""
         attempt = Mock(spec=Attempt)
 
-        with patch('services.swarm.garak_scanner.detectors.load_detector') as mock_load:
+        with patch('services.swarm.garak_scanner.detection.detectors.load_detector') as mock_load:
             mock_detector = Mock()
             mock_detector.detect = Mock(return_value=[0.4])
             mock_load.return_value = mock_detector
@@ -266,7 +266,7 @@ class TestRunDetectorsOnAttempt:
 
         attempt = Mock(spec=Attempt)
 
-        with patch('services.swarm.garak_scanner.detectors.load_detector') as mock_load:
+        with patch('services.swarm.garak_scanner.detection.detectors.load_detector') as mock_load:
             mock_detector = Mock()
             mock_detector.detect = Mock(return_value=[0.5])
             mock_load.return_value = mock_detector
@@ -286,7 +286,7 @@ class TestRunDetectorsOnAttempt:
         """Should return dict mapping detector names to score lists."""
         attempt = Mock(spec=Attempt)
 
-        with patch('services.swarm.garak_scanner.detectors.load_detector') as mock_load:
+        with patch('services.swarm.garak_scanner.detection.detectors.load_detector') as mock_load:
             mock_detector = Mock()
             mock_detector.detect = Mock(return_value=[0.7, 0.8, 0.6])
             mock_load.return_value = mock_detector
@@ -303,7 +303,7 @@ class TestRunDetectorsOnAttempt:
         """Should handle detector loading failures and continue."""
         attempt = Mock(spec=Attempt)
 
-        with patch('services.swarm.garak_scanner.detectors.load_detector') as mock_load:
+        with patch('services.swarm.garak_scanner.detection.detectors.load_detector') as mock_load:
             mock_load.side_effect = Exception("Detector not found")
 
             results = run_detectors_on_attempt(attempt, mock_probe_no_detectors)
@@ -318,7 +318,7 @@ class TestRunDetectorsOnAttempt:
         """Should handle failures during detect() call."""
         attempt = Mock(spec=Attempt)
 
-        with patch('services.swarm.garak_scanner.detectors.load_detector') as mock_load:
+        with patch('services.swarm.garak_scanner.detection.detectors.load_detector') as mock_load:
             mock_detector = Mock()
             mock_detector.detect.side_effect = Exception("Detection failed")
             mock_load.return_value = mock_detector
@@ -334,7 +334,7 @@ class TestRunDetectorsOnAttempt:
         """Should handle detectors that return multiple scores."""
         attempt = Mock(spec=Attempt)
 
-        with patch('services.swarm.garak_scanner.detectors.load_detector') as mock_load:
+        with patch('services.swarm.garak_scanner.detection.detectors.load_detector') as mock_load:
             mock_detector = Mock()
             # Some detectors return multiple scores (one per generation)
             mock_detector.detect = Mock(return_value=[0.1, 0.5, 0.9, 0.3])
@@ -351,7 +351,7 @@ class TestRunDetectorsOnAttempt:
         """Should handle recommended_detector as a list."""
         attempt = Mock(spec=Attempt)
 
-        with patch('services.swarm.garak_scanner.detectors.load_detector') as mock_load:
+        with patch('services.swarm.garak_scanner.detection.detectors.load_detector') as mock_load:
             mock_detector = Mock()
             mock_detector.detect = Mock(return_value=[0.5])
             mock_load.return_value = mock_detector
@@ -372,7 +372,7 @@ class TestRunDetectorsOnAttempt:
 
         attempt = Mock(spec=Attempt)
 
-        with patch('services.swarm.garak_scanner.detectors.load_detector') as mock_load:
+        with patch('services.swarm.garak_scanner.detection.detectors.load_detector') as mock_load:
             mock_detector = Mock()
             mock_detector.detect = Mock(return_value=[0.5])
             mock_load.return_value = mock_detector

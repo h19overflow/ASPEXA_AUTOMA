@@ -1,6 +1,10 @@
 """
 Core GarakScanner class for security scanning.
 
+Purpose: Main scanning interface for executing Garak probes
+Dependencies: garak.probes, generators, detection, models
+Used by: entrypoint.py, root __init__.py
+
 This module provides the main scanning interface for executing Garak probes
 against target endpoints. It supports both blocking and streaming scan modes,
 parallel execution, and rate limiting.
@@ -9,7 +13,7 @@ import asyncio
 import importlib
 import logging
 import time
-from typing import List, Optional, Dict, Any, Union, AsyncGenerator, TYPE_CHECKING
+from typing import Any, AsyncGenerator, Dict, List, Optional, Union, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from services.swarm.core.schema import ScanPlan
@@ -20,7 +24,11 @@ from services.swarm.core.config import (
     get_probe_category,
 )
 from services.swarm.core.utils import log_performance_metric, get_decision_logger
-from .models import (
+from libs.connectivity.adapters import GarakHttpGenerator as HttpGenerator
+from libs.monitoring import observe
+
+# Import from reorganized packages
+from ..models import (
     ProbeResult,
     ScannerEvent,
     ScanStartEvent,
@@ -30,11 +38,8 @@ from .models import (
     ScanCompleteEvent,
     ScanErrorEvent,
 )
-from libs.connectivity.adapters import GarakHttpGenerator as HttpGenerator
-from libs.monitoring import observe
-from .websocket_generator import WebSocketGenerator
-from .rate_limiter import RateLimiter
-from .utils import (
+from ..generators import WebSocketGenerator, RateLimiter
+from ..utils import (
     configure_scanner_from_plan,
     estimate_scan_duration,
     extract_prompt_text,
@@ -46,8 +51,7 @@ logger = logging.getLogger(__name__)
 
 
 class GarakScanner:
-    """
-    Security scanner using Garak probes and detectors.
+    """Security scanner using Garak probes and detectors.
 
     Core responsibilities:
     1. Load and execute Garak probes against target endpoints
@@ -71,8 +75,7 @@ class GarakScanner:
         retry_backoff: float = 1.0,
         config: Optional[Dict[str, Any]] = None
     ):
-        """
-        Configure endpoint with factory pattern for HTTP/WebSocket.
+        """Configure endpoint with factory pattern for HTTP/WebSocket.
 
         Args:
             endpoint_url: Target endpoint URL
@@ -126,8 +129,7 @@ class GarakScanner:
         probe_names: Union[str, List[str]],
         generations: int = 1
     ) -> List[ProbeResult]:
-        """
-        Run specified probes and evaluate with detectors.
+        """Run specified probes and evaluate with detectors.
 
         Args:
             probe_names: Single probe name or list of probe names
@@ -220,10 +222,9 @@ class GarakScanner:
     @observe()
     async def scan_with_streaming(
         self,
-        plan: "ScanPlan"  # Import from services.swarm.core.schema
+        plan: "ScanPlan"
     ) -> AsyncGenerator[ScannerEvent, None]:
-        """
-        Execute scan with real-time event streaming.
+        """Execute scan with real-time event streaming.
 
         This method provides granular progress updates as the scan executes,
         yielding events for scan start, probe start/complete, individual results,
@@ -234,13 +235,6 @@ class GarakScanner:
 
         Yields:
             ScannerEvent objects (ScanStartEvent, ProbeStartEvent, etc.)
-
-        Example:
-            async for event in scanner.scan_with_streaming(plan):
-                if event.event_type == "prompt_result":
-                    print(f"Result: {event.status}")
-                elif event.event_type == "scan_complete":
-                    print(f"Scan done: {event.total_results} results")
         """
         scan_start_time = time.time()
 
@@ -332,22 +326,12 @@ class GarakScanner:
         )
 
     def _configure_from_plan(self, plan: "ScanPlan") -> None:
-        """
-        Configure scanner endpoint and settings from ScanPlan.
-
-        Args:
-            plan: ScanPlan with target URL, headers, and configuration
-
-        Raises:
-            RuntimeError: If configuration fails
-        """
-        # Extract config using utility function
+        """Configure scanner endpoint and settings from ScanPlan."""
         self.config = configure_scanner_from_plan(plan)
 
-        # Configure endpoint with plan settings
         self.configure_endpoint(
             endpoint_url=plan.target_url,
-            headers={},  # TODO: Extract from plan if needed
+            headers={},
             connection_type=plan.scan_config.connection_type,
             timeout=plan.scan_config.request_timeout,
             max_retries=plan.scan_config.max_retries,
@@ -361,17 +345,7 @@ class GarakScanner:
         generations: int,
         plan: "ScanPlan"
     ) -> AsyncGenerator[ScannerEvent, None]:
-        """
-        Execute probes and stream events for each step.
-
-        Args:
-            probe_names: List of probe names to execute
-            generations: Number of generations per prompt
-            plan: ScanPlan for context
-
-        Yields:
-            ScannerEvent objects for probe start/complete and prompt results
-        """
+        """Execute probes and stream events for each step."""
         for probe_idx, probe_name in enumerate(probe_names):
             probe_start_time = time.time()
 
@@ -413,7 +387,6 @@ class GarakScanner:
                 ):
                     yield result_event
 
-                    # Track for probe summary
                     if isinstance(result_event, PromptResultEvent):
                         probe_results.append(ProbeResult(
                             probe_name=result_event.probe_name,
@@ -466,27 +439,11 @@ class GarakScanner:
         prompts: List[Any],
         generations: int
     ) -> AsyncGenerator[Union[PromptResultEvent, ScanErrorEvent], None]:
-        """
-        Execute prompts for a single probe and stream result events.
-
-        Args:
-            probe: Loaded probe instance
-            probe_name: Probe identifier
-            probe_description: Human-readable probe description
-            probe_category: Probe category
-            prompts: List of prompts to execute
-            generations: Number of generations per prompt
-
-        Yields:
-            PromptResultEvent for each successful evaluation
-            ScanErrorEvent for failures
-        """
+        """Execute prompts for a single probe and stream result events."""
         for prompt_idx, prompt_data in enumerate(prompts):
-            # Extract prompt text using utility function
             prompt_text = extract_prompt_text(prompt_data)
 
             try:
-                # Generate outputs
                 gen_start = time.time()
                 parallel_gens = self.config.get("enable_parallel_execution", False)
 
@@ -501,7 +458,6 @@ class GarakScanner:
 
                 gen_duration_ms = int((time.time() - gen_start) * 1000)
 
-                # Evaluate each output
                 for output_text in outputs:
                     eval_start = time.time()
 
@@ -513,7 +469,6 @@ class GarakScanner:
 
                         eval_duration_ms = int((time.time() - eval_start) * 1000)
 
-                        # Emit prompt result event
                         yield PromptResultEvent(
                             probe_name=probe_name,
                             prompt_index=prompt_idx + 1,
@@ -554,19 +509,9 @@ class GarakScanner:
         self,
         probe_names: List[str],
         generations: int,
-        decision_logger = None
+        decision_logger=None
     ) -> List[ProbeResult]:
-        """
-        Run probes in parallel with semaphore controls.
-
-        Args:
-            probe_names: List of probe names to run
-            generations: Number of outputs to generate per prompt
-            decision_logger: Optional decision logger for progress tracking
-
-        Returns:
-            List of ProbeResult objects (maintains probe order)
-        """
+        """Run probes in parallel with semaphore controls."""
         max_concurrent_probes = self.config.get("max_concurrent_probes", 1)
         probe_semaphore = asyncio.Semaphore(max_concurrent_probes)
 
@@ -575,7 +520,6 @@ class GarakScanner:
             f"(max concurrent: {max_concurrent_probes})"
         )
 
-        # Log parallel execution start
         if decision_logger:
             decision_logger.log_parallel_execution(
                 event="parallel_probes_start",
@@ -588,9 +532,7 @@ class GarakScanner:
             )
 
         async def run_probe_with_semaphore(probe_name: str, probe_idx: int) -> List[ProbeResult]:
-            """Run a single probe with semaphore control."""
             async with probe_semaphore:
-                # Log probe start
                 if decision_logger:
                     decision_logger.log_scan_progress(
                         progress_type="probe_start",
@@ -606,7 +548,6 @@ class GarakScanner:
 
                 results = await self._run_single_probe(probe_name, generations, decision_logger)
 
-                # Log probe complete
                 if decision_logger:
                     decision_logger.log_scan_progress(
                         progress_type="probe_complete",
@@ -623,17 +564,14 @@ class GarakScanner:
 
                 return results
 
-        # Run all probes in parallel (order maintained by asyncio.gather)
         results_list = await asyncio.gather(
             *[run_probe_with_semaphore(name, idx) for idx, name in enumerate(probe_names)]
         )
 
-        # Flatten results while maintaining probe order
         all_results = []
         for results in results_list:
             all_results.extend(results)
 
-        # Log parallel execution complete
         if decision_logger:
             decision_logger.log_parallel_execution(
                 event="parallel_probes_complete",
@@ -659,19 +597,9 @@ class GarakScanner:
         self,
         probe_name: str,
         generations: int,
-        decision_logger = None
+        decision_logger=None
     ) -> List[ProbeResult]:
-        """
-        Run a single probe and evaluate results.
-
-        Args:
-            probe_name: Probe identifier to load and execute
-            generations: Number of outputs per prompt
-            decision_logger: Optional decision logger for progress tracking
-
-        Returns:
-            List of ProbeResult objects for all prompts in the probe
-        """
+        """Run a single probe and evaluate results."""
         probe_start = time.time()
         probe_path = resolve_probe_path(probe_name)
         probe_description = get_probe_description(probe_name)
@@ -682,7 +610,6 @@ class GarakScanner:
         probe_class = getattr(module, class_name)
         probe = probe_class(self.generator)
 
-        # Garak probes use 'prompts' attribute, not 'probe_prompts'
         prompts = probe.prompts
         logger.info(f"Probe {probe_name} has {len(prompts)} prompts")
 
@@ -694,11 +621,9 @@ class GarakScanner:
 
             outputs = []
             try:
-                # Generate outputs (with parallel support if enabled)
                 gen_start = time.time()
                 parallel_gens = self.config.get("enable_parallel_execution", False)
 
-                # Log generation start
                 if decision_logger:
                     decision_logger.log_scan_progress(
                         progress_type="generation_start",
@@ -719,7 +644,6 @@ class GarakScanner:
                 gen_duration = time.time() - gen_start
                 log_performance_metric("probe_generation_time", gen_duration, "seconds")
 
-                # Log generation complete
                 if decision_logger:
                     decision_logger.log_scan_progress(
                         progress_type="generation_complete",
@@ -733,7 +657,6 @@ class GarakScanner:
                         agent_type=self.config.get("agent_type")
                     )
 
-                # Evaluate each output with detectors
                 eval_start = time.time()
                 for output_text in outputs:
                     try:
@@ -743,14 +666,13 @@ class GarakScanner:
                         )
                         results.append(result)
                     except Exception as eval_err:
-                        # Detector evaluation failed but preserve the output
                         logger.warning(f"Detector evaluation error (output preserved): {eval_err}")
                         results.append(ProbeResult(
                             probe_name=probe_name,
                             probe_description=probe_description,
                             category=probe_category,
                             prompt=prompt_text,
-                            output=output_text,  # Preserve actual output
+                            output=output_text,
                             status="error",
                             detector_name="none",
                             detector_score=0.0,
@@ -761,7 +683,6 @@ class GarakScanner:
 
             except Exception as e:
                 logger.error(f"Error generating outputs: {e}")
-                # Use first output if available, otherwise empty
                 output_for_error = outputs[0] if outputs else ""
                 results.append(ProbeResult(
                     probe_name=probe_name,
@@ -785,23 +706,12 @@ class GarakScanner:
         self,
         prompt_text: str,
         generations: int,
-        decision_logger = None
+        decision_logger=None
     ) -> List[str]:
-        """
-        Run multiple generation attempts in parallel with semaphore and rate limiting.
-
-        Args:
-            prompt_text: The prompt to send
-            generations: Number of generation attempts
-            decision_logger: Optional decision logger for progress tracking
-
-        Returns:
-            List of response strings
-        """
+        """Run multiple generation attempts in parallel with semaphore and rate limiting."""
         max_concurrent_generations = self.config.get("max_concurrent_generations", 1)
         generation_semaphore = asyncio.Semaphore(max_concurrent_generations)
 
-        # Log parallel generations start
         if decision_logger:
             decision_logger.log_parallel_execution(
                 event="parallel_generations_start",
@@ -814,11 +724,8 @@ class GarakScanner:
             )
 
         async def run_generation_with_limits(gen_idx: int) -> str:
-            """Run a single generation with semaphore and rate limiting."""
             async with generation_semaphore:
-                # Apply rate limiting if configured
                 if self.rate_limiter:
-                    # Log rate limiting
                     if decision_logger:
                         decision_logger.log_rate_limiting(
                             event="rate_limit_acquire",
@@ -830,20 +737,16 @@ class GarakScanner:
                         )
                     await self.rate_limiter.acquire()
 
-                # Call generator (may be sync or async)
                 if hasattr(self.generator, '_call_model'):
                     result = self.generator._call_model(prompt_text, generations=1)
-                    # _call_model returns a list, get first element
                     return result[0] if result else ""
                 else:
                     return ""
 
-        # Run all generations in parallel
         outputs = await asyncio.gather(
             *[run_generation_with_limits(gen_idx) for gen_idx in range(generations)]
         )
 
-        # Log parallel generations complete
         if decision_logger:
             decision_logger.log_parallel_execution(
                 event="parallel_generations_complete",
@@ -857,15 +760,7 @@ class GarakScanner:
         return outputs
 
     def results_to_dicts(self, results: List[ProbeResult]) -> List[dict]:
-        """
-        Convert ProbeResult objects to dicts for in-memory processing.
-
-        Args:
-            results: List of ProbeResult objects from scanning
-
-        Returns:
-            List of result dicts ready for report parsing
-        """
+        """Convert ProbeResult objects to dicts for in-memory processing."""
         return results_to_dicts(results)
 
 

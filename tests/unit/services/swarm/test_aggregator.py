@@ -1,8 +1,8 @@
-"""Unit tests for services.swarm.garak_scanner.report_parser module."""
+"""Unit tests for services.swarm.garak_scanner.reporting module."""
 
 import pytest
 
-from services.swarm.garak_scanner.report_parser import (
+from services.swarm.garak_scanner.reporting import (
     parse_results_to_clusters,
     format_scan_results,
     get_results_summary,
