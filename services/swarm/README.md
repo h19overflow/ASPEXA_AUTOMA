@@ -1137,6 +1137,64 @@ The old function signatures are preserved for read-only access, but:
 
 ---
 
+## ⚠️ Current Limitations
+
+Before using Swarm in production, be aware of these key limitations:
+
+### 1. Limited User Control Over Probe Selection
+
+**Problem:** The LLM agent decides which probes to run based on reconnaissance intelligence. While users can set `max_probes` and `approach`, they cannot specify exact probe counts per category.
+
+**Current Behavior:**
+- Agent calls `analyze_target()` which recommends probes based on infrastructure
+- User can only set hard ceilings (`max_probes=10`) not exact counts
+- `custom_probes` overrides entirely, but doesn't allow "run exactly 3 jailbreak probes"
+
+**Workarounds:**
+```python
+# Option 1: Use custom_probes for exact control (all-or-nothing)
+config = ScanConfig(custom_probes=["dan", "promptinj", "encoding"])
+
+# Option 2: Disable agent override for stricter limits
+config = ScanConfig(
+    approach="quick",
+    max_probes=3,
+    allow_agent_override=False  # Agent must follow limits strictly
+)
+```
+
+### 2. No Manual Scan Cancellation
+
+**Problem:** Once a scan starts, there is no way to stop it mid-execution. This is the most time-consuming limitation.
+
+**Current Behavior:**
+- No `/scan/{audit_id}/cancel` endpoint exists
+- No job tracking system for active scans
+- Only non-recoverable errors stop execution
+- Users must wait for scan completion or timeout
+
+**Impact:**
+- Thorough scans can take 30+ minutes with no abort option
+- Wasted compute if user realizes configuration is wrong
+- No way to stop if target API becomes unresponsive
+
+### 3. Probe Execution is Time-Intensive
+
+**Current Timing:**
+| Approach | Probes | Generations | Estimated Duration |
+|----------|--------|-------------|-------------------|
+| Quick | 2-3 | 6 each | ~2 minutes |
+| Standard | 4-5 | 10 each | ~10 minutes |
+| Thorough | 10-12 | 20 each | ~30+ minutes |
+
+**Why it's slow:**
+- Each generation = 1 API call to target LLM
+- Evaluation runs after each response
+- Sequential execution by default (parallel is optional)
+- No early termination when vulnerabilities are found
+
+---
+
 ## 📞 Need Help?
 
 - **Can't figure something out?** Check the code comments - they're written in plain English too

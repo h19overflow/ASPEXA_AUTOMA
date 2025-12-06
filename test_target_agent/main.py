@@ -1,6 +1,6 @@
 """
 FastAPI Backend for Test Target Agent
-A customer service agent that can be used to test the Cartographer reconnaissance
+A banking customer service agent that can be used to test the Cartographer reconnaissance
 """
 import os
 from typing import Dict, List, Optional
@@ -12,9 +12,9 @@ from langchain_core.tools import tool
 from dotenv import load_dotenv
 from .system_prompt import get_system_prompt
 from .mock_tools import (
-    fetch_customer_balance,
-    process_refund_transaction,
-    query_order_status,
+    fetch_account_balance,
+    initiate_wire_transfer,
+    check_loan_application,
     search_knowledge_base,
     get_transaction_history,
 )
@@ -23,8 +23,8 @@ load_dotenv()
 
 # FastAPI app
 app = FastAPI(
-    title="TechShop Customer Service Agent",
-    description="A customer service agent for testing reconnaissance capabilities",
+    title="SecureBank Customer Service Agent",
+    description="A banking customer service agent for testing reconnaissance capabilities",
     version="1.0.0"
 )
 
@@ -43,14 +43,14 @@ class ChatRequest(BaseModel):
     message: Optional[str] = Field(None, description="User message to the agent")
     prompt: Optional[str] = Field(None, description="User prompt (alias for message)")
     session_id: str = Field(default="default", description="Session ID for conversation history")
-    
+
     @model_validator(mode='after')
     def validate_message_or_prompt(self):
         """Ensure at least one of message or prompt is provided."""
         if not self.message and not self.prompt:
             raise ValueError("Either 'message' or 'prompt' field must be provided")
         return self
-    
+
     def get_message(self) -> str:
         """Get the message from either 'message' or 'prompt' field."""
         if self.message:
@@ -67,53 +67,60 @@ class ChatResponse(BaseModel):
 
 # Define tools as LangChain tools
 @tool
-def get_balance(customer_id: str) -> str:
-    """Fetch customer balance from the database. Customer ID format: CUST-XXX"""
-    result = fetch_customer_balance(customer_id)
+def get_balance(account_id: str) -> str:
+    """Fetch account balance from the database. Account ID format: ACC-XXX"""
+    result = fetch_account_balance(account_id)
     return str(result)
 
 
 @tool
-def refund_transaction(transaction_id: str, amount: float, reason: str = "customer_request") -> str:
+def wire_transfer(
+    from_account: str,
+    to_account: str,
+    bank_name: str,
+    amount: float,
+    memo: str = ""
+) -> str:
     """
-    Process a refund for a transaction.
-    Transaction ID format: TXN-XXXXX (9 chars).
-    Refunds under $1000 auto-approve, $1000+ need manager approval.
+    Initiate a wire transfer to an external account.
+    Account ID format: ACC-XXX.
+    Transfers under $10,000 process with standard verification.
+    Transfers $10,000+ require Enhanced Identity Verification (EIV).
     """
-    result = process_refund_transaction(transaction_id, amount, reason)
+    result = initiate_wire_transfer(from_account, to_account, bank_name, amount, memo)
     return str(result)
 
 
 @tool
-def check_order(order_id: str) -> str:
-    """Query order status. Order ID format: ORD-XXX"""
-    result = query_order_status(order_id)
+def check_loan(application_id: str) -> str:
+    """Check loan application status. Application ID format: LOAN-XXX"""
+    result = check_loan_application(application_id)
     return str(result)
 
 
 @tool
 def search_policies(query: str, top_k: int = 3) -> str:
-    """Search knowledge base for company policies using FAISS vector search"""
+    """Search knowledge base for banking policies using FAISS vector search"""
     results = search_knowledge_base(query, top_k)
     return "\n".join(results)
 
 
 @tool
-def get_transactions(customer_id: str, limit: int = 10) -> str:
-    """Get transaction history for a customer"""
-    results = get_transaction_history(customer_id, limit)
+def get_transactions(account_id: str, limit: int = 10) -> str:
+    """Get transaction history for an account. Account ID format: ACC-XXX"""
+    results = get_transaction_history(account_id, limit)
     return str(results)
 
 
 # Bind tools to model
-tools = [get_balance, refund_transaction, check_order, search_policies, get_transactions]
+tools = [get_balance, wire_transfer, check_loan, search_policies, get_transactions]
 model_with_tools = model.bind_tools(tools)
 
 
 @app.post("/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest) -> ChatResponse:
     """
-    Main chat endpoint for the customer service agent.
+    Main chat endpoint for the banking customer service agent.
     Accepts a message and returns the agent's response.
     """
     try:
@@ -122,24 +129,24 @@ async def chat(request: ChatRequest) -> ChatResponse:
             conversation_sessions[request.session_id] = [
                 SystemMessage(content=get_system_prompt())
             ]
-        
+
         conversation = conversation_sessions[request.session_id]
-        
+
         # Add user message (support both 'message' and 'prompt' fields)
         user_message = request.get_message()
         conversation.append(HumanMessage(content=user_message))
-        
+
         # Get response from model
         response = model_with_tools.invoke(conversation)
-        
+
         # Handle tool calls if present
         if response.tool_calls:
             conversation.append(AIMessage(content=response.content, tool_calls=response.tool_calls))
-            
+
             for tool_call in response.tool_calls:
                 tool_name = tool_call["name"]
                 tool_args = tool_call["args"]
-                
+
                 # Find and execute the tool
                 for t in tools:
                     if t.name == tool_name:
@@ -152,7 +159,7 @@ async def chat(request: ChatRequest) -> ChatResponse:
                             )
                         )
                         break
-            
+
             # Get final response after tool execution
             final_response = model_with_tools.invoke(conversation)
             response_content = final_response.content if isinstance(final_response.content, str) else str(final_response.content)
@@ -160,17 +167,17 @@ async def chat(request: ChatRequest) -> ChatResponse:
         else:
             response_content = response.content if isinstance(response.content, str) else str(response.content)
             conversation.append(AIMessage(content=response_content))
-        
+
         # Keep conversation history reasonable (last 20 messages)
         if len(conversation) > 20:
             # Keep system message and last 19
             conversation_sessions[request.session_id] = [conversation[0]] + conversation[-19:]
-        
+
         return ChatResponse(
             response=response_content,
             session_id=request.session_id
         )
-    
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error processing request: {str(e)}")
 
@@ -179,9 +186,9 @@ async def chat(request: ChatRequest) -> ChatResponse:
 async def root():
     """Root endpoint with API information"""
     return {
-        "name": "TechShop Customer Service Agent",
+        "name": "SecureBank Customer Service Agent",
         "version": "1.0.0",
-        "description": "AI-powered customer service for TechShop electronics retailer",
+        "description": "AI-powered customer service for SecureBank retail banking",
         "endpoints": {
             "chat": "/chat (POST) - Main chat endpoint",
             "health": "/health (GET) - Health check",
@@ -202,15 +209,15 @@ async def health():
 
 if __name__ == "__main__":
     import uvicorn
-    
+
     # Check for API key
     if not os.getenv("GOOGLE_API_KEY"):
-        print("⚠️  WARNING: GOOGLE_API_KEY environment variable not set!")
+        print("WARNING: GOOGLE_API_KEY environment variable not set!")
         print("   Please set it before running the server.")
-    
-    print("🚀 Starting TechShop Customer Service Agent...")
-    print("📍 Server will be available at: http://localhost:8082")
-    print("📖 API docs available at: http://localhost:8082/docs")
-    print("🔍 Test with Cartographer at: http://localhost:8082/chat")
-    
+
+    print("Starting SecureBank Customer Service Agent...")
+    print("Server will be available at: http://localhost:8082")
+    print("API docs available at: http://localhost:8082/docs")
+    print("Test with Cartographer at: http://localhost:8082/chat")
+
     uvicorn.run(app, host="0.0.0.0", port=8082)
