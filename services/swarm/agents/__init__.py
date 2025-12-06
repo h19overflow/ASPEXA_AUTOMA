@@ -13,23 +13,51 @@ from .sql import SQLAgent
 from .auth import AuthAgent
 from .jailbreak import JailbreakAgent
 
-# Legacy imports (backward compatibility)
+# Core imports (current architecture)
 from .base import (
     create_planning_agent,
     run_planning_agent,
-    create_scanning_agent,
-    run_scanning_agent,
-)
-from .trinity import (
-    run_sql_agent,
-    create_sql_agent,
-    run_auth_agent,
-    create_auth_agent,
-    run_jailbreak_agent,
-    create_jailbreak_agent,
+    create_scanning_agent,  # Deprecated alias for create_planning_agent
+    run_scanning_agent,  # Deprecated - use run_planning_agent
 )
 from .tools import PLANNING_TOOLS, analyze_target, plan_scan, get_available_probes
 from .prompts import SYSTEM_PROMPTS, get_system_prompt
+from services.swarm.core.config import AgentType
+
+
+# ============================================================================
+# Backward Compatibility: Trinity Agent Wrappers (Deprecated)
+# ============================================================================
+
+
+async def run_sql_agent(scan_input):
+    """[DEPRECATED] Run SQL/Data Surface scanning agent. Use run_planning_agent instead."""
+    return await run_scanning_agent(AgentType.SQL.value, scan_input)
+
+
+def create_sql_agent(model_name: str = "gemini-2.5-flash"):
+    """[DEPRECATED] Create SQL scanning agent. Use create_planning_agent instead."""
+    return create_scanning_agent(AgentType.SQL.value, model_name)
+
+
+async def run_auth_agent(scan_input):
+    """[DEPRECATED] Run Authorization Surface scanning agent. Use run_planning_agent instead."""
+    return await run_scanning_agent(AgentType.AUTH.value, scan_input)
+
+
+def create_auth_agent(model_name: str = "gemini-2.5-flash"):
+    """[DEPRECATED] Create Auth scanning agent. Use create_planning_agent instead."""
+    return create_scanning_agent(AgentType.AUTH.value, model_name)
+
+
+async def run_jailbreak_agent(scan_input):
+    """[DEPRECATED] Run Jailbreak/System Prompt Surface scanning agent. Use run_planning_agent instead."""
+    return await run_scanning_agent(AgentType.JAILBREAK.value, scan_input)
+
+
+def create_jailbreak_agent(model_name: str = "gemini-2.5-flash"):
+    """[DEPRECATED] Create Jailbreak scanning agent. Use create_planning_agent instead."""
+    return create_scanning_agent(AgentType.JAILBREAK.value, model_name)
 
 
 # Agent registry for new architecture

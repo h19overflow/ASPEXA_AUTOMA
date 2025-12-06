@@ -346,19 +346,6 @@ class ScanAnalysisResult(StrictBaseModel):
     )
 
 
-class ProbeResultDetail(StrictBaseModel):
-    """Individual probe result with full details for observability."""
-    probe_name: str = Field(..., description="Name of the probe")
-    probe_description: str = Field(default="", description="Description of the probe")
-    category: str = Field(default="unknown", description="Probe category")
-    prompt: str = Field(default="", description="Attack prompt sent")
-    output: str = Field(default="", description="Target response received")
-    status: str = Field(..., description="Result status: pass, fail, or error")
-    detector_name: str = Field(default="", description="Detector that triggered")
-    detector_score: float = Field(default=0.0, description="Detector confidence score 0-1")
-    detection_reason: str = Field(default="", description="Why detector triggered")
-
-
 class AgentScanResult(StrictBaseModel):
     """Structured result from agent scan execution."""
     success: bool = Field(..., description="Whether the scan completed successfully")
@@ -424,34 +411,6 @@ class ScanPlan(StrictBaseModel):
         if not v:
             raise ValueError("selected_probes cannot be empty")
         return v
-
-
-class ScanPlanResponse(StrictBaseModel):
-    """Structured response from planning agent.
-
-    Wraps ScanPlan with additional context for logging and debugging.
-    Internal use only.
-    """
-    plan: ScanPlan = Field(..., description="The scan plan to execute")
-    analysis_summary: str = Field(
-        ...,
-        description="Brief summary of target analysis"
-    )
-    estimated_prompts: int = Field(
-        default=0,
-        ge=0,
-        description="Estimated total prompts to send"
-    )
-    risk_assessment: str = Field(
-        default="standard",
-        description="Risk level: low, standard, high, critical"
-    )
-
-    @property
-    def total_operations(self) -> int:
-        """Calculate total operations: probes * prompts_per_probe * generations."""
-        avg_prompts_per_probe = 10
-        return len(self.plan.selected_probes) * avg_prompts_per_probe * self.plan.generations
 
 
 class PlanningPhaseResult(StrictBaseModel):
