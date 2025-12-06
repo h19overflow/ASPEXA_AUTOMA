@@ -44,9 +44,6 @@ services/snipers/
 │   ├── graph.py           # Auto-retry with adaptation
 │   └── components/        # Failure analysis, strategy generation
 │
-├── chain_discovery/        # Pattern learning system
-│   └── pattern_database.py
-│
 └── utils/                  # Shared utilities
     ├── nodes/             # Shared node implementations
     ├── converters/        # Payload transformation (8 converters)
@@ -156,7 +153,7 @@ Output: ReconCustomFraming(
 - [payload_articulation.py](attack_phases/payload_articulation.py#L1) - Main orchestrator
 - [utils/nodes/input_processing_node.py](utils/nodes/input_processing_node.py#L1) - Load S3 data
 - [utils/extractors/recon_extractor.py](utils/prompt_articulation/extractors/recon_extractor.py#L1) - **System prompt extraction** ⭐ NEW
-- [utils/nodes/converter_selection_node.py](utils/nodes/converter_selection_node.py#L1) - Chain selection
+- [adaptive_attack/nodes/adapt.py](adaptive_attack/nodes/adapt.py#L1) - **Chain selection** (via adapt_node)
 - [utils/nodes/payload_articulation_node.py](utils/nodes/payload_articulation_node.py#L1) - Payload generation
 - [utils/components/payload_generator.py](utils/prompt_articulation/components/payload_generator.py#L1) - **Custom framing usage** ⭐ UPDATED
 
@@ -239,7 +236,6 @@ graph TD
 **Files:**
 - [attack_execution.py](attack_phases/attack_execution.py#L1) - Main orchestrator
 - [utils/nodes/composite_scoring_node.py](utils/nodes/composite_scoring_node.py#L1) - Score aggregation
-- [utils/nodes/learning_adaptation_node.py](utils/nodes/learning_adaptation_node.py#L1) - Pattern learning
 - [utils/scoring/](utils/scoring/) - 5 LLM scorers
 
 **Usage:**
@@ -702,12 +698,6 @@ ScoreResult(
     matched_patterns: list[str]
 )
 ```
-
-### Pattern Learning
-- S3-backed pattern database
-- Tracks successful converter chains
-- Evolutionary optimization
-- Success rate analysis
 
 ---
 

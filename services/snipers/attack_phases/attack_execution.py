@@ -1,14 +1,13 @@
 """
 Phase 3: Attack Execution.
 
-Purpose: Send attacks to target, evaluate responses, record learnings
+Purpose: Send attacks to target, evaluate responses
 Role: Third phase of attack flow - executes attacks and scores results
-Dependencies: PyRIT targets, composite scoring, learning adaptation
+Dependencies: PyRIT targets, composite scoring
 
-Sequential execution of 3 stages:
+Sequential execution of 2 stages:
 1. Attack Execution - Send converted payloads via PyRIT target adapters
 2. Composite Scoring - Evaluate responses with all Phase 3/4 scorers
-3. Learning Adaptation - Record successful chains, analyze failures
 
 Usage:
     from services.snipers.attack_phases import AttackExecution
@@ -30,18 +29,15 @@ from typing import Any
 
 import httpx
 
-from libs.persistence import S3PersistenceAdapter
 from libs.config.settings import get_settings
 
 from services.snipers.utils.nodes.composite_scoring_node import CompositeScoringNodePhase34
-from services.snipers.utils.nodes.learning_adaptation_node import LearningAdaptationNode
 from services.snipers.chain_discovery.models import ConverterChain
 from services.snipers.models import (
     AttackResponse,
     ConvertedPayload,
     Phase3Result,
 )
-from services.snipers.utils.persistence.s3_adapter import S3InterfaceAdapter
 from services.snipers.utils.scoring.models import CompositeScore, SeverityLevel
 
 logger = logging.getLogger(__name__)
@@ -51,9 +47,9 @@ class AttackExecution:
     """
     Phase 3: Attack Execution.
 
-    Executes: Send Attacks → Score Responses → Record Learnings
+    Executes: Send Attacks → Score Responses
 
-    Output contains scoring results and adaptation strategy.
+    Output contains scoring results.
     """
 
     def __init__(
@@ -78,17 +74,8 @@ class AttackExecution:
         self._headers = headers or {"Content-Type": "application/json"}
         self._timeout = timeout
 
-        # Create S3 adapter for learning persistence
-        settings = get_settings()
-        self._s3_persistence = S3PersistenceAdapter(
-            bucket_name=settings.s3_bucket_name,
-            region=settings.aws_region,
-        )
-        self._s3_interface = S3InterfaceAdapter(self._s3_persistence)
-
         # Initialize nodes with required scorers filter
         self._scoring_node = CompositeScoringNodePhase34(required_scorers=success_scorers)
-        self._learning_node = LearningAdaptationNode(self._s3_interface)
 
         self.logger = logging.getLogger(__name__)
 
@@ -155,33 +142,6 @@ class AttackExecution:
                 f"(confidence: {result.confidence:.2f})"
             )
 
-        # Step 3: Learn from results
-        self.logger.info(f"\n[Step 3/3] Learning & Adaptation")
-        self.logger.info("-" * 40)
-
-        # Build state for learning node
-        learning_state = {
-            "campaign_id": campaign_id,
-            "composite_score": composite_score,
-            "selected_converters": chain,
-            "probe_name": "phase3_attack",
-            "retry_count": 0,
-            "max_retries": 3,
-            "pattern_analysis": {},
-        }
-
-        learning_result = await self._learning_node.update_patterns(learning_state)
-        learned_chain = learning_result.get("learned_chain")
-        failure_analysis = learning_result.get("failure_analysis")
-        adaptation_strategy = learning_result.get("adaptation_strategy")
-
-        if learned_chain:
-            self.logger.info(f"  Saved successful chain: {learned_chain.chain_id}")
-        if failure_analysis:
-            self.logger.info(f"  Failure cause: {failure_analysis.get('primary_cause')}")
-        if adaptation_strategy:
-            self.logger.info(f"  Can retry: {adaptation_strategy.get('can_retry')}")
-
         # Build result
         result = Phase3Result(
             campaign_id=campaign_id,
@@ -191,9 +151,9 @@ class AttackExecution:
             is_successful=composite_score.is_successful,
             overall_severity=composite_score.overall_severity.value,
             total_score=composite_score.total_score,
-            learned_chain=learned_chain,
-            failure_analysis=failure_analysis,
-            adaptation_strategy=adaptation_strategy,
+            learned_chain=None,
+            failure_analysis=None,
+            adaptation_strategy=None,
         )
 
         self.logger.info(f"\n{'='*60}")

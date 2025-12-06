@@ -24,19 +24,11 @@ services/snipers/
 │   ├── models/                      # Adaptive-specific data models
 │   └── prompts/                     # LLM prompts for adaptation
 │
-├── chain_discovery/                 # CORE FEATURE: Pattern learning system
-│   ├── models.py                    # ConverterChain, ChainMetadata
-│   ├── chain_generator.py           # Generate candidate chains
-│   ├── pattern_database.py          # S3-backed learning database
-│   └── evolutionary_optimizer.py    # GA-based chain optimization
-│
 ├── utils/                           # SHARED UTILITIES
 │   ├── nodes/                       # Shared node implementations
 │   │   ├── input_processing_node.py
-│   │   ├── converter_selection_node.py
 │   │   ├── payload_articulation_node.py
-│   │   ├── composite_scoring_node.py
-│   │   └── learning_adaptation_node.py
+│   │   └── composite_scoring_node.py
 │   │
 │   ├── converters/                  # Payload transformation system
 │   │   ├── chain_executor.py        # Execute converter chains
@@ -122,15 +114,14 @@ entrypoint.execute_full_attack()
     ↓
 Phase 1: PayloadArticulation
     ├─→ utils/nodes/input_processing_node
-    ├─→ utils/nodes/converter_selection_node
+    ├─→ adaptive_attack/nodes/adapt_node (chain selection)
     └─→ utils/nodes/payload_articulation_node
     ↓
 Phase 2: Conversion
     └─→ utils/converters/chain_executor
     ↓
 Phase 3: AttackExecution
-    ├─→ utils/nodes/composite_scoring_node
-    └─→ utils/nodes/learning_adaptation_node
+    └─→ utils/nodes/composite_scoring_node
     ↓
 Result persisted to S3
 ```
@@ -205,11 +196,6 @@ LangGraph Iteration:
 - LLM-based evaluation of responses
 - Composite scoring across multiple dimensions
 - Severity levels and confidence scores
-
-**Pattern Learning** ([chain_discovery/](chain_discovery/))
-- S3-backed pattern database
-- Evolutionary optimization
-- Success rate tracking
 
 ## Extension Points
 
