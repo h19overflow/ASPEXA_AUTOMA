@@ -1,1 +1,20 @@
-<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="0" skipped="0" tests="2" time="9.149" timestamp="2025-12-06T11:42:11.291580+08:00" hostname="Adonis2"><testcase classname="tests.unit.services.snipers.tools.prompt_articulation.test_components.TestPayloadGenerator" name="test_payload_generator_creation" time="0.166" /><testcase classname="tests.unit.services.snipers.tools.prompt_articulation.test_components.TestPayloadGenerator" name="test_articulated_payload_model" time="0.001" /></testsuite></testsuites>
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="2" skipped="0" tests="2" time="6.924" timestamp="2025-12-06T14:52:25.020138+08:00" hostname="Adonis2"><testcase classname="tests.unit.services.snipers.tools.prompt_articulation.test_components.TestPayloadGenerator" name="test_payload_generator_creation" time="0.781"><failure message="AttributeError: 'PayloadGenerator' object has no attribute 'model'">tests\unit\services\snipers\tools\prompt_articulation\test_components.py:295: in test_payload_generator_creation
+    assert generator.model == "google_genai:gemini-2.5-pro"  # Default model
+           ^^^^^^^^^^^^^^^
+E   AttributeError: 'PayloadGenerator' object has no attribute 'model'
+        generator  = &lt;services.snipers.utils.prompt_articulation.components.payload_generator.PayloadGenerator object at 0x000002AA64FF56A0&gt;
+        library    = &lt;services.snipers.utils.prompt_articulation.components.framing_library.FramingLibrary object at 0x000002AA64FF5550&gt;
+        self       = &lt;prompt_articulation.test_components.TestPayloadGenerator object at 0x000002AA64F78F50&gt;</failure></testcase><testcase classname="tests.unit.services.snipers.tools.prompt_articulation.test_components.TestPayloadGenerator" name="test_articulated_payload_model" time="0.001"><failure message="AttributeError: 'ArticulatedPayload' object has no attribute 'reasoning'">tests\unit\services\snipers\tools\prompt_articulation\test_components.py:314: in test_articulated_payload_model
+    assert payload.reasoning == "Test reasoning"
+           ^^^^^^^^^^^^^^^^^
+        ArticulatedPayload = &lt;class 'services.snipers.utils.prompt_articulation.components.payload_generator.ArticulatedPayload'&gt;
+        payload    = ArticulatedPayload(content='Test payload content', framing_type=&lt;FramingType.QA_TESTING: 'qa_testing'&gt;, format_control=&lt;FormatControlType.RAW_OUTPUT: 'raw_output'&gt;, context_summary={})
+        self       = &lt;prompt_articulation.test_components.TestPayloadGenerator object at 0x000002AA64F79090&gt;
+..\..\AppData\Local\Programs\Python\Python313\Lib\site-packages\pydantic\main.py:1026: in __getattr__
+    raise AttributeError(f'{type(self).__name__!r} object has no attribute {item!r}')
+E   AttributeError: 'ArticulatedPayload' object has no attribute 'reasoning'
+        __class__  = &lt;class 'pydantic.main.BaseModel'&gt;
+        item       = 'reasoning'
+        private_attributes = {}
+        pydantic_extra = None
+        self       = ArticulatedPayload(content='Test payload content', framing_type=&lt;FramingType.QA_TESTING: 'qa_testing'&gt;, format_control=&lt;FormatControlType.RAW_OUTPUT: 'raw_output'&gt;, context_summary={})</failure></testcase></testsuite></testsuites>
