@@ -27,7 +27,13 @@
       "Bash(Get-ChildItem -Path \"C:\\Users\\User\\Projects\\Aspexa_Automa\\services\" -Directory)",
       "Bash(Get-ChildItem -Path \"C:\\Users\\User\\Projects\\Aspexa_Automa\\libs\" -Directory)",
       "WebFetch(domain:aws.amazon.com)",
-      "WebFetch(domain:boto3.amazonaws.com)"
+      "WebFetch(domain:boto3.amazonaws.com)",
+      "mcp__context7__resolve-library-id",
+      "mcp__context7__get-library-docs",
+      "Bash(.venvScriptspython.exe -c \"import pulumi_aws_native as aws_native; import inspect; members = [m for m in dir(aws_native.s3vectors) if ''Encryption'' in m or ''VectorBucket'' in m]; print(''\\n''.join(members))\")",
+      "Bash(C:/Users/User/Projects/Aspexa_Automa/.venv/Scripts/python.exe:*)",
+      "Bash(pulumi config set:*)",
+      "Bash(pulumi config:*)"
     ],
     "deny": [],
     "ask": []

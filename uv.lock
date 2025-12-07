@@ -259,6 +259,7 @@ dependencies = [
     { name = "langgraph" },
     { name = "langgraph-prebuilt" },
     { name = "pulumi-aws" },
+    { name = "pulumi-aws-native" },
     { name = "pydantic" },
     { name = "pydantic-settings" },
     { name = "pyrit" },
@@ -305,6 +306,7 @@ requires-dist = [
     { name = "pulumi", marker = "extra == 'infra'", specifier = ">=3.0.0" },
     { name = "pulumi-aws", specifier = ">=7.12.0" },
     { name = "pulumi-aws", marker = "extra == 'infra'", specifier = ">=6.0.0" },
+    { name = "pulumi-aws-native", specifier = ">=1.38.0" },
     { name = "pydantic", specifier = ">=2.12.4" },
     { name = "pydantic-settings", specifier = ">=2.6.0" },
     { name = "pyrit", specifier = ">=0.9.0" },
@@ -3369,6 +3371,20 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/07/7f/500d768ec280edcbf8c06c190137d600eef267d32ed1a57eb023a1bac6a4/pulumi_aws-7.12.0.tar.gz", hash = "sha256:57e2b76714eae3308c2ad472b64de81b2f650422375331247b01800a765aa4bf", size = 8397584, upload-time = "2025-11-21T01:22:32.128Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/c7/31/75d1dac80ae607178108ac1c485cde82e21f2f91d7758815571c03dfd4cd/pulumi_aws-7.12.0-py3-none-any.whl", hash = "sha256:e5c0a56d5f3fd583bcdaa6b044a1d69d4bdbf70649a6e9137939551644875254", size = 11377033, upload-time = "2025-11-21T01:22:29.146Z" },
+]
+
+[[package]]
+name = "pulumi-aws-native"
+version = "1.38.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "parver" },
+    { name = "pulumi" },
+    { name = "semver" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/5c/e4/320ca4b3d374f30923aa44e826267b98e60d228424821493c334ef7527b3/pulumi_aws_native-1.38.0.tar.gz", hash = "sha256:45697b8dbf7bf2fc00fb84d88ef5e15e6fa4ddbbb34980c8585145c3b73dde20", size = 7912760, upload-time = "2025-11-05T15:41:25.41Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/b1/c3/067116fd857c9ef7b7c16478b568aa51c4769ae8de73d6807a90a0ba2157/pulumi_aws_native-1.38.0-py3-none-any.whl", hash = "sha256:579d310d9233159317e03286cd3dbf70bbe8d169638950a8af2ef1681b525eb7", size = 11222423, upload-time = "2025-11-05T15:41:22.076Z" },
 ]
 
 [[package]]

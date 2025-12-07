@@ -26,6 +26,7 @@ dependencies = [
     "pulumi-aws>=7.12.0",
     "langfuse>=3.10.1",
     "deepagents>=0.2.8",
+    "pulumi-aws-native>=1.38.0",
 ]
 
 [project.optional-dependencies]

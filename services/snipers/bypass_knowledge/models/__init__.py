@@ -2,20 +2,28 @@
 
 from .episode import (
     BypassEpisode,
+    FailureDepth,
     Hypothesis,
     ProbeResult,
-    FailureDepth,
 )
+from .fingerprint import DefenseFingerprint
 from .insight import (
     HistoricalInsight,
     TechniqueStats,
 )
+from .storage import (
+    EpisodeStoreConfig,
+    SimilarEpisode,
+)
 
 __all__ = [
     "BypassEpisode",
-    "Hypothesis",
-    "ProbeResult",
+    "DefenseFingerprint",
+    "EpisodeStoreConfig",
     "FailureDepth",
     "HistoricalInsight",
+    "Hypothesis",
+    "ProbeResult",
+    "SimilarEpisode",
     "TechniqueStats",
 ]

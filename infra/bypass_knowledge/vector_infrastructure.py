@@ -21,42 +21,39 @@ region = config.get("region") or "ap-southeast-2"
 
 
 # === VECTOR BUCKET ===
+# Note: S3 Vectors is a new AWS service (GA Dec 2025) - tags not yet supported
 vector_bucket = aws_native.s3vectors.VectorBucket(
     "bypass-knowledge-vectors",
     vector_bucket_name=f"aspexa-bypass-knowledge-{environment}",
-    encryption=aws_native.s3vectors.VectorBucketEncryptionArgs(
-        sse_type="AES256",  # SSE-S3 (default, no extra cost)
+    encryption_configuration=aws_native.s3vectors.VectorBucketEncryptionConfigurationArgs(
+        sse_type=aws_native.s3vectors.VectorBucketEncryptionConfigurationSseType.AES256,
     ),
-    tags=[
-        aws_native.TagArgs(key="Project", value="Aspexa"),
-        aws_native.TagArgs(key="Component", value="BypassKnowledge"),
-        aws_native.TagArgs(key="Environment", value=environment),
-    ],
 )
 
 
 # === EPISODE VECTOR INDEX ===
 # Primary index for defense fingerprinting
+# Note: ignore_changes for distance_metric due to SDK enum case mismatch bug
+# (SDK expects lowercase "cosine", AWS returns uppercase "COSINE")
 episode_index = aws_native.s3vectors.Index(
     "bypass-episode-index",
     vector_bucket_name=vector_bucket.vector_bucket_name,
     index_name="episodes",
+    data_type=aws_native.s3vectors.IndexDataType.FLOAT32,  # Standard for embeddings
     dimension=3072,  # Gemini gemini-embedding-001 dimension
-    distance_metric="COSINE",  # Cosine similarity for semantic search
+    distance_metric="cosine",  # Cosine similarity for semantic search
     metadata_configuration=aws_native.s3vectors.IndexMetadataConfigurationArgs(
         # Non-filterable = stored but not indexed for filtering
         non_filterable_metadata_keys=["successful_prompt", "why_it_worked"],
     ),
-    tags=[
-        aws_native.TagArgs(key="IndexType", value="EpisodeFingerprint"),
-    ],
+    opts=pulumi.ResourceOptions(ignore_changes=["distanceMetric"]),
 )
 
 
 # === IAM POLICY FOR APPLICATION ACCESS ===
 vector_access_policy_document = Output.all(
-    vector_bucket.arn,
-    episode_index.arn
+    vector_bucket.vector_bucket_arn,
+    episode_index.index_arn
 ).apply(lambda args: json.dumps({
     "Version": "2012-10-17",
     "Statement": [
@@ -95,7 +92,7 @@ vector_access_policy = aws_native.iam.ManagedPolicy(
 
 # === EXPORTS ===
 pulumi.export("vector_bucket_name", vector_bucket.vector_bucket_name)
-pulumi.export("vector_bucket_arn", vector_bucket.arn)
+pulumi.export("vector_bucket_arn", vector_bucket.vector_bucket_arn)
 pulumi.export("episode_index_name", episode_index.index_name)
-pulumi.export("episode_index_arn", episode_index.arn)
+pulumi.export("episode_index_arn", episode_index.index_arn)
 pulumi.export("vector_access_policy_arn", vector_access_policy.policy_arn)
