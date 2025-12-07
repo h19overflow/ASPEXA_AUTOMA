@@ -194,7 +194,7 @@ tests/bypass_knowledge/
 
 ### Phase 5: Capture
 
-**Goal**: Capture successful bypass episodes from the swarm attack flow
+**Goal**: Capture successful bypass episodes from the adaptive attack flow
 
 **Files to Create**:
 - `services/snipers/bypass_knowledge/capture/episode_builder.py`
@@ -221,9 +221,9 @@ tests/bypass_knowledge/
 2. **Integration Points**:
    | File | Line | Integration |
    |------|------|-------------|
-   | `services/swarm/graph/nodes/persist_results.py` | `:44` | After persisting results, call `EpisodeBuilder.from_attack_result()` |
-   | `services/swarm/core/schema.py` | `:134` | `AttackResult` schema - source data for episodes |
-   | `libs/contracts/attack.py` | `:61` | Attack contracts for result types |
+   | `services/snipers/adaptive_attack/nodes/evaluate.py` | `:44` | After evaluation, call `EpisodeBuilder.from_attack_result()` |
+   | `services/snipers/adaptive_attack/state.py` | `:30` | `AdaptiveAttackState` - source data for episodes |
+   | `services/snipers/adaptive_attack/models/` | `:*` | Attack models for result types |
 
 3. **Data Mapping**:
    | AttackResult Field | BypassEpisode Field |
@@ -271,8 +271,8 @@ tests/bypass_knowledge/
 2. **Integration Points**:
    | File | Line | Integration |
    |------|------|-------------|
-   | `services/swarm/graph/nodes/plan_agent.py` | `:61` | Query insights before planning attack |
-   | `services/swarm/agents/base.py` | `:120` | Add `get_historical_context()` to base agent |
+   | `services/snipers/adaptive_attack/nodes/adapt.py` | `:61` | Query insights before adapting strategy |
+   | `services/snipers/adaptive_attack/components/strategy_generator.py` | `:30` | Add historical context to strategy prompts |
 
 3. **Query Patterns**:
    - "What worked against similar keyword filters?"
@@ -283,42 +283,43 @@ tests/bypass_knowledge/
 
 ### Phase 7: Integration
 
-**Goal**: Wire bypass knowledge into the swarm attack flow
+**Goal**: Wire bypass knowledge into the adaptive attack flow
 
 **Files to Create**:
-- `services/snipers/bypass_knowledge/integration/swarm_hooks.py`
+- `services/snipers/bypass_knowledge/integration/adapt_node_hook.py`
 - `services/snipers/bypass_knowledge/integration/__init__.py`
 - `tests/bypass_knowledge/test_integration.py`
 
 **Implementation Details**:
 
-1. **SwarmHooks Class** (`integration/swarm_hooks.py`):
+1. **AdaptNodeHook Class** (`integration/adapt_node_hook.py`):
    ```python
-   class SwarmHooks:
-       """Hooks for integrating bypass knowledge into swarm."""
+   class AdaptNodeHook:
+       """Hook for adapt_node to leverage historical bypass knowledge."""
 
-       def on_attack_start(self, state: SwarmState) -> SwarmState:
-           """Enrich state with historical insights before attack."""
+       async def get_history_context(
+           self,
+           defense_response: str,
+           failed_techniques: list[str],
+           target_domain: str,
+       ) -> HistoryContext:
+           """Get historical context for strategy generation."""
 
-       def on_attack_success(self, state: SwarmState, result: AttackResult) -> None:
-           """Capture successful episode to knowledge base."""
-
-       def on_technique_selected(self, technique: str) -> dict:
-           """Return historical success rates for technique."""
+       def should_apply_boost(self, context: HistoryContext) -> bool:
+           """Check if historical context is confident enough to apply."""
    ```
 
 2. **Integration Points**:
    | File | Line | Integration |
    |------|------|-------------|
-   | `services/swarm/graph/swarm_graph.py` | `:66` | Add hooks to graph edges |
-   | `services/swarm/graph/state.py` | `:43` | Add `historical_insights` field to SwarmState |
-   | `services/swarm/entrypoint.py` | `:96` | Initialize bypass knowledge on swarm start |
+   | `services/snipers/adaptive_attack/graph.py` | `:66` | Add hooks to graph edges |
+   | `services/snipers/adaptive_attack/state.py` | `:43` | Add `history_context` field to AdaptiveAttackState |
+   | `services/snipers/entrypoint.py` | `:96` | Initialize bypass knowledge on attack start |
 
 3. **State Enrichment**:
    ```python
-   # In SwarmState (services/swarm/graph/state.py)
-   historical_insights: HistoricalInsight | None = None
-   similar_episodes: list[SimilarEpisode] = []
+   # In AdaptiveAttackState (services/snipers/adaptive_attack/state.py)
+   history_context: dict | None = None  # HistoryContext.model_dump()
    ```
 
 ---
