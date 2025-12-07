@@ -15,7 +15,19 @@
       "Bash(findstr:*)",
       "Bash(Get-ChildItem -Path \"C:\\Users\\User\\Projects\\Aspexa_Automa\\services\\swarm\" -Name \"events.py\" -Recurse)",
       "Bash(npm test:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(find:*)",
+      "Bash(tree:*)",
+      "Bash(git -C \"/c/Users/User/Projects/Aspexa_Automa\" log --oneline -20)",
+      "Skill(hookify:writing-rules)",
+      "SlashCommand(/hookify:list)",
+      "WebSearch",
+      "Bash(Get-ChildItem -Path \"C:\\Users\\User\\Projects\\Aspexa_Automa\" -Directory)",
+      "Bash(Select-Object Name)",
+      "Bash(Get-ChildItem -Path \"C:\\Users\\User\\Projects\\Aspexa_Automa\\services\" -Directory)",
+      "Bash(Get-ChildItem -Path \"C:\\Users\\User\\Projects\\Aspexa_Automa\\libs\" -Directory)",
+      "WebFetch(domain:aws.amazon.com)",
+      "WebFetch(domain:boto3.amazonaws.com)"
     ],
     "deny": [],
     "ask": []

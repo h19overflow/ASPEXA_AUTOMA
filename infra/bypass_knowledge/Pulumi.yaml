@@ -1,0 +1,6 @@
+name: bypass-knowledge-infra
+runtime:
+  name: python
+  options:
+    virtualenv: ../../.venv
+description: S3 Vectors infrastructure for Bypass Knowledge VDB

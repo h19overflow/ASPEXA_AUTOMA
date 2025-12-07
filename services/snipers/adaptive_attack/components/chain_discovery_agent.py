@@ -72,7 +72,7 @@ class ChainDiscoveryAgent:
         """
         if agent is None:
             agent = create_agent(
-                model="google_genai:gemini-3-pro-preview",
+                model="google_genai:gemini-2.5-pro",
                 response_format=ToolStrategy(ChainDiscoveryDecision),
             )
         self._agent = agent

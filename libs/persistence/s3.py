@@ -9,6 +9,7 @@ Structures:
 """
 import asyncio
 import json
+import logging
 from typing import Any, Dict, List, Protocol, Optional, Union, Type, TypeVar
 
 import boto3
@@ -29,6 +30,8 @@ from .scan_models import (
     ExploitResult,
     ScanResultSummary,
 )
+
+logger = logging.getLogger(__name__)
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -230,8 +233,15 @@ class S3PersistenceAdapter:
 
     def _extract_scan_id(self, filename: str) -> str:
         """Extract scan ID from filename (removes extension and path)."""
-        base = filename.rsplit("/", 1)[-1].rsplit("\\", 1)[-1]
-        return base.rsplit(".", 1)[0] if "." in base else base
+        # Remove path separators
+        parts = filename.rsplit("/", 1)
+        base = parts[-1] if parts else filename
+        parts = base.rsplit("\\", 1)
+        base = parts[-1] if parts else base
+        # Remove extension
+        if "." in base:
+            return base.rsplit(".", 1)[0]
+        return base
 
     async def save_scan_result(
         self,
@@ -335,12 +345,52 @@ class S3PersistenceAdapter:
         model_class = self._get_model_for_scan_type(scan_type)
         return model_class.model_validate(raw_data)
 
+    def _build_scan_metadata_cache(self) -> Dict[str, Dict[str, str]]:
+        """Build a lookup cache of scan metadata from SQLite campaigns.
+
+        Returns:
+            Dict mapping scan_id -> {audit_id, timestamp, scan_type}
+        """
+        try:
+            from .sqlite import CampaignRepository
+            repo = CampaignRepository()
+            campaigns = repo.list_all(limit=10000)
+
+            cache: Dict[str, Dict[str, str]] = {}
+            for campaign in campaigns:
+                # Map each scan_id to its metadata
+                if campaign.recon_scan_id:
+                    cache[campaign.recon_scan_id] = {
+                        "audit_id": campaign.campaign_id,
+                        "timestamp": campaign.updated_at,
+                        "scan_type": "recon",
+                    }
+                if campaign.garak_scan_id:
+                    cache[campaign.garak_scan_id] = {
+                        "audit_id": campaign.campaign_id,
+                        "timestamp": campaign.updated_at,
+                        "scan_type": "garak",
+                    }
+                if campaign.exploit_scan_id:
+                    cache[campaign.exploit_scan_id] = {
+                        "audit_id": campaign.campaign_id,
+                        "timestamp": campaign.updated_at,
+                        "scan_type": "exploit",
+                    }
+            return cache
+        except Exception as e:
+            logger.warning(f"Failed to build scan metadata cache from SQLite: {e}")
+            return {}
+
     async def list_scans(
         self,
         scan_type: Optional[ScanType] = None,
         audit_id_filter: Optional[str] = None,
     ) -> List[ScanResultSummary]:
         """List scan results, optionally filtered by type or audit ID.
+
+        Uses SQLite campaign data for fast metadata lookup when available,
+        falls back to loading S3 files if needed.
 
         Args:
             scan_type: Filter by scan type (None = all types)
@@ -349,6 +399,9 @@ class S3PersistenceAdapter:
         Returns:
             List of scan summaries
         """
+        # Build metadata cache from SQLite (fast local query)
+        metadata_cache = self._build_scan_metadata_cache()
+
         summaries: List[ScanResultSummary] = []
         types_to_search = [scan_type] if scan_type else list(ScanType)
 
@@ -370,19 +423,26 @@ class S3PersistenceAdapter:
                 filename = s3_key.rsplit("/", 1)[-1]
                 scan_id = self._extract_scan_id(filename)
 
-                # Load scan file to get audit_id and timestamp
-                try:
-                    data = await self.load_scan_result(st, scan_id, validate=False)
-                    # Check top-level first, then metadata (for garak backwards compat)
-                    file_audit_id = data.get("audit_id") or data.get("metadata", {}).get("audit_id", "")
-                    audit_id = file_audit_id or scan_id
-                    timestamp = data.get("timestamp", "")
-
-                    # Apply audit_id filter if provided
-                    if audit_id_filter and audit_id_filter not in file_audit_id:
+                # Try SQLite cache first (fast), fall back to S3 (slow)
+                if scan_id in metadata_cache:
+                    cached = metadata_cache[scan_id]
+                    audit_id = cached["audit_id"]
+                    timestamp = cached["timestamp"]
+                else:
+                    # Fallback: load from S3 file
+                    try:
+                        raw_data = await self.load_scan_result(st, scan_id, validate=False)
+                        # validate=False returns Dict[str, Any]
+                        data: Dict[str, Any] = raw_data  # type: ignore[assignment]
+                        file_audit_id = data.get("audit_id") or data.get("metadata", {}).get("audit_id", "")
+                        audit_id = file_audit_id or scan_id
+                        timestamp = data.get("timestamp", "")
+                    except Exception:
+                        # Skip files that can't be loaded
                         continue
-                except Exception:
-                    # Skip files that can't be loaded
+
+                # Apply audit_id filter if provided
+                if audit_id_filter and audit_id_filter not in audit_id:
                     continue
 
                 summaries.append(
