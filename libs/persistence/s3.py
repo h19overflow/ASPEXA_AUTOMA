@@ -370,21 +370,20 @@ class S3PersistenceAdapter:
                 filename = s3_key.rsplit("/", 1)[-1]
                 scan_id = self._extract_scan_id(filename)
 
-                # Optionally filter by audit_id (requires loading file)
-                if audit_id_filter:
-                    try:
-                        data = await self.load_scan_result(st, scan_id, validate=False)
-                        # Check top-level first, then metadata (for garak backwards compat)
-                        file_audit_id = data.get("audit_id") or data.get("metadata", {}).get("audit_id", "")
-                        if audit_id_filter not in file_audit_id:
-                            continue
-                        audit_id = file_audit_id or scan_id
-                        timestamp = data.get("timestamp", "")
-                    except Exception:
+                # Load scan file to get audit_id and timestamp
+                try:
+                    data = await self.load_scan_result(st, scan_id, validate=False)
+                    # Check top-level first, then metadata (for garak backwards compat)
+                    file_audit_id = data.get("audit_id") or data.get("metadata", {}).get("audit_id", "")
+                    audit_id = file_audit_id or scan_id
+                    timestamp = data.get("timestamp", "")
+
+                    # Apply audit_id filter if provided
+                    if audit_id_filter and audit_id_filter not in file_audit_id:
                         continue
-                else:
-                    audit_id = scan_id
-                    timestamp = ""
+                except Exception:
+                    # Skip files that can't be loaded
+                    continue
 
                 summaries.append(
                     ScanResultSummary(
