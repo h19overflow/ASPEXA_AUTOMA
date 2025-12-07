@@ -119,21 +119,15 @@ Generate creative, realistic test prompts. Output only the test prompt."""
         library = FramingLibrary(effectiveness_provider=tracker)
         generator = PayloadGenerator(framing_library=library)
 
-        # Step 5: Determine if XML-tagged prompts should be used
-        has_tool_intel = bool(
-            recon_intel.tools
-            and any(t.parameters or t.business_rules for t in recon_intel.tools)
-        )
 
-        # Step 6: Generate payloads
         # Priority: custom_framing > recon_custom_framing > standard framing (fallback)
-        if custom_framing:
-            payloads, framing_used = await self._generate_custom(
-                generator, context, custom_framing, payload_count
-            )
-        elif recon_custom_framing:
+        if recon_custom_framing:
             payloads, framing_used = await self._generate_recon_framing(
                 generator, context, recon_custom_framing, payload_count
+            )
+        elif custom_framing:
+            payloads, framing_used = await self._generate_custom(
+                generator, context, custom_framing, payload_count
             )
         else:
             # Fallback to standard framing types

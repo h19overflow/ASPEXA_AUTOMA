@@ -46,6 +46,17 @@ class TestRouteAfterRecon:
 
         assert route_after_recon(state) == "check_safety"
 
+    def test_routes_to_persist_when_cancelled(self):
+        """Test routing to persist when scan is cancelled."""
+        state = SwarmState(
+            audit_id="test-001",
+            target_url="https://api.test.local/chat",
+            agent_types=["sql", "auth"],
+            cancelled=True,
+        )
+
+        assert route_after_recon(state) == "persist"
+
 
 class TestRouteAfterSafety:
     """Tests for route_after_safety function."""
@@ -79,6 +90,17 @@ class TestRouteAfterSafety:
             agent_types=["sql"],
             current_agent_index=1,  # Complete
             agent_results=[AgentResult(agent_type="sql", status="blocked")],
+        )
+
+        assert route_after_safety(state) == "persist"
+
+    def test_routes_to_persist_when_cancelled(self):
+        """Test routing to persist when scan is cancelled."""
+        state = SwarmState(
+            audit_id="test-001",
+            target_url="https://api.test.local/chat",
+            agent_types=["sql"],
+            cancelled=True,
         )
 
         assert route_after_safety(state) == "persist"
@@ -121,6 +143,18 @@ class TestRouteAfterPlan:
 
         assert route_after_plan(state) == "persist"
 
+    def test_routes_to_persist_when_cancelled(self):
+        """Test routing to persist when scan is cancelled."""
+        state = SwarmState(
+            audit_id="test-001",
+            target_url="https://api.test.local/chat",
+            agent_types=["sql"],
+            current_plan={"selected_probes": ["test"]},
+            cancelled=True,
+        )
+
+        assert route_after_plan(state) == "persist"
+
 
 class TestRouteAfterExecute:
     """Tests for route_after_execute function."""
@@ -143,6 +177,18 @@ class TestRouteAfterExecute:
             target_url="https://api.test.local/chat",
             agent_types=["sql"],
             current_agent_index=1,
+        )
+
+        assert route_after_execute(state) == "persist"
+
+    def test_routes_to_persist_when_cancelled(self):
+        """Test routing to persist when scan is cancelled."""
+        state = SwarmState(
+            audit_id="test-001",
+            target_url="https://api.test.local/chat",
+            agent_types=["sql", "auth"],
+            current_agent_index=1,
+            cancelled=True,
         )
 
         assert route_after_execute(state) == "persist"

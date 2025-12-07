@@ -42,7 +42,7 @@ class StrategyGenerator:
         """
         if agent is None:
             agent = create_agent(
-                model="google_genai:gemini-2.5-flash",
+                model="google_genai:gemini-3-pro-preview",
                 response_format=ToolStrategy(AdaptationDecision),
             )
         self._agent = agent

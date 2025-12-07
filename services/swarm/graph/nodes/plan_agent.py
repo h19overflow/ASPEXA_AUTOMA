@@ -2,7 +2,7 @@
 Plan agent node for Swarm graph.
 
 Purpose: Run LLM planning phase for current agent
-Dependencies: services.swarm.agents.base, services.swarm.core.schema
+Dependencies: services.swarm.agents.base, services.swarm.core.schema, swarm_observability
 """
 
 import logging
@@ -11,6 +11,12 @@ from typing import Dict, Any, List
 from services.swarm.graph.state import SwarmState, AgentResult
 from services.swarm.agents.base import run_planning_agent
 from services.swarm.core.schema import ScanInput, ScanConfig
+from services.swarm.swarm_observability import (
+    EventType,
+    create_event,
+    get_cancellation_manager,
+    safe_get_stream_writer,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -65,8 +71,40 @@ async def plan_agent(state: SwarmState) -> Dict[str, Any]:
     Returns:
         Dict with current_plan if successful, agent_results if failed
     """
+    writer = safe_get_stream_writer()
+    manager = get_cancellation_manager(state.audit_id)
     agent_type = state.current_agent
     events = []
+
+    # Calculate progress
+    base_progress = state.current_agent_index / max(state.total_agents, 1)
+
+    # Emit NODE_ENTER
+    writer(create_event(
+        EventType.NODE_ENTER,
+        node="plan_agent",
+        agent=agent_type,
+        message=f"Starting planning for {agent_type}",
+        progress=base_progress,
+    ).model_dump())
+
+    # Check cancellation before planning
+    if await manager.checkpoint():
+        writer(create_event(
+            EventType.SCAN_CANCELLED,
+            node="plan_agent",
+            agent=agent_type,
+            message="Scan cancelled by user before planning",
+        ).model_dump())
+        return {"cancelled": True, "events": events}
+
+    # Emit PLAN_START
+    writer(create_event(
+        EventType.PLAN_START,
+        agent=agent_type,
+        message=f"Planning scan for {agent_type}",
+        progress=base_progress,
+    ).model_dump())
 
     events.append({
         "type": "plan_start",
@@ -104,12 +142,27 @@ async def plan_agent(state: SwarmState) -> Dict[str, Any]:
             error_msg = planning_result.error or "Planning failed"
             logger.warning(f"[{agent_type}] Planning failed: {error_msg}")
 
+            writer(create_event(
+                EventType.SCAN_ERROR,
+                node="plan_agent",
+                agent=agent_type,
+                message=error_msg,
+                data={"phase": "planning"},
+            ).model_dump())
+
             events.append({
                 "type": "error",
                 "agent": agent_type,
                 "phase": "planning",
                 "message": error_msg,
             })
+
+            writer(create_event(
+                EventType.NODE_EXIT,
+                node="plan_agent",
+                agent=agent_type,
+                message=f"Planning failed for {agent_type}",
+            ).model_dump())
 
             return {
                 "agent_results": [AgentResult(
@@ -126,12 +179,27 @@ async def plan_agent(state: SwarmState) -> Dict[str, Any]:
 
         plan = planning_result.plan
         if not plan:
+            writer(create_event(
+                EventType.SCAN_ERROR,
+                node="plan_agent",
+                agent=agent_type,
+                message="No plan produced",
+                data={"phase": "planning"},
+            ).model_dump())
+
             events.append({
                 "type": "error",
                 "agent": agent_type,
                 "phase": "planning",
                 "message": "No plan produced",
             })
+
+            writer(create_event(
+                EventType.NODE_EXIT,
+                node="plan_agent",
+                agent=agent_type,
+                message=f"Planning produced no plan for {agent_type}",
+            ).model_dump())
 
             return {
                 "agent_results": [AgentResult(
@@ -147,6 +215,19 @@ async def plan_agent(state: SwarmState) -> Dict[str, Any]:
 
         # Estimate duration: 0.2s per probe * generations
         estimated_duration = len(plan.selected_probes) * plan.generations * 0.2
+
+        # Emit PLAN_COMPLETE
+        writer(create_event(
+            EventType.PLAN_COMPLETE,
+            agent=agent_type,
+            message=f"Planning complete: {len(plan.selected_probes)} probes selected",
+            data={
+                "probes": plan.selected_probes,
+                "probe_count": len(plan.selected_probes),
+                "generations": plan.generations,
+            },
+            progress=base_progress + (0.1 / state.total_agents),
+        ).model_dump())
 
         events.append({
             "type": "plan_complete",
@@ -165,6 +246,15 @@ async def plan_agent(state: SwarmState) -> Dict[str, Any]:
 
         logger.info(f"[{agent_type}] Planning successful: {len(plan.selected_probes)} probes")
 
+        # Emit NODE_EXIT
+        writer(create_event(
+            EventType.NODE_EXIT,
+            node="plan_agent",
+            agent=agent_type,
+            message=f"Planning complete for {agent_type}",
+            progress=base_progress + (0.1 / state.total_agents),
+        ).model_dump())
+
         return {
             "events": events,
             "current_plan": plan.model_dump(),
@@ -174,11 +264,27 @@ async def plan_agent(state: SwarmState) -> Dict[str, Any]:
     except Exception as e:
         logger.error(f"[{agent_type}] Planning error: {e}", exc_info=True)
 
+        writer(create_event(
+            EventType.SCAN_ERROR,
+            node="plan_agent",
+            agent=agent_type,
+            message=f"Planning error: {e}",
+            data={"phase": "planning", "error": str(e)},
+        ).model_dump())
+
         events.append({
             "type": "log",
             "level": "error",
             "message": f"[{agent_type}] Planning error: {e}",
         })
+
+        # Emit NODE_EXIT on error
+        writer(create_event(
+            EventType.NODE_EXIT,
+            node="plan_agent",
+            agent=agent_type,
+            message=f"Planning failed for {agent_type}",
+        ).model_dump())
 
         return {
             "agent_results": [AgentResult(

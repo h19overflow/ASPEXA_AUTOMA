@@ -130,3 +130,109 @@ class TestSwarmState:
 
         assert state.safety_policy is not None
         assert "injection" in state.safety_policy["blocked_attack_vectors"]
+
+    def test_cancelled_field_default_false(self):
+        """Test that cancelled field defaults to False."""
+        state = SwarmState(
+            audit_id="test-001",
+            target_url="https://api.test.local/chat",
+            agent_types=["sql"],
+        )
+
+        assert state.cancelled is False
+
+    def test_cancelled_field_can_be_set(self):
+        """Test that cancelled field can be set to True."""
+        state = SwarmState(
+            audit_id="test-001",
+            target_url="https://api.test.local/chat",
+            agent_types=["sql"],
+            cancelled=True,
+        )
+
+        assert state.cancelled is True
+
+    def test_progress_field_default_zero(self):
+        """Test that progress field defaults to 0.0."""
+        state = SwarmState(
+            audit_id="test-001",
+            target_url="https://api.test.local/chat",
+            agent_types=["sql"],
+        )
+
+        assert state.progress == 0.0
+
+    def test_progress_field_can_be_set(self):
+        """Test that progress field can be set to valid values."""
+        state = SwarmState(
+            audit_id="test-001",
+            target_url="https://api.test.local/chat",
+            agent_types=["sql"],
+            progress=0.5,
+        )
+
+        assert state.progress == 0.5
+
+    def test_progress_field_validates_min_boundary(self):
+        """Test that progress cannot be less than 0.0."""
+        with pytest.raises(ValueError):
+            SwarmState(
+                audit_id="test-001",
+                target_url="https://api.test.local/chat",
+                agent_types=["sql"],
+                progress=-0.1,
+            )
+
+    def test_progress_field_validates_max_boundary(self):
+        """Test that progress cannot be greater than 1.0."""
+        with pytest.raises(ValueError):
+            SwarmState(
+                audit_id="test-001",
+                target_url="https://api.test.local/chat",
+                agent_types=["sql"],
+                progress=1.1,
+            )
+
+    def test_progress_field_accepts_boundary_values(self):
+        """Test that progress accepts 0.0 and 1.0."""
+        state_start = SwarmState(
+            audit_id="test-001",
+            target_url="https://api.test.local/chat",
+            agent_types=["sql"],
+            progress=0.0,
+        )
+        assert state_start.progress == 0.0
+
+        state_end = SwarmState(
+            audit_id="test-001",
+            target_url="https://api.test.local/chat",
+            agent_types=["sql"],
+            progress=1.0,
+        )
+        assert state_end.progress == 1.0
+
+    def test_state_with_cancelled_and_progress(self):
+        """Test state with both cancelled and progress fields."""
+        state = SwarmState(
+            audit_id="test-001",
+            target_url="https://api.test.local/chat",
+            agent_types=["sql", "auth"],
+            cancelled=True,
+            progress=0.75,
+        )
+
+        assert state.cancelled is True
+        assert state.progress == 0.75
+
+    def test_progress_various_valid_values(self):
+        """Test that progress accepts various valid decimal values."""
+        valid_values = [0.0, 0.1, 0.25, 0.5, 0.75, 0.9, 1.0]
+
+        for value in valid_values:
+            state = SwarmState(
+                audit_id="test-001",
+                target_url="https://api.test.local/chat",
+                agent_types=["sql"],
+                progress=value,
+            )
+            assert state.progress == value

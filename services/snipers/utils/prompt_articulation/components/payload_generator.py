@@ -3,13 +3,14 @@ LLM-based contextual payload generator.
 
 Purpose: Crafts prompts that combine attack objective with framing strategy,
 leveraging target context and historical patterns.
-Uses langchain.agents.create_agent with google_genai:gemini-2.5-flash
+Uses langchain.agents.create_agent with ToolStrategy for structured output.
 """
 
 import logging
 from typing import Any
 
 from langchain.agents import create_agent
+from langchain.agents.structured_output import ToolStrategy
 from pydantic import BaseModel, Field
 
 from services.snipers.utils.prompt_articulation.components.format_control import (
@@ -35,6 +36,17 @@ from services.snipers.utils.prompt_articulation.schemas.tagged_prompt_builder im
 logger = logging.getLogger(__name__)
 
 
+class GeneratedPayloadResponse(BaseModel):
+    """Structured output from the payload generation agent."""
+
+    content: str = Field(..., description="The crafted adversarial test payload text")
+    reasoning: str = Field(..., description="Brief explanation of payload design choices")
+    embedding_technique: str = Field(
+        ...,
+        description="The technique used (e.g., VERIFICATION_REVERSAL, BATCH_HIDING)"
+    )
+
+
 class ArticulatedPayload(BaseModel):
     """Generated payload with metadata."""
 
@@ -49,7 +61,7 @@ class PayloadGenerator:
 
     Combines target intelligence, framing strategy, and format control
     to craft convincing, evasive prompts.
-    Uses langchain.agents.create_agent with google_genai:gemini-2.5-flash
+    Uses langchain.agents.create_agent with ToolStrategy for structured output.
     """
 
     def __init__(
@@ -60,14 +72,15 @@ class PayloadGenerator:
         """Initialize generator with agent and strategy library.
 
         Args:
-            agent: LangChain agent created via create_agent (google_genai:gemini-2.5-flash)
+            agent: LangChain agent with ToolStrategy(GeneratedPayloadResponse)
             framing_library: Repository of framing strategies
         """
-        # Create agent if not provided
+        # Create agent with structured output if not provided
         if agent is None:
             agent = create_agent(
-                model="google_genai:gemini-2.5-pro",
-                system_prompt=PAYLOAD_GENERATION_SYSTEM_PROMPT
+                model="google_genai:gemini-3-pro-preview",
+                system_prompt=PAYLOAD_GENERATION_SYSTEM_PROMPT,
+                response_format=ToolStrategy(GeneratedPayloadResponse),
             )
 
         self.agent = agent
@@ -227,28 +240,34 @@ OUTPUT: The test prompt only, no explanations or meta-text."""
         """Extract payload text from agent response.
 
         Args:
-            response: Agent response (dict, message object, or string)
+            response: Agent response dict with structured_response from ToolStrategy
 
         Returns:
-            Extracted payload text
+            Extracted payload content string
         """
-        # Handle dict response with messages (from agent.ainvoke)
+        # Handle ToolStrategy structured response (preferred path)
         if isinstance(response, dict):
+            structured: GeneratedPayloadResponse | None = response.get("structured_response")
+            if structured is not None:
+                logger.debug(
+                    f"Extracted payload via ToolStrategy: {structured.embedding_technique}"
+                )
+                return structured.content
+
+            # Fallback: extract from messages if no structured_response
             messages = response.get("messages", [])
             if messages:
                 last_message = messages[-1]
-                # Message object (AIMessage, HumanMessage, etc.) with content attr
                 if hasattr(last_message, "content"):
-                    return last_message.content
-                # Dict with content key
+                    return getattr(last_message, "content")
                 elif isinstance(last_message, dict):
                     return last_message.get("content", "")
 
-        # Handle message/AIMessage object directly
+        # Handle message object directly
         if hasattr(response, "content"):
-            return response.content
+            return getattr(response, "content")
 
-        # Handle response as a direct string
+        # Handle string response
         if isinstance(response, str):
             return response
 

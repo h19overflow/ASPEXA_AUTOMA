@@ -49,7 +49,7 @@ class FailureAnalyzerAgent:
         """
         if agent is None:
             agent = create_agent(
-                model="google_genai:gemini-2.5-flash",
+                model="google_genai:gemini-3-pro-preview",
                 response_format=ToolStrategy(FailureAnalysisDecision),
             )
         self._agent = agent

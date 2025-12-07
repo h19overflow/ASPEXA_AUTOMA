@@ -14,6 +14,7 @@ from services.snipers.utils.prompt_articulation.components.framing_library impor
 )
 from services.snipers.utils.prompt_articulation.components.payload_generator import (
     ArticulatedPayload,
+    GeneratedPayloadResponse,
     PayloadGenerator,
 )
 
@@ -24,6 +25,7 @@ __all__ = [
     "FormatControlType",
     "PayloadGenerator",
     "ArticulatedPayload",
+    "GeneratedPayloadResponse",
     "EffectivenessTracker",
     "PersistenceProvider",
 ]

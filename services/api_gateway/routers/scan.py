@@ -1,11 +1,18 @@
 """Scanning router - HTTP endpoints for Swarm service."""
-import json
+from typing import Any, AsyncGenerator, Dict
+
 from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
-from typing import AsyncGenerator
 
 from libs.contracts.scanning import ScanJobDispatch, SafetyPolicy, ScanConfigContract
-from services.swarm.entrypoint import execute_scan_streaming
+from services.api_gateway.utils import serialize_event
+from services.swarm.entrypoint import (
+    execute_scan_streaming,
+    cancel_scan,
+    pause_scan,
+    resume_scan,
+    get_scan_status,
+)
 from services.api_gateway.schemas import ScanStartRequest
 
 router = APIRouter(prefix="/scan", tags=["scanning"])
@@ -64,8 +71,16 @@ async def start_scan_stream(request: ScanStartRequest) -> StreamingResponse:
     )
 
     async def event_generator() -> AsyncGenerator[str, None]:
-        async for event in execute_scan_streaming(scan_dispatch, request.agent_types):
-            yield f"data: {json.dumps(event)}\n\n"
+        async for event in execute_scan_streaming(
+            scan_dispatch,
+            agent_types=request.agent_types,
+            stream_mode=request.stream_mode.value,
+            enable_checkpointing=request.enable_checkpointing,
+        ):
+            yield f"data: {serialize_event(event)}\n\n"
+
+    # Use campaign_id as scan_id hint (actual scan_id is audit_id from recon)
+    scan_id_hint = request.campaign_id or "unknown"
 
     return StreamingResponse(
         event_generator(),
@@ -74,5 +89,65 @@ async def start_scan_stream(request: ScanStartRequest) -> StreamingResponse:
             "Cache-Control": "no-cache",
             "Connection": "keep-alive",
             "X-Accel-Buffering": "no",
+            "X-Scan-Id": scan_id_hint,
         },
     )
+
+
+@router.post("/{scan_id}/cancel")
+async def cancel_scan_endpoint(scan_id: str) -> Dict[str, Any]:
+    """Cancel a running scan.
+
+    The scan will be cancelled at the next checkpoint in the workflow.
+    Partial results may be saved if cancellation occurs mid-execution.
+
+    Args:
+        scan_id: The scan's audit_id (from SCAN_STARTED event)
+
+    Returns:
+        Status dict with scan_id and cancelled state
+    """
+    return cancel_scan(scan_id)
+
+
+@router.post("/{scan_id}/pause")
+async def pause_scan_endpoint(scan_id: str) -> Dict[str, Any]:
+    """Pause a running scan at the next checkpoint.
+
+    The scan will block at the next checkpoint until resumed or cancelled.
+
+    Args:
+        scan_id: The scan's audit_id (from SCAN_STARTED event)
+
+    Returns:
+        Status dict with scan_id and paused state
+    """
+    return pause_scan(scan_id)
+
+
+@router.post("/{scan_id}/resume")
+async def resume_scan_endpoint(scan_id: str) -> Dict[str, Any]:
+    """Resume a paused scan.
+
+    The scan will continue from where it was paused.
+
+    Args:
+        scan_id: The scan's audit_id (from SCAN_STARTED event)
+
+    Returns:
+        Status dict with scan_id and resumed state
+    """
+    return resume_scan(scan_id)
+
+
+@router.get("/{scan_id}/status")
+async def get_scan_status_endpoint(scan_id: str) -> Dict[str, Any]:
+    """Get the current status of a scan.
+
+    Args:
+        scan_id: The scan's audit_id (from SCAN_STARTED event)
+
+    Returns:
+        Status dict with scan_id, cancelled, paused, and found states
+    """
+    return get_scan_status(scan_id)

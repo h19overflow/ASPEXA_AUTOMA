@@ -20,13 +20,15 @@ app = FastAPI(
 )
 
 # CORS middleware for frontend access
+# Note: allow_credentials=True cannot be used with allow_origins=["*"]
+# For development, we use wildcard origins without credentials
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # Allow all origins in development
-    allow_credentials=True,
-    allow_methods=["*"],
+    allow_credentials=False,  # Cannot use True with wildcard origins
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["*"],
-    expose_headers=["*"],
+    expose_headers=["X-Scan-Id"],  # Expose the scan ID header for SSE
 )
 
 # Service execution endpoints

@@ -1,41 +1,63 @@
 """HTTP entrypoint for Swarm scanning service.
 
 Purpose: Thin HTTP layer that invokes the LangGraph workflow
-Dependencies: graph.swarm_graph, graph.state
+Dependencies: graph.swarm_graph, graph.state, swarm_observability
 
 Architecture:
 - Graph-based orchestration with nodes for each phase
 - State machine handles agent loop, planning, execution, persistence
-- Entrypoint just builds initial state and streams events
+- Multi-mode streaming for real-time UI updates
+
+Streaming Modes:
+- "values": Legacy mode, yields events from state.events accumulator
+- "custom": StreamWriter events only (recommended for production)
+- "debug": Both state events and StreamWriter events
 """
 
 import logging
-from typing import Any, AsyncGenerator, Dict, List, Optional
+from typing import Any, AsyncGenerator, Dict, List, Literal, Optional
 
 from libs.contracts.scanning import ScanJobDispatch
 from libs.monitoring import observe
 from services.swarm.core.config import AgentType
 from services.swarm.graph import SwarmState, get_swarm_graph
 from services.swarm.persistence.s3_adapter import load_recon_for_campaign
+from services.swarm.swarm_observability import (
+    get_cancellation_manager,
+    remove_cancellation_manager,
+    get_checkpointer,
+    get_active_scan_ids,
+)
 
 logger = logging.getLogger(__name__)
+
+# Streaming mode type
+StreamMode = Literal["values", "custom", "debug"]
 
 
 @observe()
 async def execute_scan_streaming(
     request: ScanJobDispatch,
     agent_types: Optional[List[str]] = None,
+    stream_mode: StreamMode = "custom",
+    enable_checkpointing: bool = False,
 ) -> AsyncGenerator[Dict[str, Any], None]:
-    """Execute scanning with graph-based orchestration and streaming.
+    """Execute scanning with multi-mode streaming.
 
     Thin wrapper that:
     1. Builds initial state from request
-    2. Invokes LangGraph workflow
-    3. Yields events from state updates
+    2. Registers cancellation manager for pause/resume/cancel
+    3. Invokes LangGraph workflow with selected streaming mode
+    4. Yields events based on stream_mode
 
     Args:
         request: Scan job dispatch with target info and config
         agent_types: Optional list of agent types to run
+        stream_mode: Streaming mode
+            - "values": Legacy events from state.events
+            - "custom": Real-time StreamWriter events (default)
+            - "debug": Both state and StreamWriter events
+        enable_checkpointing: Enable state persistence for resume capability
 
     Yields:
         SSE event dictionaries for real-time UI updates
@@ -114,18 +136,56 @@ async def execute_scan_streaming(
         safety_policy=safety_policy,
     )
 
-    # Get compiled graph
-    graph = get_swarm_graph()
+    # Register cancellation manager for this scan
+    manager = get_cancellation_manager(audit_id)
+    logger.info(f"Registered cancellation manager for scan {audit_id}")
+
+    # Get checkpointer if enabled
+    checkpointer = get_checkpointer(persistent=False) if enable_checkpointing else None
+
+    # Get compiled graph (with or without checkpointer)
+    graph = get_swarm_graph(checkpointer=checkpointer)
+
+    # Build config with thread_id for checkpointing
+    config = {"configurable": {"thread_id": audit_id}}
 
     # Stream graph execution
     try:
-        async for state_update in graph.astream(initial_state):
-            # Each state_update is a dict with node name as key
-            for node_name, node_output in state_update.items():
-                # Yield events from this node
-                if isinstance(node_output, dict) and "events" in node_output:
-                    for event in node_output["events"]:
-                        yield event
+        if stream_mode == "values":
+            # Legacy mode: events from state.events accumulator
+            async for state_update in graph.astream(initial_state, config=config):
+                for node_name, node_output in state_update.items():
+                    if isinstance(node_output, dict) and "events" in node_output:
+                        for event in node_output["events"]:
+                            yield event
+
+        elif stream_mode == "custom":
+            # Custom mode: StreamWriter events only (real-time)
+            async for event in graph.astream(
+                initial_state,
+                config=config,
+                stream_mode="custom",
+            ):
+                yield event
+
+        elif stream_mode == "debug":
+            # Debug mode: Both state events and StreamWriter events
+            async for chunk in graph.astream(
+                initial_state,
+                config=config,
+                stream_mode=["values", "custom"],
+            ):
+                if isinstance(chunk, tuple) and len(chunk) == 2:
+                    mode, data = chunk
+                    if mode == "custom":
+                        yield data
+                    elif mode == "values":
+                        for node_name, node_output in data.items():
+                            if isinstance(node_output, dict) and "events" in node_output:
+                                for event in node_output["events"]:
+                                    yield {"_mode": "state", **event}
+                else:
+                    yield chunk
 
     except Exception as e:
         logger.error(f"Graph execution error: {e}", exc_info=True)
@@ -142,3 +202,83 @@ async def execute_scan_streaming(
                 "error": str(e),
             },
         }
+    finally:
+        # Cleanup cancellation manager
+        remove_cancellation_manager(audit_id)
+        logger.info(f"Cleaned up cancellation manager for scan {audit_id}")
+
+
+# Control functions for API endpoints
+def cancel_scan(scan_id: str) -> Dict[str, Any]:
+    """Cancel a running scan.
+
+    Args:
+        scan_id: Unique identifier for the scan (audit_id)
+
+    Returns:
+        Status dict with scan_id and cancelled state
+    """
+    if scan_id not in get_active_scan_ids():
+        return {"scan_id": scan_id, "found": False, "message": "Scan not found"}
+
+    manager = get_cancellation_manager(scan_id)
+    manager.cancel()
+    logger.info(f"Cancelled scan {scan_id}")
+    return {"scan_id": scan_id, "cancelled": True}
+
+
+def pause_scan(scan_id: str) -> Dict[str, Any]:
+    """Pause a running scan at the next checkpoint.
+
+    Args:
+        scan_id: Unique identifier for the scan (audit_id)
+
+    Returns:
+        Status dict with scan_id and paused state
+    """
+    if scan_id not in get_active_scan_ids():
+        return {"scan_id": scan_id, "found": False, "message": "Scan not found"}
+
+    manager = get_cancellation_manager(scan_id)
+    manager.pause()
+    logger.info(f"Paused scan {scan_id}")
+    return {"scan_id": scan_id, "paused": True}
+
+
+def resume_scan(scan_id: str) -> Dict[str, Any]:
+    """Resume a paused scan.
+
+    Args:
+        scan_id: Unique identifier for the scan (audit_id)
+
+    Returns:
+        Status dict with scan_id and resumed state
+    """
+    if scan_id not in get_active_scan_ids():
+        return {"scan_id": scan_id, "found": False, "message": "Scan not found"}
+
+    manager = get_cancellation_manager(scan_id)
+    manager.resume()
+    logger.info(f"Resumed scan {scan_id}")
+    return {"scan_id": scan_id, "paused": False}
+
+
+def get_scan_status(scan_id: str) -> Dict[str, Any]:
+    """Get the current status of a scan.
+
+    Args:
+        scan_id: Unique identifier for the scan (audit_id)
+
+    Returns:
+        Status dict with scan_id, cancelled, paused, and found states
+    """
+    if scan_id not in get_active_scan_ids():
+        return {"scan_id": scan_id, "found": False, "message": "Scan not found"}
+
+    manager = get_cancellation_manager(scan_id)
+    return {
+        "scan_id": scan_id,
+        "found": True,
+        "cancelled": manager.is_cancelled,
+        "paused": manager.is_paused,
+    }

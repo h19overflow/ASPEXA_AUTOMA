@@ -17,6 +17,7 @@ from services.api_gateway.schemas.snipers import (
     FullAttackRequest,
     AdaptiveAttackRequest,
 )
+from services.api_gateway.utils import serialize_event
 from services.snipers.entrypoint import (
     execute_full_attack_streaming,
     execute_adaptive_attack_streaming,
@@ -62,7 +63,7 @@ async def run_full_attack_stream(request: FullAttackRequest) -> StreamingRespons
                     converter_names=request.converter_names,
                     max_concurrent=request.max_concurrent,
                 ):
-                    yield f"data: {json.dumps(event)}\n\n"
+                    yield f"data: {serialize_event(event)}\n\n"
             except Exception as e:
                 # Yield error event before closing stream
                 error_event = {
@@ -70,7 +71,7 @@ async def run_full_attack_stream(request: FullAttackRequest) -> StreamingRespons
                     "message": f"Stream error: {str(e)}",
                     "data": {"error": str(e), "error_type": type(e).__name__},
                 }
-                yield f"data: {json.dumps(error_event)}\n\n"
+                yield f"data: {serialize_event(error_event)}\n\n"
 
         return StreamingResponse(
             event_generator(),
@@ -135,7 +136,7 @@ async def run_adaptive_attack_stream(request: AdaptiveAttackRequest) -> Streamin
                     success_scorers=success_scorers,
                     success_threshold=request.success_threshold,
                 ):
-                    yield f"data: {json.dumps(event)}\n\n"
+                    yield f"data: {serialize_event(event)}\n\n"
             except Exception as e:
                 # Yield error event before closing stream
                 error_event = {
@@ -143,7 +144,7 @@ async def run_adaptive_attack_stream(request: AdaptiveAttackRequest) -> Streamin
                     "message": f"Stream error: {str(e)}",
                     "data": {"error": str(e), "error_type": type(e).__name__},
                 }
-                yield f"data: {json.dumps(error_event)}\n\n"
+                yield f"data: {serialize_event(error_event)}\n\n"
 
         return StreamingResponse(
             event_generator(),

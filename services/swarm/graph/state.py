@@ -89,6 +89,18 @@ class SwarmState(BaseModel):
         description="Index of currently processing agent"
     )
 
+    # Observability fields (Phase 2)
+    cancelled: bool = Field(
+        default=False,
+        description="Whether scan was cancelled by user"
+    )
+    progress: float = Field(
+        default=0.0,
+        ge=0.0,
+        le=1.0,
+        description="Overall scan progress (0.0-1.0)"
+    )
+
     # Accumulators (use operator.add reducer to append)
     agent_results: Annotated[List[AgentResult], add] = Field(
         default_factory=list,

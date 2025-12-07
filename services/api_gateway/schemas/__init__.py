@@ -1,6 +1,6 @@
 """API Gateway request/response schemas."""
 from .recon import ReconStartRequest
-from .scan import ScanStartRequest
+from .scan import ScanStartRequest, ScanStreamMode
 from .exploit import ExploitStartRequest, ExploitStreamRequest, AttackModeAPI, ProbeCategoryAPI
 from .campaigns import CampaignCreateRequest, CampaignUpdateRequest, StageCompleteRequest
 from .snipers import (
@@ -37,6 +37,7 @@ from .snipers import (
 __all__ = [
     "ReconStartRequest",
     "ScanStartRequest",
+    "ScanStreamMode",
     "ExploitStartRequest",
     "ExploitStreamRequest",
     "AttackModeAPI",

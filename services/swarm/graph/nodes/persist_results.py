@@ -2,7 +2,7 @@
 Persist results node for Swarm graph.
 
 Purpose: Persist all successful agent results to S3
-Dependencies: services.swarm.persistence.s3_adapter
+Dependencies: services.swarm.persistence.s3_adapter, swarm_observability
 """
 
 import logging
@@ -11,6 +11,12 @@ from typing import Dict, Any, List
 
 from services.swarm.graph.state import SwarmState
 from services.swarm.persistence.s3_adapter import persist_garak_result
+from services.swarm.swarm_observability import (
+    EventType,
+    create_event,
+    remove_cancellation_manager,
+    safe_get_stream_writer,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +33,16 @@ async def persist_results(state: SwarmState) -> Dict[str, Any]:
     Returns:
         Dict with events including completion
     """
+    writer = safe_get_stream_writer()
     events = []
+
+    # Emit NODE_ENTER
+    writer(create_event(
+        EventType.NODE_ENTER,
+        node="persist_results",
+        message="Starting result persistence",
+        progress=0.95,
+    ).model_dump())
 
     for result in state.agent_results:
         if result.status != "success":
@@ -109,7 +124,27 @@ async def persist_results(state: SwarmState) -> Dict[str, Any]:
         "data": final_results,
     })
 
-    return {"events": events}
+    # Emit SCAN_COMPLETE via StreamWriter
+    writer(create_event(
+        EventType.SCAN_COMPLETE,
+        node="persist_results",
+        message="Scan complete",
+        data=final_results,
+        progress=1.0,
+    ).model_dump())
+
+    # Emit NODE_EXIT
+    writer(create_event(
+        EventType.NODE_EXIT,
+        node="persist_results",
+        message="Persistence complete",
+        progress=1.0,
+    ).model_dump())
+
+    # Cleanup cancellation manager
+    remove_cancellation_manager(state.audit_id)
+
+    return {"events": events, "progress": 1.0}
 
 
 def _build_vulnerability_clusters(

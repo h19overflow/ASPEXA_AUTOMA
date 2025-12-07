@@ -73,7 +73,7 @@ class TestFramingLibrary:
         library = FramingLibrary()
         strategy = library.get_strategy(FramingType.COMPLIANCE_AUDIT)
         assert strategy.type == FramingType.COMPLIANCE_AUDIT
-        assert strategy.name == "Compliance Audit"
+        assert strategy.name == "Compliance Auditor (Security Tester Persona)"
 
     def test_get_strategy_invalid(self):
         """Test getting non-existent strategy."""
@@ -268,6 +268,41 @@ class TestEffectivenessTracker:
         assert "healthcare" in json_str
 
 
+class TestGeneratedPayloadResponse:
+    """Tests for GeneratedPayloadResponse Pydantic model."""
+
+    def test_generated_payload_response_creation(self):
+        """Test creating GeneratedPayloadResponse with ToolStrategy output."""
+        from services.snipers.utils.prompt_articulation.components import (
+            GeneratedPayloadResponse,
+        )
+
+        response = GeneratedPayloadResponse(
+            content="Test payload from agent",
+            reasoning="Using social engineering framing",
+            embedding_technique="VERIFICATION_REVERSAL",
+        )
+
+        assert response.content == "Test payload from agent"
+        assert response.reasoning == "Using social engineering framing"
+        assert response.embedding_technique == "VERIFICATION_REVERSAL"
+
+    def test_generated_payload_response_validation(self):
+        """Test that GeneratedPayloadResponse validates required fields."""
+        from services.snipers.utils.prompt_articulation.components import (
+            GeneratedPayloadResponse,
+        )
+        from pydantic import ValidationError
+
+        # Should raise validation error when required field is missing
+        with pytest.raises(ValidationError):
+            GeneratedPayloadResponse(
+                content="Test",
+                reasoning="Test",
+                # embedding_technique is missing
+            )
+
+
 class TestPayloadGenerator:
     """Tests for PayloadGenerator component."""
 
@@ -292,7 +327,7 @@ class TestPayloadGenerator:
         library = FramingLibrary()
         generator = PayloadGenerator(framing_library=library)
         assert generator.framing_library is library
-        assert generator.model == "google_genai:gemini-2.5-pro"  # Default model
+        assert generator.agent is not None  # Agent is created with ToolStrategy
 
     def test_articulated_payload_model(self):
         """Test ArticulatedPayload model creation."""
@@ -304,15 +339,51 @@ class TestPayloadGenerator:
             content="Test payload content",
             framing_type=FramingType.QA_TESTING,
             format_control=FormatControlType.RAW_OUTPUT,
-            reasoning="Test reasoning",
-            embedding_technique="VERIFICATION_REVERSAL",
+            context_summary={"domain": "test", "tools_count": 2},
         )
 
         assert payload.content == "Test payload content"
         assert payload.framing_type == FramingType.QA_TESTING
         assert payload.format_control == FormatControlType.RAW_OUTPUT
-        assert payload.reasoning == "Test reasoning"
-        assert payload.embedding_technique == "VERIFICATION_REVERSAL"
+        assert payload.context_summary == {"domain": "test", "tools_count": 2}
+
+    @pytest.mark.asyncio
+    async def test_payload_generator_extract_payload_from_structured_response(self):
+        """Test extraction of payload from ToolStrategy structured response."""
+        from services.snipers.utils.prompt_articulation.components import (
+            GeneratedPayloadResponse,
+        )
+
+        mock_agent = MagicMock()
+        generator = PayloadGenerator(agent=mock_agent, framing_library=FramingLibrary())
+
+        # Mock response with structured_response from ToolStrategy
+        structured_response = GeneratedPayloadResponse(
+            content="Generated test payload",
+            reasoning="Using QA framing",
+            embedding_technique="VERIFICATION_REVERSAL",
+        )
+        response = {"structured_response": structured_response}
+
+        # Extract payload text
+        result = generator._extract_payload_text(response)
+
+        assert result == "Generated test payload"
+
+    def test_payload_generator_extract_payload_fallback_to_messages(self):
+        """Test extraction of payload from messages if no structured_response."""
+        mock_agent = MagicMock()
+        generator = PayloadGenerator(agent=mock_agent, framing_library=FramingLibrary())
+
+        # Mock response with messages fallback
+        class MockMessage:
+            content = "Payload from message"
+
+        response = {"messages": [MockMessage()]}
+
+        result = generator._extract_payload_text(response)
+
+        assert result == "Payload from message"
 
 
 @pytest.fixture

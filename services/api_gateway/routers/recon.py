@@ -1,13 +1,13 @@
 """Reconnaissance router - HTTP endpoints for Cartographer service."""
-import json
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from typing import AsyncGenerator
 
 from libs.contracts.recon import ReconRequest, TargetConfig, ScopeConfig
 from libs.contracts.common import DepthLevel
-from services.cartographer.entrypoint import  execute_recon_streaming
+from services.cartographer.entrypoint import execute_recon_streaming
 from services.api_gateway.schemas import ReconStartRequest
+from services.api_gateway.utils import serialize_event
 
 router = APIRouter(prefix="/recon", tags=["reconnaissance"])
 
@@ -36,7 +36,7 @@ async def start_recon_stream(request: ReconStartRequest) -> StreamingResponse:
 
     async def event_generator() -> AsyncGenerator[str, None]:
         async for event in execute_recon_streaming(recon_request):
-            yield f"data: {json.dumps(event)}\n\n"
+            yield f"data: {serialize_event(event)}\n\n"
 
     return StreamingResponse(
         event_generator(),

@@ -1,6 +1,20 @@
 """Scanning endpoint schemas."""
+from enum import Enum
 from pydantic import BaseModel, Field, model_validator
 from typing import Any, Dict, List, Optional
+
+
+class ScanStreamMode(str, Enum):
+    """Streaming mode for scan execution.
+
+    - VALUES: Legacy mode, yields events from state.events accumulator
+    - CUSTOM: StreamWriter events only (recommended for production)
+    - DEBUG: Both state and StreamWriter events
+    """
+
+    VALUES = "values"
+    CUSTOM = "custom"
+    DEBUG = "debug"
 
 
 class ScanConfigRequest(BaseModel):
@@ -112,6 +126,15 @@ class ScanStartRequest(BaseModel):
     config: Optional[ScanConfigRequest] = Field(
         default=None,
         description="Optional scan configuration. If not provided, defaults are used."
+    )
+    # Streaming options
+    stream_mode: ScanStreamMode = Field(
+        default=ScanStreamMode.CUSTOM,
+        description="Streaming mode: 'custom' (real-time), 'values' (legacy), or 'debug' (both)"
+    )
+    enable_checkpointing: bool = Field(
+        default=False,
+        description="Enable state persistence for pause/resume capability"
     )
 
     @model_validator(mode="after")
