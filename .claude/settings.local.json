@@ -35,7 +35,10 @@
       "Bash(pulumi config set:*)",
       "Bash(pulumi config:*)",
       "Bash(Get-ChildItem \"C:\\Users\\User\\Projects\\Aspexa_Automa\\services\\snipers\\adaptive_attack\\components\")",
-      "Bash(Get-ChildItem \"C:\\Users\\User\\Projects\\Aspexa_Automa\\services\\snipers\\adaptive_attack\\nodes\")"
+      "Bash(Get-ChildItem \"C:\\Users\\User\\Projects\\Aspexa_Automa\\services\\snipers\\adaptive_attack\\nodes\")",
+      "Bash(Get-ChildItem -Directory)",
+      "Bash(ls:*)",
+      "Bash(test:*)"
     ],
     "deny": [],
     "ask": []

@@ -10,15 +10,28 @@ wheels/
 .venv
 .env
 
+# IDE-specific files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Test caching
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+tests/coverage_html/
+tests/junit.xml
+tests/report.html
+tests/test_results.log
+
 # Reconnaissance results (temporary storage)
 recon_results/
-
-# Coverage reports
-.coverage
-htmlcov/
 garak_runs/
-claude/
 
-# Decision logs
+# Decision logs & exploitation results
 logs/
 exploit_results/
+claude/
