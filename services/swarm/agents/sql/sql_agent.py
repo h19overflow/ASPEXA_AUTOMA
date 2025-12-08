@@ -29,7 +29,7 @@ class SQLAgent(BaseAgent):
     probe selection based on recon intelligence.
     """
 
-    def __init__(self, model_name: str = "google_genai:gemini-2.5-pro"):
+    def __init__(self, model_name: str = "google_genai:gemini-2.5-flash"):
         """Initialize SQL agent.
 
         Args:

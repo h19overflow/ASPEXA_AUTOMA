@@ -7,6 +7,8 @@ Dependencies: langchain, langchain_google_genai, scanner, config
 """
 from typing import Dict, Type
 
+from libs.monitoring import observe
+
 # New agent architecture (LangChain v1)
 from .base_agent import BaseAgent, ProbePlan
 from .sql import SQLAgent
@@ -30,6 +32,7 @@ from services.swarm.core.config import AgentType
 # ============================================================================
 
 
+@observe()
 async def run_sql_agent(scan_input):
     """[DEPRECATED] Run SQL/Data Surface scanning agent. Use run_planning_agent instead."""
     return await run_scanning_agent(AgentType.SQL.value, scan_input)
@@ -40,6 +43,7 @@ def create_sql_agent(model_name: str = "gemini-2.5-flash"):
     return create_scanning_agent(AgentType.SQL.value, model_name)
 
 
+@observe()
 async def run_auth_agent(scan_input):
     """[DEPRECATED] Run Authorization Surface scanning agent. Use run_planning_agent instead."""
     return await run_scanning_agent(AgentType.AUTH.value, scan_input)
@@ -50,6 +54,7 @@ def create_auth_agent(model_name: str = "gemini-2.5-flash"):
     return create_scanning_agent(AgentType.AUTH.value, model_name)
 
 
+@observe()
 async def run_jailbreak_agent(scan_input):
     """[DEPRECATED] Run Jailbreak/System Prompt Surface scanning agent. Use run_planning_agent instead."""
     return await run_scanning_agent(AgentType.JAILBREAK.value, scan_input)

@@ -289,6 +289,7 @@ create_scanning_agent = create_planning_agent
 _build_planning_input = build_planning_input  # Alias for tests
 
 
+@observe()
 async def run_scanning_agent(
     agent_type: str,
     scan_input: ScanInput,

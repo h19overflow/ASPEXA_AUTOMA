@@ -20,6 +20,7 @@ import logging
 from typing import Literal
 
 from langgraph.graph import StateGraph, START, END
+from libs.monitoring import CallbackHandler
 
 from services.snipers.adaptive_attack.state import (
     AdaptiveAttackState,
@@ -178,10 +179,17 @@ async def run_adaptive_attack(
     # Each iteration visits: articulate → convert → execute → evaluate → adapt
     recursion_limit = (max_iterations * 5) + 10
 
+    # Initialize Langfuse callback handler for tracing
+    langfuse_handler = CallbackHandler()
+
     # Run graph to completion
     final_state = await graph.ainvoke(
         initial_state,
-        config={"recursion_limit": recursion_limit},
+        config={
+            "recursion_limit": recursion_limit,
+            "callbacks": [langfuse_handler],
+            "run_name": "AdaptiveAttack",
+        },
     )
 
     # Log final result to turn logger
@@ -276,6 +284,9 @@ async def run_adaptive_attack_streaming(
     # Each iteration visits: articulate → convert → execute → evaluate → adapt
     recursion_limit = (max_iterations * 5) + 10
 
+    # Initialize Langfuse callback handler for tracing
+    langfuse_handler = CallbackHandler()
+
     # Track current iteration for events
     current_iteration = 0
     final_state = initial_state
@@ -284,7 +295,11 @@ async def run_adaptive_attack_streaming(
         # Use astream to get intermediate states
         async for state_update in graph.astream(
             initial_state,
-            config={"recursion_limit": recursion_limit},
+            config={
+                "recursion_limit": recursion_limit,
+                "callbacks": [langfuse_handler],
+                "run_name": "AdaptiveAttackStream",
+            },
         ):
             # state_update is a dict with node name -> output
             for node_name, node_output in state_update.items():

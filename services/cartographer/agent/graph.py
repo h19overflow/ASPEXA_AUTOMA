@@ -24,7 +24,7 @@ def build_recon_graph():
 
     # Initialize model - lower temperature for more reliable structured output
     model = ChatGoogleGenerativeAI(
-        model="gemini-2.5-pro",
+        model="gemini-2.5-flash",
         temperature=0.1,
     )
 

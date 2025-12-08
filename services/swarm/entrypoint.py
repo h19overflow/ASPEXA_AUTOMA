@@ -18,7 +18,7 @@ import logging
 from typing import Any, AsyncGenerator, Dict, List, Literal, Optional
 
 from libs.contracts.scanning import ScanJobDispatch
-from libs.monitoring import observe
+from libs.monitoring import observe, CallbackHandler
 from services.swarm.core.config import AgentType
 from services.swarm.graph import SwarmState, get_swarm_graph
 from services.swarm.persistence.s3_adapter import load_recon_for_campaign
@@ -146,8 +146,15 @@ async def execute_scan_streaming(
     # Get compiled graph (with or without checkpointer)
     graph = get_swarm_graph(checkpointer=checkpointer)
 
-    # Build config with thread_id for checkpointing
-    config = {"configurable": {"thread_id": audit_id}}
+    # Initialize Langfuse callback handler for tracing
+    langfuse_handler = CallbackHandler()
+
+    # Build config with thread_id for checkpointing and monitoring
+    config = {
+        "configurable": {"thread_id": audit_id},
+        "callbacks": [langfuse_handler],
+        "run_name": "SwarmScan",
+    }
 
     # Stream graph execution
     try:

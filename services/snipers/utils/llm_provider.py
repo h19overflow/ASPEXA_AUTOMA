@@ -23,7 +23,7 @@ load_dotenv()
 
 
 def get_default_agent(
-    model_id: str = "google_genai:gemini-2.5-pro",
+    model_id: str = "google_genai:gemini-2.5-flash",
     temperature: float = 0.7,
     system_prompt: str = "You are an intelligent exploit agent. Analyze and respond accurately.",
 ) -> Any:

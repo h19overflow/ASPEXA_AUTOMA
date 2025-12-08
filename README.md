@@ -278,43 +278,85 @@ async for event in execute_recon_streaming(ReconRequest(
 
 **Goal**: Find vulnerabilities using recon intelligence to guide probe selection with real-time streaming feedback.
 
-**Architecture**: Two-phase intelligent scanning with planning (2-3s) followed by streaming execution.
+**Architecture**: LangGraph state machine orchestrating planning → safety checks → execution → persistence with multi-mode streaming.
 
-### Two-Phase Design
+### LangGraph State Machine
 
 ```mermaid
-graph TB
-    Input["📊 Target Intelligence<br/>(from Cartographer)"] --> Planning["🤖 Planning Agent<br/>LLM analyzes infrastructure"]
-    Planning --> Plan["📋 ScanPlan Generated<br/>2-3 seconds"]
-    Plan -->|User sees plan immediately| Execution["🔬 Execution Phase<br/>Scanner runs probes"]
-    Execution -->|Real-time SSE events| Results["📈 Vulnerability Results<br/>IF-04 Clusters"]
+stateDiagram-v2
+    [*] --> load_recon: Start
 
-    style Input fill:#e1f5ff,stroke:#333,stroke-width:2px,color:#000
-    style Planning fill:#fff4e6,stroke:#333,stroke-width:2px,color:#000
-    style Plan fill:#fff9c4,stroke:#333,stroke-width:2px,color:#000
-    style Execution fill:#f3e5f5,stroke:#333,stroke-width:2px,color:#000
-    style Results fill:#e0f2f1,stroke:#333,stroke-width:3px,color:#000
+    load_recon --> check_safety: Route to safety
+
+    check_safety --> agent_blocked: Agent blocked?\nOr all done?
+    check_safety --> plan: Agent allowed
+
+    agent_blocked --> persist: Blocked agent
+    agent_blocked --> check_safety: Next agent
+
+    plan --> plan_complete: Plan created?
+    plan --> check_safety: Planning failed
+
+    plan_complete --> execute: Start execution
+
+    execute --> execution_done: All agents done?
+    execute --> check_safety: Next agent
+
+    execution_done --> persist: All complete
+
+    persist --> [*]: Finish
+
+    note right of load_recon
+        Loads intelligence from
+        request or S3
+    end
+
+    note right of check_safety
+        Enforces safety policy
+        Routes agents
+    end
+
+    note right of plan
+        Planning agent decides
+        which probes to run
+    end
+
+    note right of execute
+        Scanner executes plan
+        Real-time SSE streaming
+    end
+
+    note right of persist
+        Saves results to S3/DB
+        IF-04 format
+    end
 ```
+
+**Architecture Files**: See `services/swarm/graph/` for LangGraph nodes and state management.
 
 #### Phase 1: Planning (2-3 seconds)
 
 The planning agent analyzes target intelligence and creates a scan strategy:
-- Determines which probes to run (intelligence-driven)
-- Calculates generations per probe
-- Estimates total duration
-- Generates reasoning for probe selection
+- Receives full recon context (infrastructure, tools, detected prompts, auth details)
+- Calls `analyze_target()` tool to assess threat level
+- Calls `plan_scan()` tool to determine probe selection and generations
+- Returns ScanPlan with reasoning for each probe selection
 
-**User sees**: Quick feedback about what will be tested, no waiting for 30+ minutes.
+**User sees**: Quick feedback about what will be tested in <3 seconds, before execution even starts.
+
+**Entry Point**: `services/swarm/agents/base.py:208-284` (`run_planning_agent()`)
 
 #### Phase 2: Execution (Streaming)
 
 Scanner executes the plan with real-time SSE events:
-- `probe_start` - When a probe begins
-- `probe_result` - Each test result (pass/fail/error) with detector score
-- `probe_complete` - Probe summary with pass/fail counts
-- `agent_complete` - Final results with vulnerability count
+- `probe_start` - When a probe begins execution
+- `probe_result` - Each individual test result (pass/fail/error) with detector confidence score
+- `probe_complete` - Probe summary with pass/fail counts and duration
+- `complete` - Final results with total vulnerability count
 
-**User sees**: Live progress updates, can see results as they arrive.
+**User sees**: Live progress updates, can see results as they arrive via multi-mode streaming.
+
+**Entry Point**: `services/swarm/entrypoint.py:38-215` (`execute_scan_streaming()`)
 
 ### The Trinity: Three Specialized Agents
 
@@ -388,47 +430,80 @@ Each agent specializes in a different attack surface and adapts based on recon i
 
 ### Usage Example
 
-**Minimal (Let Agent Decide)**:
+**HTTP Streaming (Recommended)**:
 ```python
-from services.swarm.agents.trinity import run_jailbreak_agent
-from services.swarm.schema import ScanInput, ScanConfig
+from libs.contracts.scanning import ScanJobDispatch
+from services.swarm.entrypoint import execute_scan_streaming
 
-result = await run_jailbreak_agent(ScanInput(
+request = ScanJobDispatch(
     audit_id="scan-001",
     target_url="https://api.example.com/chat",
-    infrastructure={"model": "gpt-4"},
-    config=ScanConfig(approach="standard")
-))
+    blueprint_context={
+        "target_url": "https://api.example.com/chat",
+        "infrastructure": {"model": "gpt-4"},
+        "detected_tools": [...]
+    }
+)
+
+# Execute with real-time streaming
+async for event in execute_scan_streaming(request, stream_mode="custom"):
+    if event["type"] == "probe_result":
+        print(f"Result: {event['status']}")
+    elif event["type"] == "complete":
+        print(f"Done: {event['data']['vulnerabilities']} found")
 ```
 
-**Advanced (Full Control)**:
+**Direct Planning Agent (Testing)**:
 ```python
-result = await run_jailbreak_agent(ScanInput(
+from services.swarm.agents.base import run_planning_agent
+from services.swarm.core.schema import ScanInput, ScanConfig
+
+scan_input = ScanInput(
+    audit_id="test-001",
+    agent_type="agent_jailbreak",
+    target_url="https://api.example.com/chat",
+    infrastructure={"model_family": "gpt-4"},
+    detected_tools=[],
+    config=ScanConfig(approach="standard", max_probes=10)
+)
+
+result = await run_planning_agent(
+    agent_type="agent_jailbreak",
+    scan_input=scan_input
+)
+
+if result.success:
+    plan = result.plan
+    print(f"Selected probes: {plan.selected_probes}")
+else:
+    print(f"Planning failed: {result.error}")
+```
+
+**Advanced Streaming (Full Control)**:
+```python
+# Configure custom parameters
+request = ScanJobDispatch(
     audit_id="scan-002",
-    target_url="wss://api.example.com/ws",  # WebSocket
-    config=ScanConfig(
+    target_url="https://api.example.com/chat",
+    blueprint_context={...},
+    scan_config=ScanConfig(
         approach="thorough",
         enable_parallel_execution=True,
         max_concurrent_probes=3,
         max_concurrent_generations=2,
         requests_per_second=10.0,
-        connection_type="websocket",
         request_timeout=60
     )
-))
-```
+)
 
-**Streaming (Real-time Events)**:
-```python
-plan_result = await run_planning_agent("agent_jailbreak", scan_input)
-scanner = get_scanner()
-scanner.configure_endpoint(scan_input.target_url)
-
-async for event in scanner.scan_with_streaming(plan_result.plan):
-    if event["type"] == "probe_result":
+# Execute with debug mode (both state and StreamWriter events)
+async for event in execute_scan_streaming(request, stream_mode="debug"):
+    if event["type"] == "log":
+        print(f"[LOG] {event['message']}")
+    elif event["type"] == "probe_result":
         print(f"Result: {event['status']} (score: {event['detector_score']:.2f})")
-    elif event["type"] == "agent_complete":
-        print(f"Complete: {event['vulnerabilities']} vulns found")
+    elif event["type"] == "complete":
+        print(f"Done: {event['data']['vulnerabilities']} vulns found")
 ```
 
 ### Output
@@ -444,16 +519,19 @@ async for event in scanner.scan_with_streaming(plan_result.plan):
 
 ### Files Reference
 
-- [`services/swarm/agents/`](services/swarm/agents/) - Trinity agents (SQL, Auth, Jailbreak)
-- [`services/swarm/agents/base.py`](services/swarm/agents/base.py) - Base agent functionality
-- [`services/swarm/agents/trinity.py`](services/swarm/agents/trinity.py) - Agent factory functions
-- [`services/swarm/agents/tools.py`](services/swarm/agents/tools.py) - LLM tools (analyze_target, execute_scan)
-- [`services/swarm/garak_scanner/`](services/swarm/garak_scanner/) - Garak scanner integration
-- [`services/swarm/garak_scanner/scanner.py`](services/swarm/garak_scanner/scanner.py) - Probe execution
-- [`services/swarm/garak_scanner/detectors.py`](services/swarm/garak_scanner/detectors.py) - Vulnerability detection
-- [`services/swarm/config.py`](services/swarm/config.py) - Probe configuration & categories
+See **[Swarm README](services/swarm/README.md)** for detailed documentation with working code references.
 
-**Status**: ✅ Complete | **Latest Features**: Two-phase architecture, real-time streaming, parallel execution, WebSocket support
+**Key Architecture Components**:
+- `services/swarm/agents/base.py:208-284` - Planning agent entry point
+- `services/swarm/entrypoint.py:38-215` - HTTP streaming orchestration
+- `services/swarm/graph/swarm_graph.py` - LangGraph state machine definition
+- `services/swarm/graph/nodes/` - 5 state machine nodes (load_recon, check_safety, plan, execute, persist)
+- `services/swarm/agents/sql/`, `auth/`, `jailbreak/` - Trinity agents with isolated prompts and tools
+- `services/swarm/garak_scanner/scanner.py` - Probe execution engine
+- `services/swarm/core/config.py` - Agent types, probe configurations, scan approaches
+- `services/swarm/core/schema.py:25-100` - ScanInput, ScanConfig, ScanPlan types
+
+**Status**: ✅ Complete | **Latest Features**: LangGraph state machine, safety policy enforcement, multi-mode streaming (values/custom/debug), pause/resume/cancel controls, configurable scan approaches
 
 ---
 
@@ -860,20 +938,33 @@ curl -X POST http://localhost:8081/recon/start \
   }'
 ```
 
-### 4. Run Scanning
+### 4. Run Scanning (Real-time Streaming)
 
 ```bash
-curl -X POST http://localhost:8081/scan/start \
+curl -X POST http://localhost:8081/scan/start/stream \
   -H "Content-Type: application/json" \
   -d '{
-    "campaign_id": "test-001",
-    "agent_types": ["sql", "auth", "jailbreak"],
-    "config": {
+    "audit_id": "test-001",
+    "target_url": "http://localhost:8082/chat",
+    "blueprint_context": {
+      "target_url": "http://localhost:8082/chat",
+      "audit_id": "test-001",
+      "infrastructure": {
+        "model": "gpt-4"
+      },
+      "detected_tools": []
+    },
+    "scan_config": {
       "approach": "standard",
-      "max_probes": 10
+      "max_probes": 10,
+      "allow_agent_override": true
     }
   }'
 ```
+
+This will stream real-time events (probe_start, probe_result, probe_complete, complete) as scanning happens.
+
+See: **[Swarm README - Usage](services/swarm/README.md#how-to-use-phase-2-api)** for detailed examples
 
 ### 5. Run Exploitation (Adaptive)
 

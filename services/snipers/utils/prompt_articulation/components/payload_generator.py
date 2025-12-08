@@ -32,6 +32,8 @@ from services.snipers.utils.prompt_articulation.models.payload_context import (
 from services.snipers.utils.prompt_articulation.schemas.tagged_prompt_builder import (
     TaggedPromptBuilder,
 )
+from dotenv import load_dotenv
+load_dotenv()
 
 logger = logging.getLogger(__name__)
 
@@ -78,7 +80,7 @@ class PayloadGenerator:
         # Create agent with structured output if not provided
         if agent is None:
             agent = create_agent(
-                model="google_genai:gemini-2.5-pro",
+                model="google_genai:gemini-2.5-flash",
                 system_prompt=PAYLOAD_GENERATION_SYSTEM_PROMPT,
                 response_format=ToolStrategy(GeneratedPayloadResponse),
             )
