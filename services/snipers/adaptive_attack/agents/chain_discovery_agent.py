@@ -21,7 +21,7 @@ from services.snipers.adaptive_attack.models.chain_discovery import (
     ChainSelectionResult,
     ConverterChainCandidate,
 )
-from services.snipers.adaptive_attack.prompts.chain_discovery_prompt import (
+from services.snipers.adaptive_attack.agents.prompts.chain_discovery_prompt import (
     CHAIN_DISCOVERY_SYSTEM_PROMPT,
     build_chain_discovery_user_prompt,
 )
