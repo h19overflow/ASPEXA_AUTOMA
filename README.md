@@ -284,53 +284,35 @@ async for event in execute_recon_streaming(ReconRequest(
 
 ```mermaid
 stateDiagram-v2
-    [*] --> load_recon: Start
+    [*] --> load_recon
 
-    load_recon --> check_safety: Route to safety
+    load_recon --> check_safety: Route
 
-    check_safety --> agent_blocked: Agent blocked?\nOr all done?
-    check_safety --> plan: Agent allowed
+    check_safety --> agent_blocked: Blocked/Done?
+    check_safety --> plan: Allowed
 
-    agent_blocked --> persist: Blocked agent
-    agent_blocked --> check_safety: Next agent
+    agent_blocked --> persist: Blocked
+    agent_blocked --> check_safety: Next Agent
 
-    plan --> plan_complete: Plan created?
-    plan --> check_safety: Planning failed
+    plan --> plan_complete: Success?
+    plan --> check_safety: Failed
 
-    plan_complete --> execute: Start execution
+    plan_complete --> execute: Start
 
-    execute --> execution_done: All agents done?
-    execute --> check_safety: Next agent
+    execute --> execution_done: Done?
+    execute --> check_safety: Next Agent
 
-    execution_done --> persist: All complete
+    execution_done --> persist: Complete
 
     persist --> [*]: Finish
-
-    note right of load_recon
-        Loads intelligence from
-        request or S3
-    end
-
-    note right of check_safety
-        Enforces safety policy
-        Routes agents
-    end
-
-    note right of plan
-        Planning agent decides
-        which probes to run
-    end
-
-    note right of execute
-        Scanner executes plan
-        Real-time SSE streaming
-    end
-
-    note right of persist
-        Saves results to S3/DB
-        IF-04 format
-    end
 ```
+
+**State Descriptions**:
+- **load_recon**: Load intelligence from request or S3
+- **check_safety**: Enforce safety policy, route agents based on config
+- **plan**: Planning agent decides which probes to run (2-3s)
+- **execute**: Scanner executes plan with real-time SSE streaming
+- **persist**: Save results to S3/DB in IF-04 format
 
 **Architecture Files**: See `services/swarm/graph/` for LangGraph nodes and state management.
 
