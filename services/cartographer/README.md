@@ -88,8 +88,25 @@ asyncio.run(main())
 ### Service Startup
 
 ```bash
-# Start Cartographer service
+# Start Cartographer service with API gateway
+python -m services.api_gateway.main
 
+# Service listens on: http://localhost:8081
+# Endpoint: POST /recon/start
+
+# Test with:
+curl -X POST http://localhost:8081/recon/start \
+  -H "Content-Type: application/json" \
+  -d '{
+    "audit_id": "test-001",
+    "target_url": "http://localhost:8082/chat",
+    "scope": {
+      "depth": "standard",
+      "max_turns": 10,
+      "forbidden_keywords": []
+    }
+  }'
+```
 
 ---
 
@@ -258,22 +275,23 @@ graph TD
 
 ## Core Components
 
-### 1. Event Consumer (`consumer.py:20`)
+### 1. Entrypoint ([`entrypoint.py`](entrypoint.py))
 
-**Responsibility**: Bridge event bus with reconnaissance logic
+**Responsibility**: HTTP API handler for reconnaissance execution
 
+**Core Functions**:
 
-- Transforms observations to IF-02 format
-- Publishes results to `EVT_RECON_FINISHED`
+**`execute_recon_streaming(request: ReconRequest)`**:
+- Main async HTTP handler
+- Yields streaming events during reconnaissance
+- Integrates agent, persistence, and intelligence extraction
+- Event types: `log`, `health_check`, `observations`, `deductions`, `error`
+- Transforms observations to IF-02 ReconBlueprint
+- Persists results to S3
 
-**Key Functions**:
-- `extract_infrastructure_intel()` - Parses for vector DBs, LLM models, frameworks
-- `extract_auth_structure()` - Identifies OAuth, JWT, RBAC, API key mechanisms
-- `extract_detected_tools()` - Extracts tool signatures via regex
+**Location**: [`services/cartographer/entrypoint.py`](entrypoint.py)
 
-**Location**: `C:\Users\User\Projects\Aspexa_Automa\services\cartographer\consumer.py`
-
-### 2. Reconnaissance Agent (`agent/graph.py:1`)
+### 2. Reconnaissance Agent ([`agent/graph.py`](agent/graph.py))
 
 **Responsibility**: LangGraph orchestration of intelligence gathering
 
@@ -281,26 +299,27 @@ graph TD
 
 **`build_recon_graph()`**
 - Creates LangChain agent with `create_agent()`
-- Model: Google Gemini 2.5 Flash Lite
-- Temperature: 0.9 (encourages creative probing)
+- Model: Google Gemini 2.5 Pro
+- Temperature: 0.1 (reliable structured output)
 - Tools: `take_note`, `analyze_gaps`
-- Prompt: RECON_SYSTEM_PROMPT (346 lines)
+- Prompt: RECON_SYSTEM_PROMPT (11 attack vectors)
 
-**`run_reconnaissance(audit_id, target_url, auth_headers, scope, special_instructions)`**
-- Main orchestration loop
+**`run_reconnaissance_streaming(audit_id, target_url, auth_headers, scope, special_instructions)`**
+- Main orchestration loop with streaming events
+- Pre-flight health check via `check_target_health()`
 - Input validation (audit_id, target_url)
 - For each turn (up to max_turns):
-  1. Agent generates next question
+  1. Agent generates next question using 11 attack vectors
   2. Apply forbidden keyword filter
-  3. Send HTTP POST to target
+  3. Send HTTP POST to target (async)
   4. Agent analyzes response
   5. Extract deductions from structured output
-- Save results to JSON (IF-02 format)
-- Return observations dictionary
+- Yield streaming events: `log`, `health_check`, `observations`, `error`
+- Accumulate all findings and return observations
 
-**Location**: `C:\Users\User\Projects\Aspexa_Automa\services\cartographer\agent\graph.py`
+**Location**: [`services/cartographer/agent/graph.py`](agent/graph.py)
 
-### 3. Tool Set (`tools/definitions.py:30`)
+### 3. Tool Set ([`tools/definitions.py`](tools/definitions.py))
 
 **Responsibility**: Instance-based tool management for concurrent audits
 
@@ -324,60 +343,56 @@ graph TD
 - Provides prioritized recommendations
 - Success criteria: 3+ observations per category, 5+ tools
 
-**Location**: `C:\Users\User\Projects\Aspexa_Automa\services\cartographer\tools\definitions.py`
+**Location**: [`services/cartographer/tools/definitions.py`](tools/definitions.py)
 
-### 4. Network Tools (`tools/network.py:10`)
+### 4. Health Check ([`tools/health.py`](tools/health.py))
 
-**Responsibility**: HTTP communication with retry logic
+**Responsibility**: Pre-flight health verification
 
-**`call_target_endpoint(url, headers, message)`**:
-- Async HTTP POST with aiohttp
-- Auto-retry: Up to 3 attempts with exponential backoff
-- Timeout: 30 seconds (configurable)
-- Custom `NetworkError` exception for failures
-- Preserves auth headers
+**`check_target_health(url, auth_headers)`**:
+- Async HTTP connectivity check
+- Verifies endpoint is reachable before reconnaissance
+- Validates authentication headers work
+- Returns health status and diagnostic message
+- Prevents wasting turns on dead targets
 
-**`check_target_connectivity(url)`**:
-- Simple health check
-- Verifies target is reachable before probing
+**Location**: [`services/cartographer/tools/health.py`](tools/health.py)
 
-**Location**: `C:\Users\User\Projects\Aspexa_Automa\services\cartographer\tools\network.py`
+### 5. Persistence & Intelligence ([`persistence/s3_adapter.py`](persistence/s3_adapter.py), [`intelligence/extractors.py`](intelligence/extractors.py))
 
-### 5. Persistence Layer (`persistence/json_storage.py:1`)
+**Responsibility**: Transform observations to IF-02 format and persist to S3
 
-**Responsibility**: Transform observations to IF-02 format and save
+**S3 Persistence** (`persist_recon_result`):
+- Saves recon blueprint to S3: `scans/recon/{scan_id}.json`
+- Updates campaign stage tracking
+- Auto-creates campaign if needed
+- Integrates with campaign repository
 
-**Transformation Pipeline**:
-1. **Deduplication**: Remove duplicate observations
-2. **Parsing**: Extract structured data from text
-3. **IF-02 Formatting**: Transform to ReconBlueprint contract
-4. **File Storage**: Save JSON with timestamp
+**Intelligence Extraction** (`intelligence/extractors.py`):
 
-**Key Functions**:
+**`extract_infrastructure_intel(observations)`**:
+- Pattern matching for vector databases (FAISS, Pinecone, Chroma, Weaviate, Qdrant, etc.)
+- LLM model detection (GPT-4, Claude, Gemini, LLaMA, etc.)
+- Rate limit identification
+- Returns `InfrastructureIntel` with detected stack
 
-**`transform_to_if02_format(observations, audit_id)`**:
-- Converts raw observations to IF-02 ReconBlueprint
-- Parses tool signatures (name, parameters)
-- Extracts infrastructure (databases, vector stores, models)
-- Identifies auth mechanisms (type, rules, vulnerabilities)
-- Generates timestamp
+**`extract_auth_structure(observations)`**:
+- Identifies auth type (OAuth, JWT, RBAC, API Key, Session)
+- Extracts access control rules
+- Detects privilege levels and restrictions
+- Returns `AuthStructure` with auth rules
 
-**`save_reconnaissance_result(observations, audit_id)`**:
-- Saves to `tests/recon_results/` by default
-- Filename: `{audit_id}_{timestamp}.json`
-- Includes raw observations + optional deductions
-- Returns file path
+**`extract_detected_tools(observations)`**:
+- Parses tool signatures from observations
+- Extracts parameters and types
+- Detects capabilities and limitations
+- Returns list of `DetectedTool` objects
 
-**Utility Functions**:
-- `_parse_tool_observation()` - Extract tool signatures
-- `_parse_infrastructure()` - Identify tech stack
-- `_parse_auth_structure()` - Extract auth mechanisms
-- `load_reconnaissance_result()` - Load saved JSON
-- `list_reconnaissance_results()` - List all results
+**Location**: [`services/cartographer/persistence/s3_adapter.py`](persistence/s3_adapter.py), [`services/cartographer/intelligence/extractors.py`](intelligence/extractors.py)
 
-**Location**: `C:\Users\User\Projects\Aspexa_Automa\services\cartographer\persistence\json_storage.py`
+### 6. Response Schema & Prompts
 
-### 6. Response Schema (`response_format.py:1`)
+**Response Format** ([`response_format.py`](response_format.py)):
 
 **Responsibility**: Pydantic V2 models for structured agent output
 
@@ -389,11 +404,32 @@ graph TD
 - `stop_reason`: Optional termination reason
 
 **`Deduction` Model**:
-- `category`: Intelligence category
+- `category`: Intelligence category (system_prompt, tools, authorization, infrastructure)
 - `finding`: What was discovered
 - `confidence`: low/medium/high
 
-**Location**: `C:\Users\User\Projects\Aspexa_Automa\services\cartographer\response_format.py`
+**System Prompt** ([`prompts.py`](prompts.py)):
+
+**Responsibility**: Strategic probing guidance with 11 attack vectors
+
+**11 Attack Vectors**:
+1. **Direct Enumeration** - Ask directly about capabilities
+2. **Error Elicitation** - Trigger verbose errors to leak infrastructure
+3. **Feature Probing** - Deep-dive into known capabilities
+4. **Boundary Testing** - Test edge cases and limits
+5. **Infrastructure Inference** - Deduce tech stack from responses
+6. **Reverse Engineering** - Infer behavior from outputs
+7. **Authorization Testing** - Probe access controls
+8. **Permission Escalation** - Test privilege escalation
+9. **Context Extraction** - Extract hidden state/context
+10. **Bypass Attempts** - Test constraint bypasses
+11. **Pattern Recognition** - Identify behavioral patterns
+
+**Dual-Track Strategy**:
+- Track A: Business logic probing (maintain current strength)
+- Track B: Infrastructure enumeration (aggressively pursue tech stack)
+
+**Location**: [`services/cartographer/response_format.py`](response_format.py), [`services/cartographer/prompts.py`](prompts.py)
 
 ---
 

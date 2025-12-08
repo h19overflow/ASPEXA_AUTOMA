@@ -66,19 +66,209 @@ graph TB
 
 ## Phase 1: Cartographer (Reconnaissance)
 
-**Goal**: Map target AI system without triggering alarms.
+**Goal**: Map target AI system without triggering alarms, gathering complete intelligence in 10-15 turns.
 
-**How It Works**:
-- Sends 11 types of probing questions (enumeration, error elicitation, boundary testing, etc.)
-- Accumulates observations across turns
-- Deduplicates findings (80% similarity threshold)
-- Stops when all intelligence gaps closed
+**Architecture**: LangGraph-based agent with dual-track strategy (business logic + infrastructure enumeration).
 
-**Output**: **IF-02 ReconBlueprint** containing:
-- System prompts / constraints discovered
-- Tool signatures (names, parameters)
-- Infrastructure (database type, vector store, model)
-- Authorization structure
+### Reconnaissance Strategy
+
+```mermaid
+graph TD
+    Start([Target Identified]) --> Health["🏥 Health Check<br/>Verify endpoint<br/>validate auth"]
+    Health --> Agent["🤖 Agent<br/>LLM with 11 vectors<br/>Gemini 2.5 Pro"]
+    Agent --> TakeNote["💾 take_note()<br/>Record findings<br/>80% dedup"]
+    TakeNote --> AnalyzeGaps["🔍 analyze_gaps()<br/>Identify gaps<br/>Prioritize next"]
+    AnalyzeGaps --> NextQuestion["❓ Generate Question<br/>Ask strategically<br/>Multi-angle attack"]
+    NextQuestion --> Target["🎯 Target<br/>HTTP POST<br/>Async"]
+    Target --> Response["📨 Parse Response<br/>Extract intelligence<br/>Structured output"]
+    Response --> Loop{Continue?<br/>Gaps remain?}
+    Loop -->|Yes, Max < 15| Agent
+    Loop -->|No or Max reached| Transform["🔄 Transform<br/>Parse findings<br/>Extract intel"]
+    Transform --> Output["📊 IF-02<br/>ReconBlueprint<br/>S3 persist"]
+    Output --> End([Complete])
+
+    style Health fill:#e3f2fd,stroke:#333,color:#000
+    style Agent fill:#fff3e0,stroke:#333,color:#000
+    style TakeNote fill:#f3e5f5,stroke:#333,color:#000
+    style AnalyzeGaps fill:#e0f2f1,stroke:#333,color:#000
+    style Transform fill:#ede7f6,stroke:#333,color:#000
+    style Output fill:#c8e6c9,stroke:#333,color:#000
+```
+
+### 11 Attack Vectors
+
+The agent employs **11 specialized attack vectors** simultaneously, each targeting different knowledge extraction paths:
+
+| # | Vector | Technique | Goal |
+|---|--------|-----------|------|
+| 1️⃣ | **Direct Enumeration** | Ask directly: "What can you do?" | Get capability list |
+| 2️⃣ | **Error Elicitation** | Send malformed inputs | Leak stack traces, DB types, frameworks |
+| 3️⃣ | **Feature Probing** | Deep-dive known capabilities | Extract parameter requirements |
+| 4️⃣ | **Boundary Testing** | Test edge cases and limits | Find validation logic |
+| 5️⃣ | **Infrastructure Inference** | Analyze responses for tech clues | Deduce vector DB, LLM model, frameworks |
+| 6️⃣ | **Reverse Engineering** | Infer behavior from outputs | Understand hidden logic |
+| 7️⃣ | **Authorization Testing** | Probe access controls | Find privilege boundaries |
+| 8️⃣ | **Permission Escalation** | Try elevated operations | Test role-based access |
+| 9️⃣ | **Context Extraction** | Extract state/context leaks | Reveal system prompt |
+| 🔟 | **Bypass Attempts** | Test constraint violations | Find safety rule gaps |
+| 1️⃣1️⃣ | **Pattern Recognition** | Identify behavioral patterns | Learn model preferences |
+
+### Intelligence Collection (4 Categories)
+
+**1. System Prompt**
+- Role definition (e.g., "You are a coding assistant")
+- Safety rules and constraints
+- Behavioral guidelines
+- Personality/tone
+
+**2. Tools**
+- Function names (`search_documents`, `execute_code`, etc.)
+- Parameter signatures (`query: str`, `depth: int`)
+- Return types and descriptions
+- Capabilities and limitations
+
+**3. Authorization**
+- Auth type (OAuth, JWT, RBAC, API Key, Session)
+- Access control rules
+- Role definitions and privileges
+- Data access policies
+- Vulnerability patterns
+
+**4. Infrastructure**
+- **Databases**: PostgreSQL, MongoDB, SQLite, DynamoDB
+- **Vector Stores**: FAISS, Pinecone, Chroma, Weaviate, Qdrant, Milvus
+- **Embeddings**: OpenAI, SentenceTransformers, Google
+- **LLM Models**: GPT-4, Claude, Gemini, LLaMA, Mistral
+- **Frameworks**: FastAPI, Django, Flask
+- **Rate Limits**: Strict, moderate, or permissive
+
+### Core Components
+
+**LangGraph Agent** ([`agent/graph.py`](services/cartographer/agent/graph.py)):
+- Model: Google Gemini 2.5 Pro
+- Temperature: 0.1 (reliable structured output)
+- Tools: `take_note()`, `analyze_gaps()`
+- Pre-flight health check before starting
+- Streaming events throughout execution
+
+**Observation Tools** ([`tools/definitions.py`](services/cartographer/tools/definitions.py)):
+
+**`take_note(observation, category)`**:
+- Records concrete technical findings
+- 4 categories: `system_prompt`, `tools`, `authorization`, `infrastructure`
+- 80% duplicate threshold (SequenceMatcher) prevents redundancy
+- Exact and similarity-based deduplication
+- Returns confirmation with counter
+
+**`analyze_gaps()`**:
+- Analyzes intelligence coverage across categories
+- Identifies missing information
+- Prioritizes recommendations
+- Success criteria: 3+ observations per category, 5+ tools identified
+
+**Intelligence Extraction** ([`intelligence/extractors.py`](services/cartographer/intelligence/extractors.py)):
+- `extract_infrastructure_intel()` - Pattern matches for tech stack
+- `extract_auth_structure()` - Identifies auth mechanisms
+- `extract_detected_tools()` - Parses tool signatures
+
+**Health Check** ([`tools/health.py`](services/cartographer/tools/health.py)):
+- Pre-flight verification before reconnaissance
+- Validates endpoint reachability and auth headers
+- Prevents wasting turns on dead targets
+
+**Persistence** ([`persistence/s3_adapter.py`](services/cartographer/persistence/s3_adapter.py)):
+- Saves IF-02 ReconBlueprint to S3: `scans/recon/{scan_id}.json`
+- Updates campaign stage tracking
+- Auto-creates campaigns if needed
+
+### Configuration
+
+**Scope Parameters**:
+```python
+scope = {
+    "depth": "standard",           # "shallow" | "standard" | "aggressive"
+    "max_turns": 10,               # Number of reconnaissance turns
+    "forbidden_keywords": ["admin"] # Keyword blacklist for output filtering
+}
+```
+
+**Depth Levels**:
+- 🔵 **Shallow**: 5 turns, surface-level probing (~2 min)
+- 🟢 **Standard**: 10 turns, comprehensive coverage (~5 min) — DEFAULT
+- 🔴 **Aggressive**: 15+ turns, exhaustive intelligence gathering (~10 min)
+
+### Usage Example
+
+**Basic**:
+```python
+from services.cartographer.entrypoint import execute_recon_streaming
+
+async for event in execute_recon_streaming(ReconRequest(
+    audit_id="audit-001",
+    target_url="http://localhost:8082/chat",
+    scope=ReconScope(depth="standard", max_turns=10)
+)):
+    if event["type"] == "observations":
+        print(f"Findings: {event['data']}")
+    elif event["type"] == "error":
+        print(f"Failed: {event['message']}")
+```
+
+**With Special Instructions**:
+```python
+async for event in execute_recon_streaming(ReconRequest(
+    audit_id="audit-002",
+    target_url="http://localhost:8082/chat",
+    scope=ReconScope(depth="aggressive", max_turns=15),
+    special_instructions="Focus on data extraction capabilities and database access"
+)):
+    # ... handle events
+```
+
+### Output
+
+**IF-02 ReconBlueprint** containing:
+```python
+{
+    "audit_id": "audit-001",
+    "system_prompt": [...],          # Discovered role, constraints, rules
+    "detected_tools": [...],         # Tool names, signatures, parameters
+    "auth_structure": {              # OAuth, JWT, RBAC, API Key details
+        "type": "RBAC",
+        "roles": ["user", "admin"],
+        "permissions": {...}
+    },
+    "infrastructure": {              # Tech stack intelligence
+        "databases": ["PostgreSQL"],
+        "vector_store": "Pinecone",
+        "llm_model": "GPT-4",
+        "rate_limits": "strict"
+    },
+    "timestamp": "2024-12-08T12:34:56Z"
+}
+```
+
+### Key Features
+
+- ✅ **Dual-Track Strategy** - Business logic + infrastructure enumeration simultaneously
+- ✅ **11 Attack Vectors** - Multi-angle probing prevents blind spots
+- ✅ **Intelligent Deduplication** - 80% similarity threshold prevents redundant findings
+- ✅ **Gap Analysis** - Tool identifies what intelligence is still missing
+- ✅ **Health Check** - Pre-flight verification prevents wasted turns
+- ✅ **Real-Time Streaming** - Events for UI progress updates
+- ✅ **Async Execution** - Fast target communication
+- ✅ **S3 Persistence** - Campaign tracking integration
+
+### Files Reference
+
+- [`services/cartographer/agent/graph.py`](services/cartographer/agent/graph.py) - LangGraph orchestration
+- [`services/cartographer/tools/definitions.py`](services/cartographer/tools/definitions.py) - take_note, analyze_gaps tools
+- [`services/cartographer/tools/health.py`](services/cartographer/tools/health.py) - Health check
+- [`services/cartographer/intelligence/extractors.py`](services/cartographer/intelligence/extractors.py) - Intelligence parsing
+- [`services/cartographer/persistence/s3_adapter.py`](services/cartographer/persistence/s3_adapter.py) - S3 storage
+- [`services/cartographer/entrypoint.py`](services/cartographer/entrypoint.py) - HTTP API handler
+- [`services/cartographer/prompts.py`](services/cartographer/prompts.py) - System prompt with 11 vectors
+- [`services/cartographer/response_format.py`](services/cartographer/response_format.py) - Pydantic models
 
 **Status**: ✅ Complete (31/31 tests passing | 94-96% coverage)
 
@@ -86,90 +276,430 @@ graph TB
 
 ## Phase 2: Swarm (Intelligent Scanning)
 
-**Goal**: Find vulnerabilities using recon intelligence to guide probe selection.
+**Goal**: Find vulnerabilities using recon intelligence to guide probe selection with real-time streaming feedback.
+
+**Architecture**: Two-phase intelligent scanning with planning (2-3s) followed by streaming execution.
+
+### Two-Phase Design
 
 ```mermaid
-graph LR
-    Input["Target Intelligence<br/>(from Cartographer)"]
-    Plan["Planning Agent<br/>2-3 seconds"]
-    ScanPlan["Selected Probes<br/>Generations<br/>Strategy"]
-    Exec["Scanner<br/>Concurrent Execution<br/>Real-time SSE"]
-    Results["Vulnerability<br/>Clusters<br/>IF-04"]
+graph TB
+    Input["📊 Target Intelligence<br/>(from Cartographer)"] --> Planning["🤖 Planning Agent<br/>LLM analyzes infrastructure"]
+    Planning --> Plan["📋 ScanPlan Generated<br/>2-3 seconds"]
+    Plan -->|User sees plan immediately| Execution["🔬 Execution Phase<br/>Scanner runs probes"]
+    Execution -->|Real-time SSE events| Results["📈 Vulnerability Results<br/>IF-04 Clusters"]
 
-    Input -->|Analyze| Plan
-    Plan -->|Output| ScanPlan
-    ScanPlan -->|Execute| Exec
-    Exec -->|Report| Results
-
-    style Plan fill:#fff3e0,stroke:#f57f17
-    style ScanPlan fill:#fff9c4,stroke:#f39c12
-    style Exec fill:#f3e5f5,stroke:#8e44ad
-    style Results fill:#e0f2f1,stroke:#00897b
+    style Input fill:#e1f5ff,stroke:#333,stroke-width:2px,color:#000
+    style Planning fill:#fff4e6,stroke:#333,stroke-width:2px,color:#000
+    style Plan fill:#fff9c4,stroke:#333,stroke-width:2px,color:#000
+    style Execution fill:#f3e5f5,stroke:#333,stroke-width:2px,color:#000
+    style Results fill:#e0f2f1,stroke:#333,stroke-width:3px,color:#000
 ```
 
-**Three Specialized Agents**:
+#### Phase 1: Planning (2-3 seconds)
 
-| Agent | Focuses On | Adapts To |
-|-------|-----------|-----------|
-| **SQL** | Data extraction, injection | Detected DB type (PostgreSQL, MongoDB, etc.) |
-| **Auth** | Privilege escalation, BOLA | Discovered auth type & roles |
-| **Jailbreak** | Prompt override, constraint bypass | Model type (GPT-4, Claude, etc.) |
+The planning agent analyzes target intelligence and creates a scan strategy:
+- Determines which probes to run (intelligence-driven)
+- Calculates generations per probe
+- Estimates total duration
+- Generates reasoning for probe selection
 
-**Execution Strategy**:
-- **Quick**: 3-5 probes, 1-2 generations (~2 min)
-- **Standard**: 5-10 probes, 3-5 generations (~10 min)
-- **Thorough**: 10-20 probes, 5+ generations (~30 min)
+**User sees**: Quick feedback about what will be tested, no waiting for 30+ minutes.
 
-**Output**: **IF-04 VulnerabilityCluster[]** with:
-- Vulnerability type & confidence score
+#### Phase 2: Execution (Streaming)
+
+Scanner executes the plan with real-time SSE events:
+- `probe_start` - When a probe begins
+- `probe_result` - Each test result (pass/fail/error) with detector score
+- `probe_complete` - Probe summary with pass/fail counts
+- `agent_complete` - Final results with vulnerability count
+
+**User sees**: Live progress updates, can see results as they arrive.
+
+### The Trinity: Three Specialized Agents
+
+Each agent specializes in a different attack surface and adapts based on recon intelligence:
+
+#### 🗄️ SQL Agent (Data Surface)
+
+**Mission**: Detect data extraction, SQL injection, and database exploitation
+
+**What it tests**:
+- Can I inject SQL commands?
+- Can I access data I shouldn't?
+- Can I break the database?
+
+**Probes**: `pakupaku`, `lmrc`, `malwaregen`, and 10+ variations
+
+**Adapts To**:
+- Database type (PostgreSQL, MongoDB, MySQL, etc.)
+- Detected data-access tools
+- Schema information in error messages
+
+#### 🔐 Auth Agent (Authorization Surface)
+
+**Mission**: Detect privilege escalation, BOLA, BFLA, and access control bypasses
+
+**What it tests**:
+- Can I see other users' data?
+- Can I upgrade my permissions?
+- Can I bypass security checks?
+
+**Probes**: `bola`, `bfla`, custom RBAC bypass probes
+
+**Adapts To**:
+- Role-based systems detected
+- Multi-tenancy indicators
+- User context patterns
+
+#### 🎪 Jailbreak Agent (Prompt Surface)
+
+**Mission**: Detect prompt injection, system prompt leaks, and jailbreaks
+
+**What it tests**:
+- Can I make the AI ignore its safety rules?
+- Can I extract the system prompt?
+- Can I manipulate the AI's behavior?
+
+**Probes**: `dan.*` (11 variations), `encoding.*` (base64, morse, etc.), `goodside.*`, `grandma.*`
+
+**Adapts To**:
+- LLM model type (GPT-4, Claude, Gemini, etc.)
+- System prompt leaks from recon
+- Instruction-following behavior
+
+### Configuration & Execution Modes
+
+**Three Scan Approaches** (difficulty levels):
+
+| Approach | Probes | Gens | Duration | Best For |
+|----------|--------|------|----------|----------|
+| **Quick** | 3-5 | 3 | ~2 min | Basic coverage |
+| **Standard** | 5-10 | 5 | ~10 min | Balanced |
+| **Thorough** | 10-20 | 10 | ~30 min | Complete assessment |
+
+**Production Features**:
+- ✅ **Parallel Execution** - Run multiple probes concurrently with configurable limits
+- ✅ **Rate Limiting** - Token bucket algorithm (requests per second)
+- ✅ **WebSocket Support** - Test WebSocket-based LLM endpoints
+- ✅ **Request Configuration** - Custom timeouts, retries, backoff
+- ✅ **Real-time SSE Streaming** - 8 event types for live UI updates
+- ✅ **Intelligent Adaptation** - Agent adjusts based on target intelligence
+
+### Usage Example
+
+**Minimal (Let Agent Decide)**:
+```python
+from services.swarm.agents.trinity import run_jailbreak_agent
+from services.swarm.schema import ScanInput, ScanConfig
+
+result = await run_jailbreak_agent(ScanInput(
+    audit_id="scan-001",
+    target_url="https://api.example.com/chat",
+    infrastructure={"model": "gpt-4"},
+    config=ScanConfig(approach="standard")
+))
+```
+
+**Advanced (Full Control)**:
+```python
+result = await run_jailbreak_agent(ScanInput(
+    audit_id="scan-002",
+    target_url="wss://api.example.com/ws",  # WebSocket
+    config=ScanConfig(
+        approach="thorough",
+        enable_parallel_execution=True,
+        max_concurrent_probes=3,
+        max_concurrent_generations=2,
+        requests_per_second=10.0,
+        connection_type="websocket",
+        request_timeout=60
+    )
+))
+```
+
+**Streaming (Real-time Events)**:
+```python
+plan_result = await run_planning_agent("agent_jailbreak", scan_input)
+scanner = get_scanner()
+scanner.configure_endpoint(scan_input.target_url)
+
+async for event in scanner.scan_with_streaming(plan_result.plan):
+    if event["type"] == "probe_result":
+        print(f"Result: {event['status']} (score: {event['detector_score']:.2f})")
+    elif event["type"] == "agent_complete":
+        print(f"Complete: {event['vulnerabilities']} vulns found")
+```
+
+### Output
+
+**IF-04 VulnerabilityCluster[]** with:
+- Vulnerability type & confidence score (0.0-1.0)
+- Category (jailbreak, sql_injection, auth_bypass, etc.)
+- Severity level (critical, high, medium, low, none)
 - Successful payloads with examples
 - Target responses (evidence)
 - Detector scores & metadata
+- Affected component
 
-**Features**:
-- ✅ Parallel probe execution (configurable)
-- ✅ Rate limiting (token bucket algorithm)
-- ✅ Real-time SSE streaming
-- ✅ WebSocket support for endpoint testing
+### Files Reference
 
-**Status**: ✅ Complete
+- [`services/swarm/agents/`](services/swarm/agents/) - Trinity agents (SQL, Auth, Jailbreak)
+- [`services/swarm/agents/base.py`](services/swarm/agents/base.py) - Base agent functionality
+- [`services/swarm/agents/trinity.py`](services/swarm/agents/trinity.py) - Agent factory functions
+- [`services/swarm/agents/tools.py`](services/swarm/agents/tools.py) - LLM tools (analyze_target, execute_scan)
+- [`services/swarm/garak_scanner/`](services/swarm/garak_scanner/) - Garak scanner integration
+- [`services/swarm/garak_scanner/scanner.py`](services/swarm/garak_scanner/scanner.py) - Probe execution
+- [`services/swarm/garak_scanner/detectors.py`](services/swarm/garak_scanner/detectors.py) - Vulnerability detection
+- [`services/swarm/config.py`](services/swarm/config.py) - Probe configuration & categories
+
+**Status**: ✅ Complete | **Latest Features**: Two-phase architecture, real-time streaming, parallel execution, WebSocket support
 
 ---
 
 ## Phase 3: Snipers (Exploitation)
 
-### 3a: Automated Snipers
+### 3a: Automated Snipers - Adaptive Attack Loop
 
-**Adaptive Attack Loop**:
+**Architecture**: LangGraph-based autonomous attack orchestration with intelligent failure analysis and adaptation.
+
+#### Graph Structure
 
 ```mermaid
-graph LR
-    A["🧠 Articulate<br/>Generate Payloads"]
-    B["🔄 Convert<br/>Apply Chain"]
-    C["🎯 Execute<br/>Send Attacks"]
-    D["📊 Evaluate<br/>Score Results"]
-    E["🔁 Adapt<br/>Learn & Retry"]
+graph TD
+    START([Start]) --> Adapt["adapt node:<br/>Failure Analysis<br/>& Chain Selection"]
+    Adapt --> Articulate["articulate node:<br/>Generate Payloads<br/>with Framing"]
+    Articulate --> Convert["convert node:<br/>Apply Converter<br/>Chain"]
+    Convert --> Execute["execute node:<br/>Send Attacks &<br/>Get Responses"]
+    Execute --> Evaluate["evaluate node:<br/>Score Results<br/>Check Success"]
 
-    A --> B --> C --> D --> E
-    E -->|Success| END["✅ Complete"]
-    E -->|Max Iterations| END
-    E -->|Failure| A
+    Evaluate --> Success{Any Scorer ≥<br/>Threshold?}
+    Success -->|Yes| END1(["✅ Success"])
+    Success -->|No| MaxIter{Max Iterations<br/>Reached?}
 
-    style A fill:#4ecdc4,stroke:#0d9488,color:#fff
-    style B fill:#4ecdc4,stroke:#0d9488,color:#fff
-    style C fill:#ffd93d,stroke:#f39c12,color:#000
-    style D fill:#9b59b6,stroke:#8e44ad,color:#fff
-    style E fill:#ff6b6b,stroke:#c92a2a,color:#fff
-    style END fill:#2ecc71,stroke:#27ae60,color:#fff
+    MaxIter -->|Yes| END2(["❌ Failed"])
+    MaxIter -->|No| Adapt
+
+    style Adapt fill:#ff6b6b,stroke:#c92a2a,color:#fff
+    style Articulate fill:#4ecdc4,stroke:#0d9488,color:#fff
+    style Convert fill:#4ecdc4,stroke:#0d9488,color:#fff
+    style Execute fill:#ffd93d,stroke:#f39c12,color:#000
+    style Evaluate fill:#9b59b6,stroke:#8e44ad,color:#fff
+    style Success fill:#ffeb3b,stroke:#f57f17,color:#000
+    style END1 fill:#2ecc71,stroke:#27ae60,color:#fff
+    style END2 fill:#ffcdd2,stroke:#d32f2f,color:#000
 ```
 
-**Key Features**:
-- **Adaptive loop**: Learns from each iteration, retries with adjusted parameters
-- **Learns from Swarm results**: Uses vulnerability patterns to guide payload generation
-- **Contextual framing**: QA Testing, Compliance Audit, Debugging, etc.
-- **8 custom converters**: Homoglyph, leetspeak, morse code, etc.
-- **Automatic scoring**: Composite scorer with 5 specialized detectors
-- **Iteration history**: Tracks best score, adaptation reasoning, all attempts
+#### State Management
+
+The adaptive loop maintains efficient state tracking ([`services/snipers/adaptive_attack/state.py`](services/snipers/adaptive_attack/state.py)):
+
+```python
+AdaptiveAttackState:
+    # Configuration
+    campaign_id: str
+    target_url: str
+    max_iterations: int
+    success_threshold: float
+    success_scorers: list[str]  # Which metrics trigger success
+
+    # Current iteration state
+    iteration: int
+    phase1_result: Phase1Result | None
+    phase2_result: Phase2Result | None
+    phase3_result: Phase3Result | None
+
+    # Adaptation tracking
+    tried_converters: list[list[str]]
+    tried_framings: list[str]
+    failure_cause: FailureCause | None  # no_impact, blocked, partial_success, etc.
+
+    # Scoring
+    is_successful: bool
+    total_score: float
+    best_score: float
+    composite_score_result: CompositeScoreResult | None
+
+    # History
+    iteration_history: list[dict]
+    adaptation_decisions: list[AdaptationDecision]
+```
+
+**Failure Cause Types** (`FailureCause`):
+- `no_impact` - Attack had no effect → try different approach
+- `blocked` - Attack was blocked/detected → escalate obfuscation
+- `partial_success` - Some effect achieved → refine current approach
+- `rate_limited` - Too many requests → slow down
+- `error` - Technical failure → retry same approach
+
+**Adaptation Actions**:
+- `change_framing` - Try different contextual framing (QA Testing, Debugging, etc.)
+- `change_converters` - Switch to different converter chain
+- `escalate_obfuscation` - Add more converters for stronger transformation
+- `regenerate_payloads` - Generate entirely new payloads
+- `increase_payload_count` - Generate more variations
+- `reduce_concurrency` - Slow down request rate
+- `retry_same` - Retry with identical parameters
+- `llm_strategy_generated` - Use LLM-generated custom strategy
+
+#### Adaptive Loop Components
+
+**1. Adapt Node** ([`services/snipers/adaptive_attack/nodes/adapt.py`](services/snipers/adaptive_attack/nodes/adapt.py))
+
+Orchestrates failure analysis and chain selection:
+- Calls `FailureAnalyzer` to detect defense type (rule-based pattern matching)
+- Calls `FailureAnalyzerAgent` for semantic root cause analysis
+- Calls `ChainDiscoveryAgent` to select optimal new converter chain
+- Calls `StrategyGenerator` to create adaptation decision
+
+**2. Articulate Node** ([`services/snipers/adaptive_attack/nodes/articulate.py`](services/snipers/adaptive_attack/nodes/articulate.py))
+
+Phase 1: Payload generation with recon-based framing:
+- Loads campaign intelligence from S3
+- Extracts system prompts automatically (4 regex patterns)
+- Selects converter chain from pattern database (via adapt node feedback)
+- Generates payloads with domain-aligned framing
+
+**3. Convert Node** ([`services/snipers/adaptive_attack/nodes/convert.py`](services/snipers/adaptive_attack/nodes/convert.py))
+
+Phase 2: Apply converter chain to payloads:
+- Executes selected converter chain sequentially
+- Tracks converter success rate
+- Handles conversion failures gracefully
+
+**4. Execute Node** ([`services/snipers/adaptive_attack/nodes/execute.py`](services/snipers/adaptive_attack/nodes/execute.py))
+
+Phase 3: Send attacks and collect responses:
+- Dispatches HTTP/WebSocket attacks to target
+- Collects responses with timestamps
+- Records metadata (status codes, latency, etc.)
+
+**5. Evaluate Node** ([`services/snipers/adaptive_attack/nodes/evaluate.py`](services/snipers/adaptive_attack/nodes/evaluate.py))
+
+Score responses and check success criteria:
+- Runs composite scorer with 5 specialized detectors
+- Checks if ANY configured `success_scorers` meet `success_threshold`
+- Determines iteration outcome (success/failure/max_iterations)
+
+#### Key Components
+
+**Failure Analyzer** ([`services/snipers/adaptive_attack/components/failure_analyzer.py`](services/snipers/adaptive_attack/components/failure_analyzer.py)):
+- Rule-based pattern matching
+- Detects defense mechanisms: refusal keywords, policy citations, honeypots
+- Returns `DefenseAnalysis` with confidence scores
+
+**Failure Analyzer Agent** ([`services/snipers/adaptive_attack/components/failure_analyzer_agent.py`](services/snipers/adaptive_attack/components/failure_analyzer_agent.py)):
+- LLM-powered semantic analysis
+- Extracts root cause (not just keywords)
+- Generates actionable defense signals
+- Returns `FailureAnalysis` with reasoning
+
+**Chain Discovery Agent** ([`services/snipers/adaptive_attack/components/chain_discovery_agent.py`](services/snipers/adaptive_attack/components/chain_discovery_agent.py)):
+- LLM analyzes failure context
+- Suggests optimal converter chains
+- Evaluates converter effectiveness
+- Returns `ChainSelectionResult` with ranked options
+
+**Strategy Generator** ([`services/snipers/adaptive_attack/components/strategy_generator.py`](services/snipers/adaptive_attack/components/strategy_generator.py)):
+- Creates adaptation strategies from failure analysis
+- Generates custom framing suggestions
+- Plans next attack direction
+- Returns `AdaptationDecision` with guidance
+
+**Response Analyzer** ([`services/snipers/adaptive_attack/components/response_analyzer.py`](services/snipers/adaptive_attack/components/response_analyzer.py)):
+- Lightweight pattern matching (no LLM)
+- Detects refusal keywords, policy citations
+- Measures tone and confusion signals
+- Used for quick classification
+
+**Turn Logger** ([`services/snipers/adaptive_attack/components/turn_logger.py`](services/snipers/adaptive_attack/components/turn_logger.py)):
+- Tracks all decisions made during adaptive loop
+- Logs conversation turns, tool calls, reasoning
+- Provides audit trail for debugging
+
+#### Success Criteria Configuration
+
+```python
+result = await execute_adaptive_attack(
+    campaign_id="campaign1",
+    target_url="http://localhost:8082/chat",
+    max_iterations=10,
+    success_scorers=["jailbreak"],      # Which metrics trigger success
+    success_threshold=0.8               # Must score ≥ 0.8
+)
+```
+
+**Available Scorers**:
+- `jailbreak` - Detects prompt injection success
+- `prompt_leak` - Detects system prompt exposure
+- `data_leak` - Detects sensitive data exposure
+- `tool_abuse` - Detects unauthorized tool/function calls
+- `pii_exposure` - Detects PII leakage
+
+**Success Logic**:
+- Attack succeeds if **ANY** configured scorer ≥ `success_threshold`
+- Example: `success_scorers=["jailbreak", "prompt_leak"]` with threshold `0.7`
+  - Success if jailbreak_score ≥ 0.7 OR prompt_leak_score ≥ 0.7
+  - Other scorers (data_leak, tool_abuse, pii_exposure) are ignored
+
+#### Usage Examples
+
+**Single Target Vulnerability**:
+```python
+from services.snipers.entrypoint import execute_adaptive_attack
+
+result = await execute_adaptive_attack(
+    campaign_id="campaign1",
+    target_url="http://localhost:8082/chat",
+    max_iterations=10,
+    success_scorers=["jailbreak"],
+    success_threshold=0.8
+)
+# Stops when jailbreak score ≥ 0.8, ignores other scorers
+```
+
+**Multiple Vulnerability Targets**:
+```python
+result = await execute_adaptive_attack(
+    campaign_id="campaign1",
+    target_url="http://localhost:8082/chat",
+    max_iterations=10,
+    success_scorers=["jailbreak", "prompt_leak", "data_leak"],
+    success_threshold=0.7
+)
+# Stops when ANY of 3 scorers ≥ 0.7
+```
+
+**Return Value**:
+```python
+AdaptiveAttackResult:
+    is_successful: bool
+    total_score: float
+    best_score: float
+    best_iteration: int
+    iterations_run: int
+    final_chain: list[str]           # Winning converter chain
+    iteration_history: list[dict]    # All attempts with scores
+    adaptation_decisions: list[...]  # Decisions made per iteration
+```
+
+#### Key Features
+
+- ✅ **Intelligent Adaptation** - LLM analyzes failures, suggests chain changes
+- ✅ **Failure Classification** - Distinguishes between blocked, no_impact, partial_success
+- ✅ **Flexible Success Criteria** - Choose which metrics to optimize for
+- ✅ **Iteration History** - Complete audit trail of all attempts
+- ✅ **Converging Search** - Learns optimal chains for target defenses
+- ✅ **Context Isolation** - Each subagent runs in isolated context
+
+#### Files Reference
+
+- [`services/snipers/adaptive_attack/graph.py`](services/snipers/adaptive_attack/graph.py) - LangGraph orchestration
+- [`services/snipers/adaptive_attack/state.py`](services/snipers/adaptive_attack/state.py) - State definition
+- [`services/snipers/adaptive_attack/nodes/`](services/snipers/adaptive_attack/nodes/) - 5 graph nodes (adapt, articulate, convert, execute, evaluate)
+- [`services/snipers/adaptive_attack/components/`](services/snipers/adaptive_attack/components/) - Analyzer agents (failure, chain discovery, strategy)
+- [`services/snipers/adaptive_attack/models/`](services/snipers/adaptive_attack/models/) - Data structures (adaptation_decision, chain_discovery, failure_analysis, defense_analysis)
+- [`services/snipers/adaptive_attack/prompts/`](services/snipers/adaptive_attack/prompts/) - LLM system prompts for analyzers
 
 ### 3b: Manual Sniping (Interactive)
 
