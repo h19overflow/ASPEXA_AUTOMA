@@ -16,11 +16,11 @@ from services.snipers.adaptive_attack.state import (
     CONVERTER_CHAINS,
 )
 from services.snipers.adaptive_attack.components.response_analyzer import ResponseAnalyzer
-from services.snipers.adaptive_attack.components.strategy_generator import StrategyGenerator
 from services.snipers.adaptive_attack.components.failure_analyzer import FailureAnalyzer
-from services.snipers.adaptive_attack.components.failure_analyzer_agent import FailureAnalyzerAgent
-from services.snipers.adaptive_attack.components.chain_discovery_agent import ChainDiscoveryAgent
 from services.snipers.adaptive_attack.components.turn_logger import get_turn_logger
+from services.snipers.adaptive_attack.agents.strategy_generator import StrategyGenerator
+from services.snipers.adaptive_attack.agents.failure_analyzer_agent import FailureAnalyzerAgent
+from services.snipers.adaptive_attack.agents.chain_discovery_agent import ChainDiscoveryAgent
 from services.snipers.utils.prompt_articulation.models.tool_intelligence import ReconIntelligence
 
 logger = logging.getLogger(__name__)

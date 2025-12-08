@@ -27,7 +27,7 @@ from services.snipers.adaptive_attack.models.chain_discovery import (
 from services.snipers.adaptive_attack.prompts.failure_analysis_prompt import (
     build_failure_analysis_user_prompt,
 )
-from services.snipers.adaptive_attack.components.failure_analyzer_agent import (
+from services.snipers.adaptive_attack.agents.failure_analyzer_agent import (
     FailureAnalyzerAgent,
 )
 

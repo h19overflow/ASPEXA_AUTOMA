@@ -38,7 +38,9 @@
       "Bash(Get-ChildItem \"C:\\Users\\User\\Projects\\Aspexa_Automa\\services\\snipers\\adaptive_attack\\nodes\")",
       "Bash(Get-ChildItem -Directory)",
       "Bash(ls:*)",
-      "Bash(test:*)"
+      "Bash(test:*)",
+      "Bash(move:*)",
+      "Bash(powershell:*)"
     ],
     "deny": [],
     "ask": []
