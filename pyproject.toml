@@ -51,12 +51,91 @@ where = ["."]
 include = ["libs*", "services*", "infrastructure*"]
 
 [tool.pytest.ini_options]
+# Test discovery patterns
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
+
+# Test output and reporting
+addopts = [
+    "-v",                               # Verbose output with test names
+    "-l",                               # Show local variables in tracebacks
+    "--tb=short",                       # Detailed failure messages
+    "--durations=10",                   # Show slowest tests
+    "--cov=services",                   # Coverage reporting
+    "--cov=libs",
+    "--cov-report=term-missing",
+    "--cov-report=html:tests/coverage_html",
+    "--cov-report=xml",
+    "--cov-branch",
+    "--junit-xml=tests/junit.xml",      # JUnit XML for CI/CD
+    "--html=tests/report.html",         # HTML report
+    "--self-contained-html",
+    "-ra",                              # Clear output
+]
+
+# Logging configuration
+log_cli = true
+log_cli_level = "INFO"
+log_file = "tests/test_results.log"
+log_file_level = "DEBUG"
+log_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+log_date_format = "%Y-%m-%d %H:%M:%S"
+
+# Timeout for tests (in seconds)
+timeout = 300
+
+# Markers for test categorization
+markers = [
+    "unit: Unit tests",
+    "integration: Integration tests",
+    "slow: Tests that take a long time to run",
+    "edge_case: Edge case tests",
+    "config_error: Configuration error tests",
+    "pyrit: PyRIT integration tests",
+    "models: Pydantic model validation tests",
+    "parsers: Parser functionality tests",
+    "routing: Routing logic tests",
+]
+
+# Minimum Python version
+minversion = "3.9"
+
+# Test collection ignore patterns
+norecursedirs = [".git", ".tox", "dist", "build", "*.egg", "__pycache__", ".venv"]
+
+# Doctest configuration
+doctest_optionflags = "NORMALIZE_WHITESPACE ELLIPSIS"
+
+# Asyncio mode
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
+
+[tool.coverage.run]
+source = ["services", "libs"]
+omit = [
+    "*/tests/*",
+    "*/test_*.py",
+    "*/__pycache__/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.",
+    "if TYPE_CHECKING:",
+    "@abstractmethod",
+    "@abc.abstractmethod",
+]
+precision = 2
+skip_empty = true
+
+[tool.coverage.html]
+directory = "tests/coverage_html"
 
 [dependency-groups]
 dev = [
