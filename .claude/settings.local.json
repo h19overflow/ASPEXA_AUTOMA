@@ -40,7 +40,16 @@
       "Bash(ls:*)",
       "Bash(test:*)",
       "Bash(move:*)",
-      "Bash(powershell:*)"
+      "Bash(powershell:*)",
+      "Bash(rm:*)",
+      "Bash(npm install:*)",
+      "Bash(uv add:*)",
+      "Bash(.venvScriptspython.exe -c \"import clerk; print(dir(clerk))\")",
+      "Bash(git restore:*)",
+      "Bash(dir:*)",
+      "Skill(frontend-design:frontend-design)",
+      "WebFetch(domain:lucide.dev)",
+      "Bash(.venv/Scripts/python.exe:*)"
     ],
     "deny": [],
     "ask": []
