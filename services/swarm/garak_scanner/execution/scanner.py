@@ -127,13 +127,11 @@ class GarakScanner:
     async def scan_with_probe(
         self,
         probe_names: Union[str, List[str]],
-        generations: int = 1
     ) -> List[ProbeResult]:
         """Run specified probes and evaluate with detectors.
 
         Args:
             probe_names: Single probe name or list of probe names
-            generations: Number of outputs to generate per prompt
 
         Returns:
             List of ProbeResult objects with detector-based pass/fail
@@ -162,14 +160,13 @@ class GarakScanner:
                 progress_type="scanner_start",
                 progress_data={
                     "probe_count": len(probe_names),
-                    "generations": generations,
                     "parallel_enabled": enable_parallel,
                 },
                 agent_type=self.config.get("agent_type")
             )
 
         if enable_parallel:
-            return await self._run_probes_parallel(probe_names, generations, decision_logger)
+            return await self._run_probes_parallel(probe_names, decision_logger)
         else:
             # Sequential execution (original behavior)
             all_results = []
@@ -184,12 +181,11 @@ class GarakScanner:
                             "probe_name": probe_name,
                             "probe_index": idx + 1,
                             "total_probes": len(probe_names),
-                            "generations": generations,
                         },
                         agent_type=self.config.get("agent_type")
                     )
 
-                results = await self._run_single_probe(probe_name, generations, decision_logger)
+                results = await self._run_single_probe(probe_name, decision_logger)
                 all_results.extend(results)
 
                 # Log probe complete
@@ -261,14 +257,12 @@ class GarakScanner:
             return
 
         probe_names = plan.selected_probes
-        generations = plan.generations
 
         # Emit scan start event
         yield ScanStartEvent(
             audit_id=plan.audit_id,
             agent_type=plan.agent_type,
             total_probes=len(probe_names),
-            generations_per_probe=generations,
             parallel_enabled=plan.scan_config.enable_parallel_execution,
             rate_limit_rps=plan.scan_config.requests_per_second,
             estimated_duration_seconds=estimate_scan_duration(plan)
@@ -281,7 +275,6 @@ class GarakScanner:
         try:
             async for event in self._stream_probe_execution(
                 probe_names,
-                generations,
                 plan
             ):
                 yield event
@@ -342,7 +335,6 @@ class GarakScanner:
     async def _stream_probe_execution(
         self,
         probe_names: List[str],
-        generations: int,
         plan: "ScanPlan"
     ) -> AsyncGenerator[ScannerEvent, None]:
         """Execute probes and stream events for each step."""
@@ -370,7 +362,6 @@ class GarakScanner:
                     probe_index=probe_idx + 1,
                     total_probes=len(probe_names),
                     total_prompts=len(prompts),
-                    generations=generations
                 )
 
                 # Track probe-level statistics
@@ -383,7 +374,6 @@ class GarakScanner:
                     probe_description=probe_description,
                     probe_category=probe_category,
                     prompts=prompts,
-                    generations=generations
                 ):
                     yield result_event
 
@@ -437,65 +427,59 @@ class GarakScanner:
         probe_description: str,
         probe_category: str,
         prompts: List[Any],
-        generations: int
     ) -> AsyncGenerator[Union[PromptResultEvent, ScanErrorEvent], None]:
-        """Execute prompts for a single probe and stream result events."""
+        """Execute prompts for a single probe and stream result events.
+
+        Each prompt is executed once and evaluated against detectors.
+        """
         for prompt_idx, prompt_data in enumerate(prompts):
             prompt_text = extract_prompt_text(prompt_data)
 
             try:
                 gen_start = time.time()
-                parallel_gens = self.config.get("enable_parallel_execution", False)
 
-                if parallel_gens:
-                    outputs = await self._run_generations_parallel(
-                        prompt_text,
-                        generations,
-                        decision_logger=None
-                    )
-                else:
-                    outputs = self.generator._call_model(prompt_text, generations=generations)
+                # Execute prompt once and get single output
+                outputs = self.generator._call_model(prompt_text, generations=1)
+                output_text = outputs[0] if outputs else ""
 
                 gen_duration_ms = int((time.time() - gen_start) * 1000)
+                eval_start = time.time()
 
-                for output_text in outputs:
-                    eval_start = time.time()
+                try:
+                    result = await evaluate_output(
+                        probe, probe_name, probe_description, probe_category,
+                        prompt_text, output_text
+                    )
 
-                    try:
-                        result = await evaluate_output(
-                            probe, probe_name, probe_description, probe_category,
-                            prompt_text, output_text
-                        )
+                    eval_duration_ms = int((time.time() - eval_start) * 1000)
 
-                        eval_duration_ms = int((time.time() - eval_start) * 1000)
+                    yield PromptResultEvent(
+                        probe_name=probe_name,
+                        prompt_index=prompt_idx + 1,
+                        total_prompts=len(prompts),
+                        prompt=prompt_text,
+                        output=output_text,
+                        status=result.status,
+                        detector_name=result.detector_name,
+                        detector_score=result.detector_score,
+                        detection_reason=result.detection_reason,
+                        generation_duration_ms=gen_duration_ms,
+                        evaluation_duration_ms=eval_duration_ms
+                    )
 
-                        yield PromptResultEvent(
-                            probe_name=probe_name,
-                            prompt_index=prompt_idx + 1,
-                            total_prompts=len(prompts),
-                            prompt=prompt_text,
-                            output=output_text,
-                            status=result.status,
-                            detector_name=result.detector_name,
-                            detector_score=result.detector_score,
-                            detection_reason=result.detection_reason,
-                            generation_duration_ms=gen_duration_ms,
-                            evaluation_duration_ms=eval_duration_ms
-                        )
-
-                    except Exception as eval_err:
-                        logger.warning(f"Detector evaluation error: {eval_err}")
-                        yield ScanErrorEvent(
-                            error_type="evaluation_error",
-                            error_message=f"Detector evaluation failed: {str(eval_err)}",
-                            probe_name=probe_name,
-                            prompt_index=prompt_idx + 1,
-                            recoverable=True,
-                            context={"output_length": len(output_text)}
-                        )
+                except Exception as eval_err:
+                    logger.warning(f"Detector evaluation error: {eval_err}")
+                    yield ScanErrorEvent(
+                        error_type="evaluation_error",
+                        error_message=f"Detector evaluation failed: {str(eval_err)}",
+                        probe_name=probe_name,
+                        prompt_index=prompt_idx + 1,
+                        recoverable=True,
+                        context={"output_length": len(output_text)}
+                    )
 
             except Exception as e:
-                logger.error(f"Error generating outputs for prompt {prompt_idx + 1}: {e}")
+                logger.error(f"Error generating output for prompt {prompt_idx + 1}: {e}")
                 yield ScanErrorEvent(
                     error_type="generation_error",
                     error_message=f"Generation failed: {str(e)}",
@@ -508,7 +492,6 @@ class GarakScanner:
     async def _run_probes_parallel(
         self,
         probe_names: List[str],
-        generations: int,
         decision_logger=None
     ) -> List[ProbeResult]:
         """Run probes in parallel with semaphore controls."""
@@ -526,7 +509,6 @@ class GarakScanner:
                 details={
                     "total_probes": len(probe_names),
                     "max_concurrent": max_concurrent_probes,
-                    "generations": generations,
                 },
                 agent_type=self.config.get("agent_type")
             )
@@ -540,13 +522,12 @@ class GarakScanner:
                             "probe_name": probe_name,
                             "probe_index": probe_idx + 1,
                             "total_probes": len(probe_names),
-                            "generations": generations,
                             "parallel": True,
                         },
                         agent_type=self.config.get("agent_type")
                     )
 
-                results = await self._run_single_probe(probe_name, generations, decision_logger)
+                results = await self._run_single_probe(probe_name, decision_logger)
 
                 if decision_logger:
                     decision_logger.log_scan_progress(
@@ -596,10 +577,12 @@ class GarakScanner:
     async def _run_single_probe(
         self,
         probe_name: str,
-        generations: int,
         decision_logger=None
     ) -> List[ProbeResult]:
-        """Run a single probe and evaluate results."""
+        """Run a single probe and evaluate results.
+
+        Each prompt is executed once and evaluated against detectors.
+        """
         probe_start = time.time()
         probe_path = resolve_probe_path(probe_name)
         probe_description = get_probe_description(probe_name)
@@ -619,10 +602,9 @@ class GarakScanner:
             prompt_text = extract_prompt_text(prompt_data)
             logger.debug(f"Testing prompt {idx+1}/{len(prompts)}: {prompt_text[:80]}")
 
-            outputs = []
+            output_text = ""
             try:
                 gen_start = time.time()
-                parallel_gens = self.config.get("enable_parallel_execution", False)
 
                 if decision_logger:
                     decision_logger.log_scan_progress(
@@ -631,16 +613,13 @@ class GarakScanner:
                             "probe_name": probe_name,
                             "prompt_index": idx + 1,
                             "total_prompts": len(prompts),
-                            "generations": generations,
-                            "parallel": parallel_gens,
                         },
                         agent_type=self.config.get("agent_type")
                     )
 
-                if parallel_gens:
-                    outputs = await self._run_generations_parallel(prompt_text, generations, decision_logger)
-                else:
-                    outputs = self.generator._call_model(prompt_text, generations=generations)
+                # Execute prompt once
+                outputs = self.generator._call_model(prompt_text, generations=1)
+                output_text = outputs[0] if outputs else ""
                 gen_duration = time.time() - gen_start
                 log_performance_metric("probe_generation_time", gen_duration, "seconds")
 
@@ -651,45 +630,42 @@ class GarakScanner:
                             "probe_name": probe_name,
                             "prompt_index": idx + 1,
                             "total_prompts": len(prompts),
-                            "outputs_count": len(outputs),
                             "duration_seconds": round(gen_duration, 2),
                         },
                         agent_type=self.config.get("agent_type")
                     )
 
                 eval_start = time.time()
-                for output_text in outputs:
-                    try:
-                        result = await evaluate_output(
-                            probe, probe_name, probe_description, probe_category,
-                            prompt_text, output_text
-                        )
-                        results.append(result)
-                    except Exception as eval_err:
-                        logger.warning(f"Detector evaluation error (output preserved): {eval_err}")
-                        results.append(ProbeResult(
-                            probe_name=probe_name,
-                            probe_description=probe_description,
-                            category=probe_category,
-                            prompt=prompt_text,
-                            output=output_text,
-                            status="error",
-                            detector_name="none",
-                            detector_score=0.0,
-                            detection_reason=f"Detector error: {str(eval_err)}"
-                        ))
+                try:
+                    result = await evaluate_output(
+                        probe, probe_name, probe_description, probe_category,
+                        prompt_text, output_text
+                    )
+                    results.append(result)
+                except Exception as eval_err:
+                    logger.warning(f"Detector evaluation error (output preserved): {eval_err}")
+                    results.append(ProbeResult(
+                        probe_name=probe_name,
+                        probe_description=probe_description,
+                        category=probe_category,
+                        prompt=prompt_text,
+                        output=output_text,
+                        status="error",
+                        detector_name="none",
+                        detector_score=0.0,
+                        detection_reason=f"Detector error: {str(eval_err)}"
+                    ))
                 eval_duration = time.time() - eval_start
                 log_performance_metric("detector_evaluation_time", eval_duration, "seconds")
 
             except Exception as e:
-                logger.error(f"Error generating outputs: {e}")
-                output_for_error = outputs[0] if outputs else ""
+                logger.error(f"Error generating output: {e}")
                 results.append(ProbeResult(
                     probe_name=probe_name,
                     probe_description=probe_description,
                     category=probe_category,
                     prompt=prompt_text,
-                    output=output_for_error,
+                    output=output_text,
                     status="error",
                     detector_name="none",
                     detector_score=0.0,
@@ -701,63 +677,6 @@ class GarakScanner:
         logger.info(f"Probe {probe_name} completed in {probe_duration:.2f}s with {len(results)} results")
 
         return results
-
-    async def _run_generations_parallel(
-        self,
-        prompt_text: str,
-        generations: int,
-        decision_logger=None
-    ) -> List[str]:
-        """Run multiple generation attempts in parallel with semaphore and rate limiting."""
-        max_concurrent_generations = self.config.get("max_concurrent_generations", 1)
-        generation_semaphore = asyncio.Semaphore(max_concurrent_generations)
-
-        if decision_logger:
-            decision_logger.log_parallel_execution(
-                event="parallel_generations_start",
-                details={
-                    "generations": generations,
-                    "max_concurrent": max_concurrent_generations,
-                    "rate_limiter_enabled": self.rate_limiter is not None,
-                },
-                agent_type=self.config.get("agent_type")
-            )
-
-        async def run_generation_with_limits(gen_idx: int) -> str:
-            async with generation_semaphore:
-                if self.rate_limiter:
-                    if decision_logger:
-                        decision_logger.log_rate_limiting(
-                            event="rate_limit_acquire",
-                            details={
-                                "generation_index": gen_idx + 1,
-                                "total_generations": generations,
-                            },
-                            agent_type=self.config.get("agent_type")
-                        )
-                    await self.rate_limiter.acquire()
-
-                if hasattr(self.generator, '_call_model'):
-                    result = self.generator._call_model(prompt_text, generations=1)
-                    return result[0] if result else ""
-                else:
-                    return ""
-
-        outputs = await asyncio.gather(
-            *[run_generation_with_limits(gen_idx) for gen_idx in range(generations)]
-        )
-
-        if decision_logger:
-            decision_logger.log_parallel_execution(
-                event="parallel_generations_complete",
-                details={
-                    "generations": generations,
-                    "outputs_count": len(outputs),
-                },
-                agent_type=self.config.get("agent_type")
-            )
-
-        return outputs
 
     def results_to_dicts(self, results: List[ProbeResult]) -> List[dict]:
         """Convert ProbeResult objects to dicts for in-memory processing."""

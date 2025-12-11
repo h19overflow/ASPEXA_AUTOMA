@@ -199,13 +199,6 @@ DEFAULT_PROBES: Dict[str, Dict[str, List[str]]] = {
     },
 }
 
-# Default generations (attempts per probe) per approach
-DEFAULT_GENERATIONS: Dict[str, int] = {
-    ScanApproach.QUICK: 6,
-    ScanApproach.STANDARD: 10,
-    ScanApproach.THOROUGH: 20,
-}
-
 # Infrastructure-based probe recommendations
 INFRASTRUCTURE_PROBES: Dict[str, List[str]] = {
     "postgresql": ["promptinj", "encoding", "pkg_python"],

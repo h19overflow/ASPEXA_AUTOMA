@@ -1,7 +1,12 @@
-"""Pulumi IaC for Aspexa S3 Audit Lake.
+"""Pulumi IaC for Aspexa Persistence Layer.
 
-Creates a private S3 bucket for storing audit artifacts.
-Structure: s3://{bucket}/campaigns/{audit_id}/{phase}/{filename}
+Creates:
+- S3 bucket for storing audit artifacts (heavy data)
+- RDS PostgreSQL for campaign tracking (lightweight index)
+
+Structure:
+- S3: s3://{bucket}/campaigns/{audit_id}/{phase}/{filename}
+- RDS: campaigns table with stage flags and S3 mappings
 
 Usage:
     cd libs/persistence/pulumi
@@ -11,6 +16,8 @@ Usage:
 """
 import pulumi
 import pulumi_aws as aws
+
+from rds import create_rds_infrastructure, export_rds_outputs
 
 # Configuration
 config = pulumi.Config()
@@ -95,7 +102,21 @@ lifecycle = aws.s3.BucketLifecycleConfigurationV2(
     ],
 )
 
-# Export outputs
+# ============================================================
+# RDS PostgreSQL for Campaign Tracking
+# ============================================================
+# Small instance for campaign metadata (stage flags, S3 mappings)
+# Heavy scan data stays in S3, RDS is just the lightweight index
+
+rds_enabled = config.get_bool("rds_enabled") or True
+
+if rds_enabled:
+    rds_resources = create_rds_infrastructure()
+    export_rds_outputs(rds_resources)
+
+# ============================================================
+# Export S3 outputs
+# ============================================================
 pulumi.export("s3_bucket_name", audit_bucket.bucket)
 pulumi.export("s3_bucket_arn", audit_bucket.arn)
 pulumi.export("aws_region", aws.get_region().name)

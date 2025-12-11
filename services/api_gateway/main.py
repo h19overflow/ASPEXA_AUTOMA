@@ -29,6 +29,8 @@ app.add_middleware(
         "http://localhost:8080",  # Viper Command Center (dev)
         "http://localhost:5173",  # Vite default
         "http://localhost:3000",  # Alternative dev port
+        "http://192.168.0.4:8080",  # Local network access
+        "http://192.168.0.4:5173",  # Local network Vite
     ],
     allow_credentials=True,  # Required for Clerk auth cookies
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],

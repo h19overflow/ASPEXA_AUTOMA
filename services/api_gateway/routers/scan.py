@@ -26,14 +26,10 @@ def _build_scan_config(request: ScanStartRequest) -> ScanConfigContract:
     cfg = request.config
     return ScanConfigContract(
         approach=cfg.approach,
-        generations=cfg.generations,
         custom_probes=cfg.custom_probes or [],
-        allow_agent_override=cfg.allow_agent_override,
         max_probes=cfg.max_probes,
-        max_generations=cfg.max_generations,
         enable_parallel_execution=cfg.enable_parallel_execution,
         max_concurrent_probes=cfg.max_concurrent_probes,
-        max_concurrent_generations=cfg.max_concurrent_generations,
         requests_per_second=cfg.requests_per_second,
         max_concurrent_connections=cfg.max_concurrent_connections,
         request_timeout=cfg.request_timeout,

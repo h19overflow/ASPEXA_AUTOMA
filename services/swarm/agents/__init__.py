@@ -22,7 +22,7 @@ from .base import (
     create_scanning_agent,  # Deprecated alias for create_planning_agent
     run_scanning_agent,  # Deprecated - use run_planning_agent
 )
-from .tools import PLANNING_TOOLS, analyze_target, plan_scan, get_available_probes
+from .tools import PLANNING_TOOLS, plan_scan
 from .prompts import SYSTEM_PROMPTS, get_system_prompt
 from services.swarm.core.config import AgentType
 
@@ -122,9 +122,7 @@ __all__ = [
 
     # Tools
     "PLANNING_TOOLS",
-    "analyze_target",
     "plan_scan",
-    "get_available_probes",
 
     # Prompts
     "SYSTEM_PROMPTS",

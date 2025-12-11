@@ -96,7 +96,6 @@ def configure_scanner_from_plan(plan: "ScanPlan") -> Dict[str, Any]:
         "agent_type": plan.agent_type,
         "enable_parallel_execution": plan.scan_config.enable_parallel_execution,
         "max_concurrent_probes": plan.scan_config.max_concurrent_probes,
-        "max_concurrent_generations": plan.scan_config.max_concurrent_generations,
         "requests_per_second": plan.scan_config.requests_per_second,
     }
 
@@ -107,35 +106,28 @@ def estimate_scan_duration(plan: "ScanPlan") -> Optional[int]:
 
     Uses heuristics:
     - Average 10 prompts per probe
-    - 2 seconds per generation
+    - 2 seconds per prompt execution
     - Adjusts for parallelism
 
     Args:
-        plan: ScanPlan with probe count, generations, and parallel config
+        plan: ScanPlan with probe count and parallel config
 
     Returns:
         Estimated duration in seconds, or None if cannot estimate
     """
     try:
-        # Average: 10 prompts per probe, 2 seconds per generation
+        # Average: 10 prompts per probe, 2 seconds per execution
         avg_prompts_per_probe = 10
-        avg_seconds_per_generation = 2
+        avg_seconds_per_execution = 2
 
-        total_operations = (
-            len(plan.selected_probes) *
-            avg_prompts_per_probe *
-            plan.generations
-        )
+        total_operations = len(plan.selected_probes) * avg_prompts_per_probe
 
         # Adjust for parallelism
         if plan.scan_config.enable_parallel_execution:
-            concurrent_factor = max(
-                plan.scan_config.max_concurrent_probes,
-                plan.scan_config.max_concurrent_generations
-            )
-            return int((total_operations * avg_seconds_per_generation) / concurrent_factor)
+            concurrent_factor = plan.scan_config.max_concurrent_probes
+            return int((total_operations * avg_seconds_per_execution) / concurrent_factor)
         else:
-            return total_operations * avg_seconds_per_generation
+            return total_operations * avg_seconds_per_execution
     except Exception:
         return None
 

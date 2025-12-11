@@ -21,16 +21,6 @@ class ProbePlan(BaseModel):
     probes: List[str] = Field(
         description="List of probe names to execute (e.g., 'dan', 'promptinj')"
     )
-    generations: int = Field(
-        description="Number of generation attempts per probe",
-        ge=1,
-        le=20,
-        default=5,
-    )
-    reasoning: Dict[str, str] = Field(
-        description="Mapping of probe name to selection reasoning",
-        default_factory=dict,
-    )
 
 
 class BaseAgent(ABC):
@@ -78,6 +68,6 @@ class BaseAgent(ABC):
                 - approach: 'quick', 'standard', or 'thorough'
 
         Returns:
-            ProbePlan with selected probes, generations, and reasoning
+            ProbePlan with selected probes
         """
         pass

@@ -18,54 +18,35 @@ class ScanStreamMode(str, Enum):
 
 
 class ScanConfigRequest(BaseModel):
-    """User-configurable scan parameters for API requests."""
+    """User-configurable scan parameters for API requests.
+
+    Simplified model: each probe runs once (no generations/retry concept).
+    """
 
     approach: str = Field(
         default="standard",
-        description="Scan intensity: quick, standard, or thorough"
-    )
-    generations: Optional[int] = Field(
-        default=None,
-        ge=1,
-        le=50,
-        description="Override: number of attempts per probe (1-50). None = use approach default"
+        description="Scan intensity: quick (~3 probes), standard (~6 probes), or thorough (~10 probes)"
     )
     custom_probes: Optional[List[str]] = Field(
         default=None,
         description="Override: specific probe names to run instead of defaults"
     )
-    allow_agent_override: bool = Field(
-        default=True,
-        description="Allow agent to adjust probe count based on recon intelligence"
-    )
     max_probes: int = Field(
-        default=10,
+        default=6,
         ge=1,
         le=20,
-        description="Maximum number of probes agent can run (1-20)"
-    )
-    max_generations: int = Field(
-        default=15,
-        ge=1,
-        le=50,
-        description="Maximum generations agent can use per probe (1-50)"
+        description="Maximum number of probes to run (1-20)"
     )
     # Parallel execution controls
     enable_parallel_execution: bool = Field(
-        default=False,
-        description="Enable parallel execution of probes and generations (master switch)"
+        default=True,
+        description="Enable parallel execution of probes (faster scans)"
     )
     max_concurrent_probes: int = Field(
-        default=1,
+        default=3,
         ge=1,
         le=10,
         description="Maximum number of probes to run concurrently (1-10)"
-    )
-    max_concurrent_generations: int = Field(
-        default=1,
-        ge=1,
-        le=5,
-        description="Maximum generations per probe to run concurrently (1-5)"
     )
     # Rate limiting
     requests_per_second: Optional[float] = Field(
@@ -74,7 +55,7 @@ class ScanConfigRequest(BaseModel):
         description="Rate limit in requests per second (None = unlimited)"
     )
     max_concurrent_connections: int = Field(
-        default=5,
+        default=15,
         ge=1,
         le=50,
         description="Maximum concurrent connections to target API (1-50)"

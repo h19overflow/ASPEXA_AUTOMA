@@ -44,9 +44,17 @@ async def execute_agent(state: SwarmState) -> Dict[str, Any]:
     """
     writer = safe_get_stream_writer()
     manager = get_cancellation_manager(state.audit_id)
-    agent_type = state.current_agent
-    events = []
+    events: List[Dict[str, Any]] = []
     probe_results_list: List[Dict[str, Any]] = []
+
+    # Guard: ensure we have a current agent
+    agent_type = state.current_agent
+    if agent_type is None:
+        return {
+            "events": events,
+            "current_agent_index": state.current_agent_index + 1,
+            "current_plan": None,
+        }
 
     # Calculate base progress for this agent
     base_progress = state.current_agent_index / max(state.total_agents, 1)
@@ -84,6 +92,8 @@ async def execute_agent(state: SwarmState) -> Dict[str, Any]:
             "agent_results": [AgentResult(
                 agent_type=agent_type,
                 status="failed",
+                scan_id=None,
+                plan=None,
                 error="No plan available for execution",
                 phase="execution",
             )],
@@ -116,6 +126,8 @@ async def execute_agent(state: SwarmState) -> Dict[str, Any]:
             "agent_results": [AgentResult(
                 agent_type=agent_type,
                 status="error",
+                scan_id=None,
+                plan=None,
                 error=f"Invalid plan: {e}",
                 phase="execution",
             )],
@@ -164,6 +176,8 @@ async def execute_agent(state: SwarmState) -> Dict[str, Any]:
                         plan=state.current_plan,
                         results=probe_results_list,
                         vulnerabilities_found=total_fail,
+                        error=None,
+                        phase=None,
                     )],
                     "events": events,
                     "current_agent_index": state.current_agent_index + 1,
@@ -204,7 +218,6 @@ async def execute_agent(state: SwarmState) -> Dict[str, Any]:
                     "probe_index": event.probe_index,
                     "total_probes": event.total_probes,
                     "total_prompts": event.total_prompts,
-                    "generations": event.generations,
                 })
 
             elif isinstance(event, PromptResultEvent):
@@ -354,6 +367,8 @@ async def execute_agent(state: SwarmState) -> Dict[str, Any]:
                             vulnerabilities_found=total_fail,
                             error=event.error_message,
                             phase="execution",
+                            duration_ms=0,
+                            persisted=False,
                         )],
                         "events": events,
                         "current_agent_index": state.current_agent_index + 1,
@@ -380,6 +395,8 @@ async def execute_agent(state: SwarmState) -> Dict[str, Any]:
                 plan=state.current_plan,
                 results=probe_results_list,
                 vulnerabilities_found=total_fail,
+                error=None,
+                phase=None,
             )],
             "events": events,
             "current_agent_index": state.current_agent_index + 1,
@@ -420,6 +437,8 @@ async def execute_agent(state: SwarmState) -> Dict[str, Any]:
                 vulnerabilities_found=total_fail,
                 error=str(e),
                 phase="execution",
+                duration_ms=0,
+                persisted=False,
             )],
             "events": events,
             "current_agent_index": state.current_agent_index + 1,

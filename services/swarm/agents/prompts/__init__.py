@@ -2,7 +2,6 @@
 Prompts package for scanning agents.
 
 Purpose: Export all prompt templates for scanning agents.
-Dependencies: Individual prompt modules, services.swarm.core.config
 """
 from services.swarm.core.config import AgentType
 
@@ -19,13 +18,12 @@ SYSTEM_PROMPTS = {
 }
 
 
-def get_system_prompt(agent_type: str, probe_categories: str, available_probes: str) -> str:
+def get_system_prompt(agent_type: str, available_probes: str) -> str:
     """Get formatted system prompt for agent type.
 
     Args:
         agent_type: One of agent_sql, agent_auth, agent_jailbreak
-        probe_categories: Comma-separated probe categories
-        available_probes: Comma-separated probe names
+        available_probes: Comma-separated probe names for this agent
 
     Returns:
         Formatted planning prompt with agent-specific instructions
@@ -35,7 +33,6 @@ def get_system_prompt(agent_type: str, probe_categories: str, available_probes: 
 
     return template.format(
         planning_instruction=PLANNING_INSTRUCTION,
-        probe_categories=probe_categories,
         available_probes=available_probes,
     )
 
