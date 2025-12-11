@@ -120,6 +120,24 @@ def evaluate_node(state: AdaptiveAttackState) -> dict[str, Any]:
     # Check success condition
     if is_successful:
         logger.info("  → Attack SUCCESSFUL! Completing.")
+
+        # === BYPASS KNOWLEDGE INTEGRATION (Non-invasive) ===
+        # Capture successful episode if score meets threshold
+        # Logs locally regardless of config, only stores to S3 if enabled
+        import asyncio
+        try:
+            from services.snipers.bypass_knowledge.integration import get_evaluate_hook
+            # Build capture state with is_successful flag
+            capture_state = dict(state)
+            capture_state["is_successful"] = True
+            capture_result = asyncio.get_event_loop().run_until_complete(
+                get_evaluate_hook().maybe_capture(capture_state)
+            )
+            logger.info(f"  → Bypass knowledge: {capture_result}")
+        except Exception as e:
+            logger.debug(f"Bypass knowledge capture skipped: {e}")
+        # ===================================================
+
         return {
             "is_successful": True,
             "iteration_history": iteration_history,

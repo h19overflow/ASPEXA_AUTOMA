@@ -84,6 +84,17 @@ async def _adapt_node_async(state: AdaptiveAttackState) -> dict[str, Any]:
     else:
         logger.info("  No recon intelligence available")
 
+    # === BYPASS KNOWLEDGE INTEGRATION (Non-invasive) ===
+    # Query historical episodes for similar defenses
+    # Logs locally regardless of config, only queries S3 if enabled
+    try:
+        from services.snipers.bypass_knowledge.integration import get_adapt_hook
+        history_context = await get_adapt_hook().query_history(dict(state))
+    except Exception as e:
+        logger.debug(f"Bypass knowledge query skipped: {e}")
+        history_context = None
+    # ===================================================
+
     # === Step 1: Pre-analyze responses (rule-based) ===
     analyzer = ResponseAnalyzer()
     pre_analysis = analyzer.analyze(responses)
@@ -137,6 +148,11 @@ async def _adapt_node_async(state: AdaptiveAttackState) -> dict[str, Any]:
     if recon_intelligence:
         config["recon_intelligence"] = recon_intelligence.model_dump()
         logger.info(f"  Passing recon intelligence to strategy generator (target: {recon_intelligence.target_self_description or 'unknown'})")
+
+    # Inject historical context if available and confident enough
+    if history_context and history_context.should_inject:
+        config["historical_context"] = history_context.to_prompt_context()
+        logger.info(f"  Injecting historical context (confidence: {history_context.confidence:.2f})")
 
     decision = await generator.generate(
         responses=responses,
@@ -211,6 +227,8 @@ async def _adapt_node_async(state: AdaptiveAttackState) -> dict[str, Any]:
         "chain_discovery_context": chain_discovery_context,
         "chain_discovery_decision": chain_decision,
         "chain_selection_result": chain_selection_result,
+        # Bypass knowledge context (for observability)
+        "history_context": history_context.model_dump() if history_context else None,
         "error": None,
         "next_node": "articulate",
     }

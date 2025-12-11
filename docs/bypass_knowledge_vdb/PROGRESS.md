@@ -1,8 +1,8 @@
 # Bypass Knowledge VDB - Implementation Progress
 
-## Status: Phase 1-4 Complete ✓
+## Status: Phase 1-7 Complete ✓
 
-**Last Updated**: 2025-12-07 (Embeddings & Storage implemented)
+**Last Updated**: 2025-12-11 (Full Integration implemented)
 
 ---
 
@@ -190,137 +190,266 @@ tests/bypass_knowledge/
 
 ---
 
-## Next Session: Phase 5, 6, 7
+## Session 3 Progress
 
-### Phase 5: Capture
+### Phase 5: Capture - COMPLETE
 
-**Goal**: Capture successful bypass episodes from the adaptive attack flow
+**Status**: Implemented (prior session)
 
-**Files to Create**:
-- `services/snipers/bypass_knowledge/capture/episode_builder.py`
+**Files Created**:
+- `services/snipers/bypass_knowledge/capture/episode_capturer.py`
+- `services/snipers/bypass_knowledge/capture/capturer_models.py`
+- `services/snipers/bypass_knowledge/capture/capturer_prompt.py`
 - `services/snipers/bypass_knowledge/capture/__init__.py`
-- `tests/bypass_knowledge/test_capture.py`
+- `tests/bypass_knowledge/test_episode_capturer.py`
 
-**Implementation Details**:
-
-1. **EpisodeBuilder Class** (`capture/episode_builder.py`):
-   ```python
-   class EpisodeBuilder:
-       """Builds BypassEpisode from swarm attack results."""
-
-       def from_attack_result(self, result: AttackResult) -> BypassEpisode:
-           """Convert successful attack result to episode."""
-
-       def extract_fingerprint(self, result: AttackResult) -> DefenseFingerprint:
-           """Extract defense fingerprint from attack traces."""
-
-       def generate_insight(self, episode: BypassEpisode) -> str:
-           """Use LLM to generate why_it_worked and key_insight."""
-   ```
-
-2. **Integration Points**:
-   | File | Line | Integration |
-   |------|------|-------------|
-   | `services/snipers/adaptive_attack/nodes/evaluate.py` | `:44` | After evaluation, call `EpisodeBuilder.from_attack_result()` |
-   | `services/snipers/adaptive_attack/state.py` | `:30` | `AdaptiveAttackState` - source data for episodes |
-   | `services/snipers/adaptive_attack/models/` | `:*` | Attack models for result types |
-
-3. **Data Mapping**:
-   | AttackResult Field | BypassEpisode Field |
-   |--------------------|---------------------|
-   | `target_response` | `defense_response` |
-   | `technique_used` | `successful_technique` |
-   | `framing_used` | `successful_framing` |
-   | `final_prompt` | `successful_prompt` |
-   | `score` | `jailbreak_score` |
+**Components Implemented**:
+| Component | Location | Purpose |
+|-----------|----------|---------|
+| `EpisodeCapturer` | `capture/episode_capturer.py` | Extract episodes from attack state with LLM reasoning |
+| `CaptureConfig` | `capture/capturer_models.py` | Configuration for capture thresholds and model |
+| `ReasoningOutput` | `capture/capturer_models.py` | LLM output schema for why_it_worked, key_insight |
 
 ---
 
-### Phase 6: Query
+### Phase 6: Query - COMPLETE
 
-**Goal**: Query interface for retrieving historical insights
+**Status**: Implemented (prior session)
 
-**Files to Create**:
-- `services/snipers/bypass_knowledge/query/insight_generator.py`
+**Files Created**:
+- `services/snipers/bypass_knowledge/query/query_processor.py`
+- `services/snipers/bypass_knowledge/query/query_models.py`
+- `services/snipers/bypass_knowledge/query/query_prompt.py`
 - `services/snipers/bypass_knowledge/query/__init__.py`
-- `tests/bypass_knowledge/test_query.py`
+- `tests/bypass_knowledge/test_query_processor.py`
 
-**Implementation Details**:
-
-1. **InsightGenerator Class** (`query/insight_generator.py`):
-   ```python
-   class InsightGenerator:
-       """Generates actionable insights from similar episodes."""
-
-       def __init__(self, store: EpisodeStore): ...
-
-       def get_recommendations(
-           self,
-           fingerprint: DefenseFingerprint,
-           top_k: int = 5,
-       ) -> HistoricalInsight:
-           """Get technique recommendations for similar defenses."""
-
-       def aggregate_stats(
-           self,
-           technique: str,
-       ) -> TechniqueStats:
-           """Get aggregated statistics for a technique."""
-   ```
-
-2. **Integration Points**:
-   | File | Line | Integration |
-   |------|------|-------------|
-   | `services/snipers/adaptive_attack/nodes/adapt.py` | `:61` | Query insights before adapting strategy |
-   | `services/snipers/adaptive_attack/components/strategy_generator.py` | `:30` | Add historical context to strategy prompts |
-
-3. **Query Patterns**:
-   - "What worked against similar keyword filters?"
-   - "Techniques for finance domain defenses"
-   - "Success rates for encoding vs synonym substitution"
+**Components Implemented**:
+| Component | Location | Purpose |
+|-----------|----------|---------|
+| `QueryProcessor` | `query/query_processor.py` | Natural language → actionable insights |
+| `QueryProcessorConfig` | `query/query_models.py` | Top-k, similarity threshold settings |
+| `SynthesizedInsight` | `query/query_models.py` | LLM output schema for recommendations |
 
 ---
 
-### Phase 7: Integration
+### Phase 7: Integration - COMPLETE
 
-**Goal**: Wire bypass knowledge into the adaptive attack flow
+**Status**: Implemented and tested
 
-**Files to Create**:
-- `services/snipers/bypass_knowledge/integration/adapt_node_hook.py`
+**Files Created**:
+- `services/snipers/bypass_knowledge/integration/config.py`
+- `services/snipers/bypass_knowledge/integration/models.py`
+- `services/snipers/bypass_knowledge/integration/local_logger.py`
+- `services/snipers/bypass_knowledge/integration/adapt_hook.py`
+- `services/snipers/bypass_knowledge/integration/evaluate_hook.py`
 - `services/snipers/bypass_knowledge/integration/__init__.py`
 - `tests/bypass_knowledge/test_integration.py`
 
-**Implementation Details**:
+**Files Modified**:
+- `services/snipers/adaptive_attack/nodes/adapt.py` (+10 lines)
+- `services/snipers/adaptive_attack/nodes/evaluate.py` (+16 lines)
 
-1. **AdaptNodeHook Class** (`integration/adapt_node_hook.py`):
-   ```python
-   class AdaptNodeHook:
-       """Hook for adapt_node to leverage historical bypass knowledge."""
+**Test Results**: 28/28 passed
 
-       async def get_history_context(
-           self,
-           defense_response: str,
-           failed_techniques: list[str],
-           target_domain: str,
-       ) -> HistoryContext:
-           """Get historical context for strategy generation."""
+**Components Implemented**:
+| Component | Location | Purpose |
+|-----------|----------|---------|
+| `BypassKnowledgeConfig` | `integration/config.py` | Feature flags from environment |
+| `HistoryContext` | `integration/models.py` | Query result with boost/avoid techniques |
+| `CaptureResult` | `integration/models.py` | Capture operation result |
+| `BypassKnowledgeLogger` | `integration/local_logger.py` | JSON logging for review |
+| `AdaptNodeHook` | `integration/adapt_hook.py` | Query hook for adapt_node |
+| `EvaluateNodeHook` | `integration/evaluate_hook.py` | Capture hook for evaluate_node |
 
-       def should_apply_boost(self, context: HistoryContext) -> bool:
-           """Check if historical context is confident enough to apply."""
+**Integration Points**:
+| File | Location | Integration |
+|------|----------|-------------|
+| `nodes/adapt.py` | `:87-96` | Query historical episodes before strategy generation |
+| `nodes/adapt.py` | `:152-155` | Inject historical context into strategy prompt |
+| `nodes/adapt.py` | `:230-231` | Include history_context in state output |
+| `nodes/evaluate.py` | `:124-139` | Capture successful episodes after evaluation |
+
+---
+
+## Directory Structure (Final)
+
+```
+services/snipers/bypass_knowledge/
+├── __init__.py                    # [Phase 1]
+├── models/
+│   ├── __init__.py                # [Phase 1+3+4] Exports all models
+│   ├── episode.py                 # [Phase 1] BypassEpisode, Hypothesis, ProbeResult, FailureDepth
+│   ├── fingerprint.py             # [Phase 3] DefenseFingerprint
+│   ├── insight.py                 # [Phase 1] HistoricalInsight, TechniqueStats
+│   └── storage.py                 # [Phase 4] SimilarEpisode, EpisodeStoreConfig
+├── embeddings/
+│   ├── __init__.py                # [Phase 3] Re-exports DefenseFingerprint, GoogleEmbedder
+│   └── google_embedder.py         # [Phase 3] GoogleEmbedder class
+├── storage/
+│   ├── __init__.py                # [Phase 4] Re-exports models + EpisodeStore
+│   └── episode_store.py           # [Phase 4] EpisodeStore class
+├── capture/
+│   ├── __init__.py                # [Phase 5] Re-exports EpisodeCapturer
+│   ├── episode_capturer.py        # [Phase 5] EpisodeCapturer class
+│   ├── capturer_models.py         # [Phase 5] CaptureConfig, ReasoningOutput
+│   └── capturer_prompt.py         # [Phase 5] REASONING_SYSTEM_PROMPT
+├── query/
+│   ├── __init__.py                # [Phase 6] Re-exports QueryProcessor
+│   ├── query_processor.py         # [Phase 6] QueryProcessor class
+│   ├── query_models.py            # [Phase 6] QueryProcessorConfig, SynthesizedInsight
+│   └── query_prompt.py            # [Phase 6] SYNTHESIS_SYSTEM_PROMPT
+└── integration/
+    ├── __init__.py                # [Phase 7] Re-exports all hooks and config
+    ├── config.py                  # [Phase 7] BypassKnowledgeConfig
+    ├── models.py                  # [Phase 7] HistoryContext, CaptureResult
+    ├── local_logger.py            # [Phase 7] BypassKnowledgeLogger
+    ├── adapt_hook.py              # [Phase 7] AdaptNodeHook
+    └── evaluate_hook.py           # [Phase 7] EvaluateNodeHook
+
+tests/bypass_knowledge/
+├── __init__.py                    # [Phase 1]
+├── test_models.py                 # [Phase 1] 16 tests
+├── test_embeddings.py             # [Phase 3] 11 tests
+├── test_episode_store.py          # [Phase 4] 15 tests
+├── test_episode_capturer.py       # [Phase 5] tests
+├── test_query_processor.py        # [Phase 6] tests
+└── test_integration.py            # [Phase 7] 28 tests
+```
+
+**Total Tests**: 70+ passed
+
+---
+
+## Feature Flags (Environment Variables)
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `BYPASS_KNOWLEDGE_ENABLED` | `true` | Master switch for all features |
+| `BYPASS_KNOWLEDGE_LOG_ONLY` | `false` | When true, only log locally (no S3 ops) |
+| `BYPASS_KNOWLEDGE_INJECT_CONTEXT` | `true` | When true, inject history into prompts |
+| `BYPASS_KNOWLEDGE_LOG_DIR` | `logs/bypass_knowledge` | Local log directory |
+| `BYPASS_KNOWLEDGE_MIN_CAPTURE_SCORE` | `0.9` | Min jailbreak score to capture |
+| `BYPASS_KNOWLEDGE_CONFIDENCE_THRESHOLD` | `0.4` | Min confidence to inject context |
+
+---
+
+## Usage Instructions
+
+### Default Mode (Full Integration)
+
+By default, the bypass knowledge system is **fully enabled**:
+- Queries S3 Vectors for similar historical episodes
+- Injects historical context into strategy prompts (if confidence >= 0.4)
+- Captures successful episodes to S3 Vectors (if score >= 0.9)
+- **Always logs locally** to `logs/bypass_knowledge/` for review
+
+```bash
+# Just run - everything enabled by default
+python -m services.snipers.run_attack
+```
+
+### Review-Only Mode (No S3 Writes)
+
+To observe what the system *would* do without making S3 calls:
+
+```bash
+export BYPASS_KNOWLEDGE_LOG_ONLY=true
+python -m services.snipers.run_attack
+# Check logs/bypass_knowledge/ for JSON files
+```
+
+### Disable Entirely
+
+To completely disable bypass knowledge:
+
+```bash
+export BYPASS_KNOWLEDGE_ENABLED=false
+python -m services.snipers.run_attack
+```
+
+### Log Output Structure
+
+```
+logs/bypass_knowledge/
+├── queries/                  # Historical knowledge lookups
+│   └── 2025-12-11_campaign-abc_query_001.json
+├── captures/                 # Episode capture events
+│   └── 2025-12-11_campaign-abc_capture_001.json
+└── injections/               # Prompt injection decisions
+    └── 2025-12-11_campaign-abc_inject_001.json
+```
+
+### Example Log Files
+
+**Query Log** (`queries/*.json`):
+```json
+{
+  "timestamp": "2025-12-11T14:30:00Z",
+  "operation": "query",
+  "campaign_id": "camp-abc-123",
+  "input": {
+    "defense_response": "I cannot assist with that request.",
+    "failed_techniques": ["encoding", "direct_request"],
+    "domain": "finance"
+  },
+  "output": {
+    "similar_cases_found": 12,
+    "dominant_mechanism": "semantic_classifier",
+    "recommended_technique": "authority_framing",
+    "confidence": 0.78
+  },
+  "action_taken": "queried_s3_vectors",
+  "context_injected": true
+}
+```
+
+**Capture Log** (`captures/*.json`):
+```json
+{
+  "timestamp": "2025-12-11T14:35:00Z",
+  "operation": "capture",
+  "campaign_id": "camp-abc-123",
+  "episode": {
+    "episode_id": "ep-abc-456",
+    "defense_response": "I cannot assist...",
+    "successful_technique": "authority_framing",
+    "jailbreak_score": 0.95,
+    "key_insight": "Authority context bypassed semantic filter"
+  },
+  "action_taken": "captured_and_stored",
+  "stored_to_s3": true
+}
+```
+
+---
+
+## Rollback Instructions
+
+### Disable via Environment
+
+```bash
+export BYPASS_KNOWLEDGE_ENABLED=false
+```
+
+### Remove Integration Code
+
+To fully remove the integration:
+
+1. Delete integration module:
+   ```bash
+   rm -rf services/snipers/bypass_knowledge/integration/
    ```
 
-2. **Integration Points**:
-   | File | Line | Integration |
-   |------|------|-------------|
-   | `services/snipers/adaptive_attack/graph.py` | `:66` | Add hooks to graph edges |
-   | `services/snipers/adaptive_attack/state.py` | `:43` | Add `history_context` field to AdaptiveAttackState |
-   | `services/snipers/entrypoint.py` | `:96` | Initialize bypass knowledge on attack start |
+2. Revert node changes (restore from git or remove these blocks):
+   - `nodes/adapt.py` lines 87-96, 152-155, 230-231
+   - `nodes/evaluate.py` lines 124-139
 
-3. **State Enrichment**:
+3. Re-create empty `integration/__init__.py`:
    ```python
-   # In AdaptiveAttackState (services/snipers/adaptive_attack/state.py)
-   history_context: dict | None = None  # HistoryContext.model_dump()
+   """Integration module - Phase 7."""
    ```
+
+Estimated removal time: <10 minutes
 
 ---
 

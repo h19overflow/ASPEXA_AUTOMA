@@ -58,7 +58,9 @@
       "Bash(C:UsersUserProjectsAspexa_Automa.venvScriptspython.exe -c \"from services.swarm.garak_scanner import GarakScanner, get_scanner, ProbeResult; from services.swarm.garak_scanner.models import ScanStartEvent, ProbeStartEvent, PromptResultEvent, ProbeCompleteEvent, ScanCompleteEvent, ScanErrorEvent; print(''All imports successful!'')\")",
       "Bash(.venvScriptspython.exe -c \"from services.swarm.core import ScanConfig, ScanInput; print(''Core imports OK'')\")",
       "Bash(ruff check:*)",
-      "mcp__ide__getDiagnostics"
+      "mcp__ide__getDiagnostics",
+      "Bash(C:UsersUserProjectsAspexa_Automa.venvScriptspython.exe -c \"from services.snipers.utils.scoring.tool_abuse_scorer import ToolAbuseScorer, ToolAbuseVerdict; print(''Import successful!''); print(f''ToolAbuseVerdict fields: {list(ToolAbuseVerdict.model_fields.keys())}'')\")",
+      "Bash(C:UsersUserProjectsAspexa_Automa.venvScriptspython.exe -c \"from services.snipers.bypass_knowledge.integration import get_adapt_hook, get_evaluate_hook, BypassKnowledgeConfig, HistoryContext, CaptureResult; print(''All imports successful!'')\")"
     ],
     "deny": [],
     "ask": []
