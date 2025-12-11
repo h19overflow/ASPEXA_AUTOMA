@@ -15,7 +15,7 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from pydantic import ValidationError
 
-from services.snipers.adaptive_attack.components.chain_discovery_agent import (
+from services.snipers.adaptive_attack.agents.chain_discovery_agent import (
     ChainDiscoveryAgent,
     AVAILABLE_CONVERTERS,
 )

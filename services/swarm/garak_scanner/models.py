@@ -40,7 +40,6 @@ class ScanStartEvent:
     audit_id: str = ""
     agent_type: str = ""
     total_probes: int = 0
-    generations_per_probe: int = 0
     parallel_enabled: bool = False
     rate_limit_rps: Optional[float] = None
     estimated_duration_seconds: Optional[int] = None
@@ -65,7 +64,6 @@ class ProbeStartEvent:
     probe_index: int = 0
     total_probes: int = 0
     total_prompts: int = 0
-    generations: int = 0
 
     def __post_init__(self):
         """Set timestamp if not provided."""

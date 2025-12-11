@@ -20,7 +20,7 @@ from services.snipers.adaptive_attack.models.failure_analysis import (
     FailureAnalysisDecision,
     DefenseSignal,
 )
-from services.snipers.adaptive_attack.prompts.failure_analysis_prompt import (
+from services.snipers.adaptive_attack.agents.prompts.failure_analysis_prompt import (
     FAILURE_ANALYSIS_SYSTEM_PROMPT,
     build_failure_analysis_user_prompt,
 )
@@ -49,7 +49,7 @@ class FailureAnalyzerAgent:
         """
         if agent is None:
             agent = create_agent(
-                model="google_genai:gemini-3-pro-preview",
+                model="google_genai:gemini-2.5-pro",
                 response_format=ToolStrategy(FailureAnalysisDecision),
             )
         self._agent = agent

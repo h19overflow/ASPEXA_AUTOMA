@@ -11,10 +11,10 @@ import pytest
 from unittest.mock import Mock, AsyncMock, patch, MagicMock
 from typing import Any
 
-from services.snipers.adaptive_attack.components.chain_discovery_agent import (
+from services.snipers.adaptive_attack.agents.chain_discovery_agent import (
     ChainDiscoveryAgent,
 )
-from services.snipers.adaptive_attack.components.strategy_generator import (
+from services.snipers.adaptive_attack.agents.strategy_generator import (
     StrategyGenerator,
 )
 from services.snipers.adaptive_attack.models.chain_discovery import (

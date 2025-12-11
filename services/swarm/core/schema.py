@@ -27,9 +27,8 @@ class ScanConfig(StrictBaseModel):
 
     This allows users to control:
     - Scan approach (quick/standard/thorough)
-    - Number of probe attempts
     - Specific probes to run
-    - Whether agent can adjust parameters dynamically
+    - Maximum probes limit
     - Parallel execution and rate limiting
     - Connection type (HTTP/WebSocket)
     """
@@ -37,19 +36,9 @@ class ScanConfig(StrictBaseModel):
         default=ScanApproach.STANDARD,
         description="Scan intensity: quick, standard, or thorough"
     )
-    generations: Optional[int] = Field(
-        default=None,
-        ge=1,
-        le=50,
-        description="Override: number of attempts per probe (1-50). None = use approach default"
-    )
     custom_probes: Optional[List[str]] = Field(
         default=None,
         description="Override: specific probe names to run instead of defaults"
-    )
-    allow_agent_override: bool = Field(
-        default=True,
-        description="Allow agent to adjust probe count based on recon intelligence"
     )
     max_probes: int = Field(
         default=10,
@@ -57,28 +46,16 @@ class ScanConfig(StrictBaseModel):
         le=20,
         description="Maximum number of probes agent can run (1-20)"
     )
-    max_generations: int = Field(
-        default=15,
-        ge=1,
-        le=50,
-        description="Maximum generations agent can use per probe (1-50)"
-    )
     # Parallel execution controls
     enable_parallel_execution: bool = Field(
-        default=False,
-        description="Enable parallel execution of probes and generations (master switch)"
+        default=True,
+        description="Enable parallel execution of probes"
     )
     max_concurrent_probes: int = Field(
-        default=1,
+        default=3,
         ge=1,
         le=10,
         description="Maximum number of probes to run concurrently (1-10)"
-    )
-    max_concurrent_generations: int = Field(
-        default=1,
-        ge=1,
-        le=5,
-        description="Maximum number of generation attempts per probe to run concurrently (1-5)"
     )
     # Rate limiting
     requests_per_second: Optional[float] = Field(
@@ -87,7 +64,7 @@ class ScanConfig(StrictBaseModel):
         description="Rate limit in requests per second (None = unlimited)"
     )
     max_concurrent_connections: int = Field(
-        default=5,
+        default=15,
         ge=1,
         le=50,
         description="Maximum concurrent connections to target API (1-50)"
@@ -103,7 +80,7 @@ class ScanConfig(StrictBaseModel):
         default=3,
         ge=0,
         le=10,
-        description="Maximum retry attempts on failure (0-10)"
+        description="Maximum retry attempts on connection failure (0-10)"
     )
     retry_backoff: float = Field(
         default=1.0,
@@ -123,30 +100,18 @@ class ScanConfig(StrictBaseModel):
         # Validate connection type
         if self.connection_type not in ["http", "websocket"]:
             raise ValueError(f"connection_type must be 'http' or 'websocket', got '{self.connection_type}'")
-        
+
         # Validate requests_per_second if provided
         if self.requests_per_second is not None and self.requests_per_second <= 0:
             raise ValueError("requests_per_second must be > 0 if provided")
-        
-        # Validate concurrent limits don't exceed connection pool
-        max_concurrent_ops = self.max_concurrent_probes * self.max_concurrent_generations
-        if max_concurrent_ops > self.max_concurrent_connections:
+
+        # Validate concurrent probes don't exceed connection pool
+        if self.max_concurrent_probes > self.max_concurrent_connections:
             raise ValueError(
-                f"max_concurrent_probes ({self.max_concurrent_probes}) * "
-                f"max_concurrent_generations ({self.max_concurrent_generations}) = {max_concurrent_ops} "
+                f"max_concurrent_probes ({self.max_concurrent_probes}) "
                 f"exceeds max_concurrent_connections ({self.max_concurrent_connections})"
             )
-        
-        # Warn if parallel execution enabled but limits are conservative
-        if self.enable_parallel_execution:
-            if self.max_concurrent_probes == 1 and self.max_concurrent_generations == 1:
-                import warnings
-                warnings.warn(
-                    "enable_parallel_execution is True but both max_concurrent_probes and "
-                    "max_concurrent_generations are 1. Parallel execution will have no effect.",
-                    UserWarning
-                )
-        
+
         return self
 
 
@@ -287,14 +252,10 @@ class ScanContext(StrictBaseModel):
         req_cfg = request.scan_config
         scan_config = ScanConfig(
             approach=req_cfg.approach,
-            generations=req_cfg.generations,
             custom_probes=req_cfg.custom_probes or None,
-            allow_agent_override=req_cfg.allow_agent_override,
             max_probes=req_cfg.max_probes,
-            max_generations=req_cfg.max_generations,
             enable_parallel_execution=req_cfg.enable_parallel_execution,
             max_concurrent_probes=req_cfg.max_concurrent_probes,
-            max_concurrent_generations=req_cfg.max_concurrent_generations,
             requests_per_second=req_cfg.requests_per_second,
             max_concurrent_connections=req_cfg.max_concurrent_connections,
             request_timeout=req_cfg.request_timeout,
@@ -334,18 +295,6 @@ class ScanContext(StrictBaseModel):
         )
 
 
-class ScanAnalysisResult(StrictBaseModel):
-    """Structured result from analyze_target tool."""
-    recommended_probes: List[str] = Field(..., description="Recommended probe names")
-    recommended_generations: int = Field(..., description="Recommended generations per probe")
-    risk_level: str = Field(..., description="Risk level: low, medium, high, critical")
-    reasoning: str = Field(..., description="Reasoning for recommendations")
-    infrastructure_summary: Dict[str, Any] = Field(
-        default_factory=dict,
-        description="Summary of infrastructure details"
-    )
-
-
 class AgentScanResult(StrictBaseModel):
     """Structured result from agent scan execution."""
     success: bool = Field(..., description="Whether the scan completed successfully")
@@ -363,7 +312,6 @@ class AgentScanResult(StrictBaseModel):
         default_factory=list,
         description="Detailed results for each probe execution (prompt, output, score, etc.)"
     )
-    generations_used: int = Field(default=0, description="Number of generations used")
     report_path: Optional[str] = Field(None, description="Path to scan report file")
     metadata: Dict[str, Any] = Field(
         default_factory=dict,
@@ -373,7 +321,7 @@ class AgentScanResult(StrictBaseModel):
 
 
 class ScanPlan(StrictBaseModel):
-    """Agent's probe selection and configuration output.
+    """Agent's probe selection output.
 
     Internal contract: Agent -> Scanner.
     Not exposed in public API responses.
@@ -383,17 +331,7 @@ class ScanPlan(StrictBaseModel):
     target_url: str = Field(..., description="Target endpoint URL")
     selected_probes: List[str] = Field(
         ...,
-        description="Probe identifiers to execute, e.g., ['dan.Dan_11_0', 'encoding.InjectBase64']"
-    )
-    probe_reasoning: Dict[str, str] = Field(
-        default_factory=dict,
-        description="Why each probe was selected, keyed by probe name"
-    )
-    generations: int = Field(
-        default=5,
-        ge=1,
-        le=20,
-        description="Number of generation attempts per prompt"
+        description="Probe identifiers to execute, e.g., ['dan', 'encoding', 'promptinj']"
     )
     scan_config: ScanConfig = Field(
         default_factory=ScanConfig,

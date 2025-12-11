@@ -1,20 +1,19 @@
 """
 Purpose: Base agent functionality for scanning agents
-Role: Create and run scanning agents with planning and execution phases
-Dependencies: langchain, services.swarm.core, services.swarm.garak_scanner
+Role: Create and run scanning agents with LLM-based probe selection
+Dependencies: langchain, services.swarm.core
 """
 
 import json
 import logging
 import time
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 
 from langchain.agents import create_agent
 from langchain_core.messages import HumanMessage, ToolMessage
 
-from services.swarm.core.config import AgentType, get_all_probe_names, PROBE_CATEGORIES
+from services.swarm.core.config import AgentType, DEFAULT_PROBES, ScanApproach
 from services.swarm.core.schema import ScanInput, ScanPlan, PlanningPhaseResult
-from services.swarm.core.utils import get_decision_logger
 from .prompts import get_system_prompt
 from .tools import PLANNING_TOOLS, set_tool_context, ToolContext
 from libs.monitoring import CallbackHandler, observe
@@ -30,7 +29,7 @@ logger = logging.getLogger(__name__)
 # ============================================================================
 
 
-def extract_plan_from_result(result: dict) -> Optional[ScanPlan]:
+def extract_plan_from_result(result: Dict[str, Any]) -> Optional[ScanPlan]:
     """Extract ScanPlan from LangChain agent result.
 
     Searches through message history for plan_scan tool output.
@@ -69,105 +68,69 @@ def extract_plan_from_result(result: dict) -> Optional[ScanPlan]:
     return None
 
 
-def build_planning_input(scan_input: ScanInput) -> HumanMessage:
-    """Build input message for planning agent with FULL intelligence context.
+def get_agent_probe_pool(agent_type: str, approach: str = "standard") -> List[str]:
+    """Get the probe pool for an agent type.
 
     Args:
-        scan_input: Scan input context with full recon data
+        agent_type: One of agent_sql, agent_auth, agent_jailbreak
+        approach: Scan approach (quick, standard, thorough)
 
     Returns:
-        HumanMessage with comprehensive context for intelligent probe selection
+        List of probe names available to this agent
+    """
+    agent_enum = AgentType(agent_type) if agent_type in [e.value for e in AgentType] else AgentType.SQL
+    approach_enum = ScanApproach(approach) if approach in [e.value for e in ScanApproach] else ScanApproach.STANDARD
+    probes_by_approach = DEFAULT_PROBES.get(agent_enum, {})
+    probes = probes_by_approach.get(approach_enum, [])
+    return list(probes)
+
+
+def build_planning_input(scan_input: ScanInput) -> HumanMessage:
+    """Build simplified input message for planning agent.
+
+    Args:
+        scan_input: Scan input context with recon data
+
+    Returns:
+        HumanMessage with recon context for probe selection
     """
     config = scan_input.config
 
-    # Build system prompt leaks section
-    prompt_leaks_section = ""
+    # Build concise recon summary
+    recon_parts = []
+
+    # Infrastructure
+    if scan_input.infrastructure:
+        infra = scan_input.infrastructure
+        if infra.get("model_family"):
+            recon_parts.append(f"Model: {infra['model_family']}")
+        if infra.get("database"):
+            recon_parts.append(f"Database: {infra['database']}")
+
+    # Tools detected
+    if scan_input.detected_tools:
+        tool_names = [t.get("name", "unknown") for t in scan_input.detected_tools[:5]]
+        recon_parts.append(f"Tools detected: {', '.join(tool_names)}")
+
+    # System prompt leaks
     if scan_input.system_prompt_leaks:
-        leaks_text = "\n".join(f"  - {leak[:500]}..." if len(leak) > 500 else f"  - {leak}"
-                               for leak in scan_input.system_prompt_leaks[:10])
-        prompt_leaks_section = f"""
-System Prompt Leaks Found ({len(scan_input.system_prompt_leaks)} fragments):
-{leaks_text}
-"""
+        recon_parts.append(f"System prompt leaks: {len(scan_input.system_prompt_leaks)} fragments found")
 
-    # Build auth intelligence section
-    auth_section = ""
-    if scan_input.auth_intelligence:
-        auth = scan_input.auth_intelligence
-        auth_section = f"""
-Authentication Intelligence:
-- Type: {auth.type}
-- Rules: {json.dumps(auth.rules, indent=2) if auth.rules else "None discovered"}
-- Known Vulnerabilities: {json.dumps(auth.vulnerabilities, indent=2) if auth.vulnerabilities else "None discovered"}
-"""
+    # Auth vulnerabilities
+    if scan_input.auth_intelligence and scan_input.auth_intelligence.vulnerabilities:
+        recon_parts.append(f"Auth vulnerabilities: {', '.join(scan_input.auth_intelligence.vulnerabilities[:3])}")
 
-    # Build raw observations section (summarized)
-    observations_section = ""
-    if scan_input.raw_observations:
-        obs_parts = []
-        for category, items in scan_input.raw_observations.items():
-            if items:
-                obs_parts.append(f"  [{category}]: {len(items)} observations")
-                for item in items[:3]:
-                    obs_parts.append(f"    - {item[:150]}..." if len(item) > 150 else f"    - {item}")
-                if len(items) > 3:
-                    obs_parts.append(f"    ... and {len(items) - 3} more")
-        if obs_parts:
-            observations_section = f"""
-Raw Observations by Category:
-{chr(10).join(obs_parts)}
-"""
-
-    # Build structured deductions section
-    deductions_section = ""
-    if scan_input.structured_deductions:
-        ded_parts = []
-        for category, deductions in scan_input.structured_deductions.items():
-            if deductions:
-                ded_parts.append(f"  [{category}]:")
-                for ded in deductions[:5]:
-                    finding = ded.get("finding", ded.get("deduction", str(ded)))
-                    confidence = ded.get("confidence", "unknown")
-                    ded_parts.append(f"    - {finding} (confidence: {confidence})")
-                if len(deductions) > 5:
-                    ded_parts.append(f"    ... and {len(deductions) - 5} more")
-        if ded_parts:
-            deductions_section = f"""
-Structured Deductions (Analyzed Findings):
-{chr(10).join(ded_parts)}
-"""
+    recon_summary = "\n".join(f"- {p}" for p in recon_parts) if recon_parts else "- No specific intelligence gathered"
 
     content = f"""
-Agent Type: {scan_input.agent_type}
+RECON INTELLIGENCE:
+{recon_summary}
 
-User Configuration:
-- Approach: {config.approach}
-- Max Probes: {config.max_probes}
-- Max Generations: {config.max_generations}
-- Agent Override Allowed: {config.allow_agent_override}
-{f"- Custom Probes: {config.custom_probes}" if config.custom_probes else ""}
-{f"- Fixed Generations: {config.generations}" if config.generations else ""}
+LIMITS:
+- max_probes: {config.max_probes}
+{f"- custom_probes (USE ONLY THESE): {', '.join(config.custom_probes)}" if config.custom_probes else ""}
 
-=== RECONNAISSANCE INTELLIGENCE ===
-
-Infrastructure:
-{json.dumps(scan_input.infrastructure, indent=2)}
-
-Detected Tools ({len(scan_input.detected_tools)} tools):
-{json.dumps(scan_input.detected_tools, indent=2)}
-{prompt_leaks_section}{auth_section}{observations_section}{deductions_section}
-=== END INTELLIGENCE ===
-
-INSTRUCTIONS:
-1. Carefully analyze ALL the intelligence above - especially:
-   - System prompt leaks (reveals system behavior and constraints)
-   - Auth vulnerabilities (for auth agent)
-   - Structured deductions (pre-analyzed findings with confidence)
-2. Use analyze_target to confirm and refine your analysis
-3. Use plan_scan to create a targeted scan plan
-4. Provide specific reasoning for each probe selection based on the intelligence
-
-{"You may adjust probe count and generations based on the intelligence." if config.allow_agent_override else "Use the exact configuration provided by the user."}
+Select the most relevant probes from your pool and call plan_scan.
 """
 
     return HumanMessage(content=content.strip())
@@ -175,24 +138,28 @@ INSTRUCTIONS:
 
 def create_planning_agent(
     agent_type: str,
+    approach: str = "standard",
     model_name: str = "google_genai:gemini-2.5-flash",
 ):
     """Create a planning-only agent for the given type.
 
     Args:
         agent_type: One of "agent_sql", "agent_auth", "agent_jailbreak"
+        approach: Scan approach to determine probe pool size
         model_name: LLM model identifier
 
     Returns:
-        LangChain agent configured for planning (uses plan_scan, not execute_scan)
+        LangChain agent configured for planning (uses plan_scan)
     """
     if agent_type not in [e.value for e in AgentType]:
         raise ValueError(f"Unknown agent_type: {agent_type}")
 
+    # Get probe pool for this agent
+    probe_pool = get_agent_probe_pool(agent_type, approach)
+
     system_prompt = get_system_prompt(
         agent_type,
-        probe_categories=", ".join(PROBE_CATEGORIES.keys()),
-        available_probes=", ".join(get_all_probe_names()),
+        available_probes=", ".join(probe_pool),
     )
 
     agent = create_agent(
@@ -210,10 +177,9 @@ async def run_planning_agent(
     agent_type: str,
     scan_input: ScanInput,
 ) -> PlanningPhaseResult:
-    """Run agent in planning mode - returns ScanPlan, not execution results.
+    """Run agent in planning mode - returns ScanPlan with selected probes.
 
-    This is the preferred method for Phase 2+. The agent analyzes the target
-    and returns a ScanPlan that can be executed separately with streaming.
+    The agent analyzes recon data and selects probes from its pool.
 
     Args:
         agent_type: Which agent to run (agent_sql, agent_auth, agent_jailbreak)
@@ -223,37 +189,23 @@ async def run_planning_agent(
         PlanningPhaseResult with ScanPlan on success, error on failure
     """
     start_time = time.monotonic()
-
-    decision_logger = None
-    try:
-        decision_logger = get_decision_logger(scan_input.audit_id)
-    except Exception as e:
-        logger.warning(f"Failed to get decision logger: {e}")
+    config = scan_input.config
 
     try:
+        # Set tool context with max_probes limit
         set_tool_context(ToolContext(
             audit_id=scan_input.audit_id,
             agent_type=agent_type,
             target_url=scan_input.target_url,
-            headers={},
+            max_probes=config.max_probes,
         ))
 
         logger.info(f"[run_planning_agent] Creating planning agent for {agent_type}")
 
-        if decision_logger:
-            decision_logger.log_scan_progress(
-                progress_type="planning_start",
-                progress_data={
-                    "agent_type": agent_type,
-                    "target_url": scan_input.target_url,
-                },
-                agent_type=agent_type,
-            )
-
-        agent_executor = create_planning_agent(agent_type)
+        agent_executor = create_planning_agent(agent_type, approach=config.approach)
         input_message = build_planning_input(scan_input)
 
-        logger.info(f"[run_planning_agent] Invoking planning agent (input length: {len(input_message.content)})")
+        logger.info(f"[run_planning_agent] Invoking planning agent")
 
         langfuse_handler = CallbackHandler()
 
@@ -268,7 +220,7 @@ async def run_planning_agent(
         if plan:
             logger.info(
                 f"[run_planning_agent] Planning successful: {len(plan.selected_probes)} probes, "
-                f"{plan.generations} generations, duration={duration_ms}ms"
+                f"duration={duration_ms}ms"
             )
             return PlanningPhaseResult.from_success(plan, duration_ms)
         else:
@@ -319,6 +271,10 @@ async def run_scanning_agent(
             success=False,
             audit_id=scan_input.audit_id,
             agent_type=agent_type,
+            vulnerabilities=[],
+            probes_executed=[],
+            probe_results=[],
+            report_path=None,
             error=planning_result.error or "Planning failed",
             metadata={"duration_seconds": round(duration, 2)},
         ).model_dump()
@@ -329,8 +285,9 @@ async def run_scanning_agent(
         agent_type=agent_type,
         vulnerabilities=[],
         probes_executed=[],
-        generations_used=0,
+        probe_results=[],
         report_path=None,
+        error=None,
         metadata={
             "duration_seconds": round(duration, 2),
             "note": "Executed via deprecated run_scanning_agent - no actual scan performed",

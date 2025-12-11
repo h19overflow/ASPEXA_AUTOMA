@@ -1,34 +1,26 @@
 """
 Adaptive Attack Components.
 
-Purpose: Business logic components for LLM-powered adaptation
-Role: ResponseAnalyzer for parsing, StrategyGenerator for LLM decisions,
-      FailureAnalyzer for intelligence extraction, ChainDiscoveryAgent for chain generation,
-      FailureAnalyzerAgent for agentic failure analysis
+Purpose: Utility components and rule-based logic for adaptive attack system
+Role: ResponseAnalyzer for parsing target responses,
+      FailureAnalyzer for rule-based intelligence extraction,
+      TurnLogger for tracking attack iterations
+
+Note: LLM-powered agents have been moved to services.snipers.adaptive_attack.agents
 """
 
 from services.snipers.adaptive_attack.components.response_analyzer import ResponseAnalyzer
-from services.snipers.adaptive_attack.components.strategy_generator import StrategyGenerator
 from services.snipers.adaptive_attack.components.turn_logger import (
     TurnLogger,
     get_turn_logger,
     reset_turn_logger,
 )
 from services.snipers.adaptive_attack.components.failure_analyzer import FailureAnalyzer
-from services.snipers.adaptive_attack.components.failure_analyzer_agent import FailureAnalyzerAgent
-from services.snipers.adaptive_attack.components.chain_discovery_agent import (
-    ChainDiscoveryAgent,
-    AVAILABLE_CONVERTERS,
-)
 
 __all__ = [
     "ResponseAnalyzer",
-    "StrategyGenerator",
     "TurnLogger",
     "get_turn_logger",
     "reset_turn_logger",
     "FailureAnalyzer",
-    "FailureAnalyzerAgent",
-    "ChainDiscoveryAgent",
-    "AVAILABLE_CONVERTERS",
 ]

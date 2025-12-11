@@ -10,7 +10,6 @@ from typing import Dict, Any
 
 from libs.contracts.recon import ReconBlueprint
 from services.swarm.graph.state import SwarmState
-from services.swarm.persistence.s3_adapter import load_recon_for_campaign
 from services.swarm.swarm_observability import (
     EventType,
     create_event,

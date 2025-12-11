@@ -6,7 +6,7 @@ Dependencies: services.swarm.agents.base, services.swarm.core.schema, swarm_obse
 """
 
 import logging
-from typing import Dict, Any, List
+from typing import Dict, Any
 
 from services.swarm.graph.state import SwarmState, AgentResult
 from services.swarm.agents.base import run_planning_agent
@@ -73,8 +73,16 @@ async def plan_agent(state: SwarmState) -> Dict[str, Any]:
     """
     writer = safe_get_stream_writer()
     manager = get_cancellation_manager(state.audit_id)
+    events: list[Dict[str, Any]] = []
+
+    # Guard: ensure we have a current agent
     agent_type = state.current_agent
-    events = []
+    if agent_type is None:
+        return {
+            "events": events,
+            "current_agent_index": state.current_agent_index + 1,
+            "current_plan": None,
+        }
 
     # Calculate progress
     base_progress = state.current_agent_index / max(state.total_agents, 1)
@@ -168,6 +176,8 @@ async def plan_agent(state: SwarmState) -> Dict[str, Any]:
                 "agent_results": [AgentResult(
                     agent_type=agent_type,
                     status="failed",
+                    scan_id=None,
+                    plan=None,
                     error=error_msg,
                     phase="planning",
                     duration_ms=planning_result.duration_ms,
@@ -205,6 +215,8 @@ async def plan_agent(state: SwarmState) -> Dict[str, Any]:
                 "agent_results": [AgentResult(
                     agent_type=agent_type,
                     status="failed",
+                    scan_id=None,
+                    plan=None,
                     error="No plan produced",
                     phase="planning",
                 )],
@@ -213,8 +225,8 @@ async def plan_agent(state: SwarmState) -> Dict[str, Any]:
                 "current_plan": None,
             }
 
-        # Estimate duration: 0.2s per probe * generations
-        estimated_duration = len(plan.selected_probes) * plan.generations * 0.2
+        # Estimate duration: ~2s per probe
+        estimated_duration = len(plan.selected_probes) * 2.0
 
         # Emit PLAN_COMPLETE
         writer(create_event(
@@ -224,7 +236,6 @@ async def plan_agent(state: SwarmState) -> Dict[str, Any]:
             data={
                 "probes": plan.selected_probes,
                 "probe_count": len(plan.selected_probes),
-                "generations": plan.generations,
             },
             progress=base_progress + (0.1 / state.total_agents),
         ).model_dump())
@@ -234,14 +245,13 @@ async def plan_agent(state: SwarmState) -> Dict[str, Any]:
             "agent": agent_type,
             "probes": plan.selected_probes,
             "probe_count": len(plan.selected_probes),
-            "generations": plan.generations,
             "estimated_duration": int(estimated_duration),
             "duration_ms": planning_result.duration_ms,
         })
 
         events.append({
             "type": "log",
-            "message": f"[{agent_type}] Plan complete: {len(plan.selected_probes)} probes, {plan.generations} generations/probe",
+            "message": f"[{agent_type}] Plan complete: {len(plan.selected_probes)} probes",
         })
 
         logger.info(f"[{agent_type}] Planning successful: {len(plan.selected_probes)} probes")
@@ -290,6 +300,8 @@ async def plan_agent(state: SwarmState) -> Dict[str, Any]:
             "agent_results": [AgentResult(
                 agent_type=agent_type,
                 status="error",
+                scan_id=None,
+                plan=None,
                 error=str(e),
                 phase="planning",
             )],

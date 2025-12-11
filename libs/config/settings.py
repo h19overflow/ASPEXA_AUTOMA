@@ -54,6 +54,9 @@ class Settings(BaseSettings):
     langfuse_host: str = Field(default="https://cloud.langfuse.com", description="Langfuse server host")
     langfuse_enabled: bool = Field(default=True, description="Enable Langfuse monitoring")
 
+    # Clerk Authentication Settings
+    clerk_secret_key: Optional[str] = Field(None, description="Clerk secret key for JWT verification")
+
     @property
     def s3(self) -> S3Settings:
         """Get S3-specific settings."""

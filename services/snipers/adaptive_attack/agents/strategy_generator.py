@@ -17,7 +17,7 @@ from langchain.agents.structured_output import ToolStrategy
 
 from services.snipers.adaptive_attack.models.adaptation_decision import AdaptationDecision
 from services.snipers.adaptive_attack.models.chain_discovery import ChainDiscoveryContext
-from services.snipers.adaptive_attack.prompts.adaptation_prompt import (
+from services.snipers.adaptive_attack.agents.prompts.adaptation_prompt import (
     ADAPTATION_SYSTEM_PROMPT,
     build_adaptation_user_prompt,
 )

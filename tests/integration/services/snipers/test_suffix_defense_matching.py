@@ -14,7 +14,7 @@ from services.snipers.utils.converters.suffix_converters import (
     SUFFIX_CONVERTER_NAMES,
 )
 from services.snipers.utils.pyrit.pyrit_bridge import ConverterFactory
-from services.snipers.adaptive_attack.components.chain_discovery_agent import (
+from services.snipers.adaptive_attack.agents.chain_discovery_agent import (
     AVAILABLE_CONVERTERS,
 )
 

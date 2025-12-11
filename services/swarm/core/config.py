@@ -16,7 +16,6 @@ from services.swarm.core.constants import (
     PROBE_TO_CATEGORY,
     PROBE_CATEGORIES,
     DEFAULT_PROBES,
-    DEFAULT_GENERATIONS,
     INFRASTRUCTURE_PROBES,
 )
 
@@ -47,12 +46,6 @@ def get_probes_for_agent(
                         probes.append(p)
 
     return probes
-
-
-def get_generations_for_approach(approach: str = ScanApproach.STANDARD) -> int:
-    """Get number of generations (attempts) for the given approach."""
-    approach_enum = ScanApproach(approach) if approach in [e.value for e in ScanApproach] else ScanApproach.STANDARD
-    return DEFAULT_GENERATIONS.get(approach_enum, 5)
 
 
 def get_all_probe_names() -> List[str]:
