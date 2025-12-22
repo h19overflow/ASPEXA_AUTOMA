@@ -871,10 +871,36 @@ result = workflow.invoke(state, config=config)
 
 ---
 
+## User Interface (Viper Command Center)
+
+The **Viper Command Center** provides a modern React-based dashboard for managing campaigns, viewing real-time progress, and performing manual exploitation.
+
+### Architecture
+- **Framework**: React + Vite + TypeScript
+- **State Management**: React Query + Context
+- **Authentication**: Clerk (integrated with backend JWT)
+- **Real-time Updates**: SSE (Server-Sent Events) + WebSocket
+
+### Key Features
+- **Campaign Dashboard**: Visualize all active and past audits
+- **Live Monitoring**: Watch Cartographer, Swarm, and Sniper agents in real-time
+- **Manual Sniping Console**: Interactive interface for crafting and testing payloads
+- **Friend Access Control**: Two-tier authorization system where "Friends" (verified via Clerk metadata) get full access.
+
+### Configuration
+The UI requires its own environment variables (typically in `.env.local`):
+```bash
+VITE_CLERK_PUBLISHABLE_KEY=pk_test_...
+VITE_API_BASE_URL=http://localhost:8081
+```
+
+---
+
 ## Technology Stack
 
 | Layer | Technology | Purpose |
 |-------|-----------|---------|
+| **Frontend** | React + Vite | Viper Command Center UI |
 | **API** | FastAPI | HTTP REST gateway + SSE streaming |
 | **Agents** | LangChain + LangGraph | Orchestration & workflows |
 | **LLM** | Google Gemini 2.5 Flash | Primary reasoning engine |
@@ -888,26 +914,53 @@ result = workflow.invoke(state, config=config)
 
 ## Quick Start
 
-### 1. Setup
+### 1. Prerequisites
+- Python 3.12+
+- `uv` (Fast Python package installer)
+- Node.js 18+ (for UI)
+
+### 2. Setup & Installation
 
 ```bash
-# Install dependencies
+# Install uv if not already installed
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Install python dependencies
 uv sync
 
 # Configure environment
-export GOOGLE_API_KEY=your_key_here
-export AWS_REGION=ap-southeast-2
-export S3_BUCKET_NAME=your-bucket
+cp .env.example .env  # if exists, else create .env
 ```
 
-### 2. Start API Gateway
+### 3. Configuration
+
+Set the following environment variables in your `.env` file:
+
+```bash
+# Core
+GOOGLE_API_KEY=your_gemini_key
+AWS_REGION=ap-southeast-2
+S3_BUCKET_NAME=your-bucket
+AWS_ACCESS_KEY_ID=your_aws_key
+AWS_SECRET_ACCESS_KEY=your_aws_secret
+
+# Monitoring (Optional)
+LANGFUSE_PUBLIC_KEY=pk-lf-...
+LANGFUSE_SECRET_KEY=sk-lf-...
+LANGFUSE_HOST=https://cloud.langfuse.com
+
+# Authentication
+CLERK_SECRET_KEY=sk_test_...
+```
+
+### 4. Start API Gateway
 
 ```bash
 python -m services.api_gateway.main
 # Gateway runs on http://localhost:8081
 ```
 
-### 3. Run Reconnaissance
+### 5. Run Reconnaissance
 
 ```bash
 curl -X POST http://localhost:8081/recon/start \
@@ -920,7 +973,7 @@ curl -X POST http://localhost:8081/recon/start \
   }'
 ```
 
-### 4. Run Scanning (Real-time Streaming)
+### 6. Run Scanning (Real-time Streaming)
 
 ```bash
 curl -X POST http://localhost:8081/scan/start/stream \
@@ -948,7 +1001,7 @@ This will stream real-time events (probe_start, probe_result, probe_complete, co
 
 See: **[Swarm README - Usage](services/swarm/README.md#how-to-use-phase-2-api)** for detailed examples
 
-### 5. Run Exploitation (Adaptive)
+### 7. Run Exploitation (Adaptive)
 
 ```bash
 # Single-shot: one iteration through all phases
@@ -1008,6 +1061,10 @@ aspexa-automa/
 │       ├── core/                # Session, converter chain
 │       ├── execution/           # Attack executor
 │       └── persistence/         # Session + result storage
+│
+└── viper-command-center/         # Frontend React Application
+    ├── src/                     # Source code
+    └── public/                  # Static assets
 │
 └── tests/
     ├── unit/                     # Comprehensive coverage
@@ -1088,8 +1145,7 @@ pytest tests/ --cov=services --cov=libs --cov-report=html
 - **Type hints everywhere**: Pydantic V2
 - **Composition over inheritance**: DI for testing
 - **Fail fast**: Input validation at system boundaries
-
-See [CLAUDE.md](CLAUDE.md) for detailed standards.
+- **Naming Conventions**: Snake_case for Python, CamelCase for Classes/JS.
 
 ---
 
