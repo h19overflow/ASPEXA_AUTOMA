@@ -136,74 +136,53 @@ Each agent interprets reconnaissance data differently:
 
 ---
 
-### Phase 3: Snipers (Human-in-the-Loop Exploitation)
+### Phase 3: Snipers (Adaptive Exploitation)
 
-**Goal**: Analyze vulnerability patterns, plan multi-turn attacks, and execute with mandatory human approval.
+**Goal**: Analyze vulnerability patterns, plan multi-turn attacks, and execute with mandatory human approval or via an adaptive autonomous loop.
 
 **Engine**: LangGraph workflow + PyRIT framework
 
 **Workflow**:
 ```mermaid
 graph TD
-    Start[Vulnerability Findings] --> Pattern[Pattern Analysis]
-    Pattern --> Converter[Converter Selection]
-    Converter --> Payload[Payload Generation]
-    Payload --> Plan[Attack Plan]
-    Plan --> Review{Human Review ✋}
-    Review -- Approved --> Exec[PyRIT Execution]
-    Review -- Rejected --> Plan
-    Exec --> Score[Scoring & Result Review ✋]
+    Start[Vulnerability Findings] --> Phase1[Phase 1: Payload Articulation]
+    Phase1 --> Phase2[Phase 2: Conversion]
+    Phase2 --> Phase3[Phase 3: Attack Execution]
+    Phase3 --> Score[Scoring & Learning]
+    Score --> Success{Success?}
+    Success -- No (Retry) --> Phase1
+    Success -- Yes --> Final[Final ExploitResult]
+    
+    subgraph "Adaptive Loop (LangGraph)"
+    Phase1
+    Phase2
+    Phase3
+    Score
+    end
 ```
 
-**Design**: Hybrid structure + content separation
-- **Structure** (hard): LangGraph workflow defines stages, success criteria, safety limits
-- **Content** (soft): LLM adapts tone, phrasing, social engineering context to target
 
-**Workflow**: 7-stage pipeline
-
-1. **Pattern Analysis** - Extract patterns from successful Garak probes
-   - Example: "In 50 probes, 3 succeeded with comment injection: `--` and `/**/`"
-   - Learn what worked, why it worked
-
-2. **Converter Selection** - Choose encoding strategies
-   - Map vulnerability type to appropriate converters (Base64, ROT13, Caesar, URL, etc.)
-   - Avoid detection while maintaining functionality
-
-3. **Payload Generation** - Create contextual attack strings
-   - Rewrite payloads to match target's domain/tone
-   - Example: "Patient ID: `' OR 1=1 --`" becomes "Could you check if ID `' OR 1=1 --` exists in our system?"
-
-4. **Attack Plan** - Design multi-turn conversation sequence
-   - Determine conversation flow to trigger vulnerability
-   - Plan for authentication, session handling, state management
-
-5. **Human Review** ✋ **HITL Gate #1**: Plan auditor reviews and approves attack sequence
-
-6. **Attack Execution** - Run PyRIT orchestrator
-   - Send generative prompt to target
-   - Maintain session state and conversation history
-   - Capture full interaction transcript
-
-7. **Scoring & Review** ✋ **HITL Gate #2**: Verify exploitation and confirm vulnerability proof
+**Execution Modes**:
+- **Single-shot**: A single pass through the 3-phase pipeline.
+- **Adaptive**: A LangGraph-driven loop that automatically adjusts framing and converters based on failure analysis until success is achieved or the maximum iterations are reached.
+- **Streaming**: Supports real-time monitoring of each phase and attack turn via SSE.
 
 **PyRIT Integration**:
-- 9 payload converters (Base64, ROT13, Caesar, URL, TextToHex, Unicode, + 3 custom)
-- Target adapters (HTTP, WebSocket)
-- Scorers: regex-based, pattern-based, composite strategies
-- Dynamic class loading via `importlib`
+- 9+ payload converters (Base64, ROT13, Caesar, URL, TextToHex, Unicode, + custom converters).
+- Target adapters for HTTP and WebSocket communication.
+- Composite scorers for high-accuracy success evaluation.
 
 **Output**: IF-06 ExploitResult containing:
-- Attack success status
-- Proof of exploitation (screenshot, data exfiltrated, etc.)
-- Kill chain transcript (request/response pairs)
-- Vulnerability confirmation with evidence
+- Attack success status and overall severity.
+- Full kill-chain transcripts (request/response pairs).
+- Learned attack chains and failure analysis.
 
-**Status**: 64% complete
-- ✅ Core LangGraph workflow
-- ✅ PyRIT integration (converters, executors, scorers)
-- ✅ Pattern analysis and payload generation
-- ⏳ FastAPI REST endpoints (pending)
-- ⏳ WebSocket controller (pending)
+**Status**: ✅ Complete
+- ✅ 3-Phase core workflow (Articulation, Conversion, Execution)
+- ✅ Adaptive LangGraph loop with pause/resume support
+- ✅ REST API endpoints and SSE streaming
+- ✅ Persistence to PostgreSQL and S3
+
 
 ---
 
