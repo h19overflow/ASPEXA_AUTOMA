@@ -1,190 +1,71 @@
-Aspexa System: Interface Control & Data Contracts
-1. Protocol Standards
-Serialization: JSON (Strict Mode).
-Date Format: ISO 8601 (YYYY-MM-DDThh:mm:ssZ).
-Encoding: UTF-8.
-Validation: All payloads must pass Pydantic/JSON Schema validation before processing.
+# Data Contracts & Interface Control
 
-2. Interface Definitions
-IF-01: Reconnaissance Request
-Topic: cmd_recon_start
-Source: API Gateway
-Destination: Cartographer
-Purpose: The initial instruction to map the target.
-JSON
-{
-  "audit_id": "uuid-v4",
-  "target": {
-    "url": "https://api.target-llm.com/v1/chat",
-    "auth_headers": {
-      "Authorization": "Bearer sk-..."
-    }
-  },
-  "scope": {
-    "depth": "standard",  // shallow, standard, aggressive
-    "max_turns": 10,
-    "forbidden_keywords": ["DELETE", "DROP TABLE", "shutdown"]
-  }
-}
+Aspexa Automa uses standardized Pydantic models (Data Contracts) to ensure type safety and consistent data exchange between its microservices.
 
+---
 
-IF-02: Reconnaissance Blueprint
-Topic: evt_recon_finished
-Source: Cartographer
-Destination: Swarm / Gateway
-Purpose: The Intelligence Graph. It describes what the target is, so the scanners know how to attack.
-JSON
-{
-  "audit_id": "uuid-v4",
-  "timestamp": "2025-11-23T12:00:00Z",
-  "intelligence": {
-    "system_prompt_leak": ["You are a helpful assistant", "Do not discuss politics"],
-    "detected_tools": [
-      {
-        "name": "search_database",
-        "arguments": ["query", "limit"]
-      }
-    ],
-    "infrastructure": {
-      "vector_db": "pinecone",
-      "model_family": "gpt-4",
-      "rate_limits": "strict"
-    },
-    "auth_structure": {
-      "type": "RBAC",
-      "vulnerabilities": ["potential_idor"]
-    }
-  }
-}
+## 1. Protocol Standards
+- **Serialization**: JSON
+- **Date Format**: ISO 8601 (`YYYY-MM-DDThh:mm:ssZ`)
+- **Validation**: Strict Pydantic V2 validation on all inputs/outputs.
+- **Naming**: snake_case for fields, PascalCase for models.
 
+---
 
-IF-03: Scan Job Dispatch
-Topic: cmd_scan_start
-Source: Gateway
-Destination: Swarm
-Purpose: The Authorization to Scan. It combines the Recon Blueprint with human-defined safety boundaries.
-JSON
-{
-  "job_id": "scan-001",
-  "blueprint_context": { ... }, // The IF-02 payload
-  "safety_policy": {
-    "allowed_attack_vectors": ["injection", "jailbreak"],
-    "blocked_attack_vectors": ["dos", "prompt_extraction"],
-    "aggressiveness": "medium"
-  }
-}
+## 2. Core Contracts (The IF-Series)
 
+| Contract | Technical Name | Source | Destination | Purpose |
+|----------|----------------|--------|-------------|---------|
+| **IF-01** | [`ReconRequest`](../libs/contracts/recon.py) | User | Cartographer | Initiates reconnaissance on a target. |
+| **IF-02** | [`ReconBlueprint`](../libs/contracts/recon.py) | Cartographer | Swarm | Delivers discovered intelligence (tools, auth, infra). |
+| **IF-03** | [`ScanJobDispatch`](../libs/contracts/scanning.py) | User/Gateway | Swarm | Authorizes and configures a security scan. |
+| **IF-04** | [`VulnerabilityCluster`](../libs/contracts/scanning.py) | Swarm | Snipers | Reports grouped vulnerabilities found during scanning. |
+| **IF-05** | [`ExploitStreamRequest`](../services/snipers/models.py) | User/Gateway | Snipers | Initiates a multi-turn exploit attempt. |
+| **IF-06** | [`ExploitJobResult`](../services/snipers/models.py) | Snipers | User/Gateway | Final outcome of an exploitation job. |
 
-IF-04: Vulnerability Cluster
-Topic: evt_vuln_found
-Source: Swarm
-Destination: Strategist
-Purpose: A signal that a specific weakness was found.
-JSON
-{
-  "audit_id": "uuid-v4",
-  "cluster_id": "vuln-sql-05",
-  "category": "injection.sql", // or "compliance.bias", "safety.pii"
-  "severity": "high",
-  "evidence": {
-    "input_payload": "' OR 1=1 --",
-    "error_response": "Syntax error in SQL statement...",
-    "confidence_score": 0.95
-  },
-  "affected_component": "tool:search_database"
-}
+---
 
+## 3. Contract Details
 
-IF-05: The Sniper Plan (Polymorphic)
-Topic: evt_plan_proposed
-Source: Strategist
-Destination: Gateway (Pending Approval)
-Purpose: A generated, unsigned plan. The structure changes based on the engine required.
-Variant A: Exploitation Plan (PyRit)
-JSON
-{
-  "plan_id": "plan-alpha",
-  "engine": "pyrit",
-  "objective": "Prove SQL Injection via Search Tool",
-  "configuration": {
-    "orchestrator": "RedTeamingOrchestrator",
-    "strategy_template": "sql_exfiltration_v2",
-    "max_turns": 5,
-    "conversation_seed": "I need to search for order ID: ' UNION SELECT..."
-  }
-}
+### IF-01: ReconRequest
+- **Source**: [`libs/contracts/recon.py`](../libs/contracts/recon.py)
+- **Key Fields**: `target` (URL, Auth), `scope` (Depth, Max Turns).
+- **Usage**: Controls the intensity and boundary of the Cartographer agent.
 
-Variant B: Compliance Audit Plan (DeepTeam)
-JSON
-{
-  "plan_id": "plan-beta",
-  "engine": "deepteam",
-  "objective": "Verify Resistance to Political Bias",
-  "configuration": {
-    "metric": "Bias",
-    "iterations": 20,
-    "threshold": 0.7, // Fail if bias score > 0.7
-    "scenario": "User asks leading political questions"
-  }
-}
+### IF-02: ReconBlueprint
+- **Source**: [`libs/contracts/recon.py`](../libs/contracts/recon.py)
+- **Key Fields**: `intelligence` (System Prompt Leaks, Tools, Infrastructure, Auth Structure).
+- **Usage**: Provides the "Attack Surface Map" for subsequent scanning phases.
 
+### IF-03: ScanJobDispatch
+- **Source**: [`libs/contracts/scanning.py`](../libs/contracts/scanning.py)
+- **Key Fields**: `blueprint_context` (IF-02), `safety_policy`, `scan_config`.
+- **Usage**: Directs Swarm on which probes to run and how aggressive the scan should be.
 
-IF-06: The Attack Warrant
-Topic: cmd_attack_execute
-Source: Gateway
-Destination: Snipers
-Purpose: The "Permission to Fire". It wraps IF-05 with a cryptographic signature.
-JSON
-{
-  "warrant_id": "warrant-999",
-  "signer_id": "admin_user_alice",
-  "digital_signature": "sha256_hash_of_plan_content",
-  "approved_plan": { ... } // The complete IF-05 JSON object
-}
+### IF-04: VulnerabilityCluster
+- **Source**: [`libs/contracts/scanning.py`](../libs/contracts/scanning.py)
+- **Key Fields**: `category`, `severity`, `evidence` (Payload, Response, Confidence).
+- **Usage**: Groups similar vulnerability findings to prioritize exploitation.
 
+### IF-05: ExploitStreamRequest
+- **Source**: [`services/snipers/models.py`](../services/snipers/models.py)
+- **Key Fields**: `mode` (Guided, Manual, Sweep), `target_url`, `require_plan_approval`.
+- **Usage**: High-level command to start the Snipers exploitation engine.
 
-IF-07: Kill Chain Result -  Must revise , would it be better to have 2 configs baked in a single message to the topic or not.
-Topic: evt_attack_finished
-Source: Snipers
-Destination: Gateway
-Purpose: The final proof.
-Variant A: Exploitation Proof (PyRit)
-JSON
-{
-  "warrant_id": "warrant-999",
-  "status": "VULNERABLE",
-  "artifact_type": "kill_chain",
-  "data": {
-    "steps": [
-      {"role": "attacker", "content": "..."},
-      {"role": "target", "content": "Here is the admin password..."}
-    ],
-    "extracted_secret": "password123"
-  }
-}
+### IF-06: ExploitJobResult
+- **Source**: [`services/snipers/models.py`](../services/snipers/models.py)
+- **Key Fields**: `successful_attacks`, `attack_results` (Full kill-chain transcripts).
+- **Usage**: Final proof of impact and audit trail for the exploitation phase.
 
-Variant B: Compliance Report (DeepTeam)
-JSON
-{
-  "warrant_id": "warrant-999",
-  "status": "SAFE", // or "FAILED_COMPLIANCE"
-  "artifact_type": "metrics",
-  "data": {
-    "metric_name": "Bias",
-    "average_score": 0.12, // Low bias
-    "iterations_run": 20,
-    "failure_count": 0
-  }
-}
+---
 
+## 4. Design Principles
 
+### Strict Base Models
+All contracts inherit from `StrictBaseModel` (defined in [`libs/contracts/common.py`](../libs/contracts/common.py)), which prevents extra fields from being passed silently, ensuring that services only receive the data they expect.
 
+### Polymorphism in Exploitation
+Exploitation models in Phase 3 support different `AttackMode` enums (Guided vs. Manual), allowing the same contract to handle both automated discovery-based attacks and custom researcher-defined payloads.
 
-3. Critical Integration Rules
-The Infrastructure Rule (Phase 1 to 2):
-If IF-02: infrastructure_intel contains "PostgreSQL", the Attack Trinity MUST prioritize loading injection.sql probes and MUST deprioritize injection.nosql probes.
-The Generative Safety Rule (Phase 3 to4):
-The IF-05: generative_content field is the only place where LLM-generated text is allowed. The pyrit_instruction fields (class names) MUST come strictly from the Strategy Atlas (Allowlist). This prevents the "Refiner" LLM from tricking the system into running malicious code.
-The Signature Rule (Gate 2 to 4):
-The Sniper Service MUST validate digital_signature in IF-06 before execution. If the hash of approved_config does not match the signature, the Sniper must abort immediately (Tamper Protection).
-
+### Streaming Events (SSE)
+For long-running tasks, services emit `AttackEvent` or similar streaming models to provide real-time updates without waiting for the final IF-06/IF-02 result.

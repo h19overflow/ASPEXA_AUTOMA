@@ -20,6 +20,7 @@ class ScanType(str, Enum):
     RECON = "recon"
     GARAK = "garak"
     EXPLOIT = "exploit"
+    CHECKPOINT = "checkpoint"  # Adaptive attack checkpoints for pause/resume
 
 
 # --- Recon Models ---
@@ -213,6 +214,73 @@ class ExploitResult(StrictBaseModel):
     failed_attacks: int
     recon_intelligence_used: bool = False
     execution_time_seconds: float
+
+
+# --- Checkpoint Models (Adaptive Attack Pause/Resume) ---
+
+class CheckpointStatus(str, Enum):
+    """Status of an adaptive attack checkpoint."""
+    RUNNING = "running"
+    PAUSED = "paused"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
+class CheckpointConfig(StrictBaseModel):
+    """Immutable configuration captured at checkpoint creation."""
+    max_iterations: int
+    payload_count: int
+    success_scorers: List[str] = Field(default_factory=list)
+    success_threshold: float = 0.8
+
+
+class CheckpointIteration(StrictBaseModel):
+    """Record of a single iteration in checkpoint history."""
+    iteration: int
+    score: float
+    is_successful: bool
+    framing: Optional[List[str]] = None
+    converters: Optional[List[str]] = None
+    scorer_confidences: Dict[str, float] = Field(default_factory=dict)
+    payloads: List[Dict[str, str]] = Field(default_factory=list)  # original, converted
+    responses: List[Dict[str, Any]] = Field(default_factory=list)  # response, status_code
+    adaptation_reasoning: Optional[str] = None
+    error: Optional[str] = None
+
+
+class CheckpointResumeState(StrictBaseModel):
+    """State required to resume an attack from checkpoint."""
+    tried_framings: List[str] = Field(default_factory=list)
+    tried_converters: List[List[str]] = Field(default_factory=list)
+    chain_discovery_context: Optional[Dict[str, Any]] = None
+    custom_framing: Optional[Dict[str, str]] = None
+    defense_analysis: Dict[str, Any] = Field(default_factory=dict)
+    target_responses: List[str] = Field(default_factory=list)
+
+
+class CheckpointResult(StrictBaseModel):
+    """Adaptive attack checkpoint for pause/resume functionality."""
+    scan_id: str
+    campaign_id: str
+    target_url: str
+    status: CheckpointStatus = CheckpointStatus.RUNNING
+    created_at: str
+    updated_at: str
+
+    # Configuration (immutable)
+    config: CheckpointConfig
+
+    # Progress tracking
+    current_iteration: int = 0
+    best_score: float = 0.0
+    best_iteration: int = 0
+    is_successful: bool = False
+
+    # Full iteration history
+    iteration_history: List[CheckpointIteration] = Field(default_factory=list)
+
+    # State for resume
+    resume_state: CheckpointResumeState = Field(default_factory=CheckpointResumeState)
 
 
 # --- Unified Scan Result ---

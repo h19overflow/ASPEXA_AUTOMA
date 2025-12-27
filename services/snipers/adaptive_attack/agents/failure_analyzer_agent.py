@@ -18,7 +18,6 @@ from langchain.agents.structured_output import ToolStrategy
 from services.snipers.adaptive_attack.models.chain_discovery import ChainDiscoveryContext
 from services.snipers.adaptive_attack.models.failure_analysis import (
     FailureAnalysisDecision,
-    DefenseSignal,
 )
 from services.snipers.adaptive_attack.agents.prompts.failure_analysis_prompt import (
     FAILURE_ANALYSIS_SYSTEM_PROMPT,

@@ -10,8 +10,8 @@ from typing import Optional
 from pyrit.prompt_target import PromptTarget
 from pyrit.models import PromptRequestResponse
 
-from libs.connectivity.adapters import GarakHttpGenerator as HttpGenerator
-from services.swarm.garak_scanner.generators import WebSocketGenerator
+from .garak_generator import GarakHttpGenerator as HttpGenerator
+from .websocket_generator import WebSocketGenerator
 
 logger = logging.getLogger(__name__)
 

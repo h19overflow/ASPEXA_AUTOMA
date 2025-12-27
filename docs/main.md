@@ -19,7 +19,29 @@ Aspexa Automa is an automated red teaming engine for stress-testing AI systems. 
 
 **Goal**: Map target systems without triggering alarms using intelligent, adaptive questioning.
 
-**Engine**: LangGraph agent + Google Gemini 2.5 Flash
+**Engine**: LangGraph agent + Google Gemini 1.5 Flash
+
+**Workflow**:
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant G as API Gateway
+    participant C as Cartographer Agent (LangGraph)
+    participant T as Target LLM
+    participant S as S3 Storage
+
+    U->>G: POST /api/recon (ReconRequest)
+    G->>C: Execute run_reconnaissance_streaming
+    loop Intelligence Gathering
+        C->>T: Probe (Direct Enumeration, etc.)
+        T-->>C: Response
+        C->>C: analyze_gaps() & take_note()
+    end
+    C->>C: Final Intelligence Extraction
+    C->>S: Persist ReconResult (IF-02)
+    C-->>G: Streaming Progress Events
+    G-->>U: Final ReconBlueprint (SSE)
+```
 
 **Strategy**: 11 attack vectors
 1. Direct Enumeration ("What can you do?")
@@ -54,6 +76,22 @@ Aspexa Automa is an automated red teaming engine for stress-testing AI systems. 
 **Goal**: Conduct context-aware security scanning using reconnaissance intelligence to guide probe selection.
 
 **Engine**: LangChain agents + Garak framework (50+ security probes)
+
+**Workflow**:
+```mermaid
+graph LR
+    Blueprint[ReconBlueprint] --> Trinity[Trinity Factory]
+    Trinity --> SQL[SQL Agent]
+    Trinity --> Auth[Auth Agent]
+    Trinity --> Jailbreak[Jailbreak Agent]
+
+    SQL --> Garak[Garak Scanner]
+    Auth --> Garak
+    Jailbreak --> Garak
+
+    Garak --> Probes{50+ Probes}
+    Probes --> Result[Vulnerability Clusters]
+```
 
 **Architecture**: The Trinity (3 specialized agents)
 
@@ -103,6 +141,19 @@ Each agent interprets reconnaissance data differently:
 **Goal**: Analyze vulnerability patterns, plan multi-turn attacks, and execute with mandatory human approval.
 
 **Engine**: LangGraph workflow + PyRIT framework
+
+**Workflow**:
+```mermaid
+graph TD
+    Start[Vulnerability Findings] --> Pattern[Pattern Analysis]
+    Pattern --> Converter[Converter Selection]
+    Converter --> Payload[Payload Generation]
+    Payload --> Plan[Attack Plan]
+    Plan --> Review{Human Review ✋}
+    Review -- Approved --> Exec[PyRIT Execution]
+    Review -- Rejected --> Plan
+    Exec --> Score[Scoring & Result Review ✋]
+```
 
 **Design**: Hybrid structure + content separation
 - **Structure** (hard): LangGraph workflow defines stages, success criteria, safety limits
@@ -173,23 +224,19 @@ All contracts use Pydantic V2 for validation and type safety.
 
 ---
 
-## Event-Driven Architecture
+## Architecture: REST-Based Gateway
 
-Services communicate asynchronously via FastStream + Redis Streams:
+Aspexa Automa is designed as a collection of microservices accessible via a centralized HTTP Gateway:
 
-**Event Topics**:
-- `cmd_recon_start` → Trigger reconnaissance
-- `evt_recon_finished` → Broadcast intelligence to next phase
-- `cmd_scan_start` → Trigger scanning
-- `evt_scan_complete` → Broadcast vulnerabilities
-- `cmd_exploit_start` → Trigger exploitation
-- `evt_exploit_complete` → Broadcast results
+**API Gateway**:
+- **Framework**: FastAPI
+- **Security**: Clerk-based authentication (requires `friend` role)
+- **Routing**: Centralized routing to Cartographer, Swarm, and Snipers
+- **Observability**: Structured JSON logging with correlation IDs
 
-**Benefits**:
-- Services decouple: each runs independently
-- Scalability: multiple instances of same service
-- Reliability: Redis persistence for message durability
-- Observability: all events logged with correlation IDs
+**Direct Service Invocation**:
+- Services can be invoked directly via their respective `entrypoint.py` for synchronous or streaming (SSE) results.
+- Persistence is handled automatically via service-specific adapters (e.g., S3/Local for blueprints, PostgreSQL for scan results).
 
 ---
 
@@ -232,8 +279,9 @@ See **docs/code_base_structure.md** for complete file organization:
 
 ```
 aspexa-automa/
-├── libs/            # Shared contracts, config, events, persistence
+├── libs/            # Shared contracts, config, persistence
 ├── services/
+│   ├── api_gateway/     # Centralized HTTP access
 │   ├── cartographer/    # Phase 1: Reconnaissance (Complete)
 │   ├── swarm/           # Phase 2: Scanning (Complete)
 │   └── snipers/         # Phase 3: Exploitation (64% complete)
@@ -246,14 +294,10 @@ aspexa-automa/
 
 ## Getting Started
 
-See **services/cartographer/README.md**, **services/swarm/README.md**, and **services/snipers/README.md** for service-specific setup and examples.
-
-**Quick Overview**:
-1. Set `GOOGLE_API_KEY` environment variable
-2. Start Redis: `docker-compose up -d`
-3. Run Cartographer: `python -m services.cartographer.main`
-4. Run Swarm: `python -m services.swarm.main`
-5. Send events via event bus or CLI
+See **README.md** and **docs/onboarding.md** for project-wide setup. For service-specific details, see:
+- **services/cartographer/README.md**
+- **services/swarm/README.md**
+- **services/snipers/README.md**
 
 ---
 
@@ -261,11 +305,12 @@ See **services/cartographer/README.md**, **services/swarm/README.md**, and **ser
 
 See **docs/tech_stack.md** for complete breakdown:
 
-**Core**: FastStream (events), Redis (broker), Python 3.11+
-**Agents**: LangChain, LangGraph, Google Gemini
+**Core**: FastAPI (API Gateway), PostgreSQL (Storage), Python 3.12+
+**Agents**: LangChain, LangGraph, Google Gemini 1.5 Flash
 **Security**: Garak (probes), PyRIT (exploitation)
-**Data**: Pydantic V2 (validation), JSON (storage)
+**Data**: Pydantic V2 (validation), SQL/JSON (persistence)
 **Testing**: pytest (unit/integration), 94-96% coverage
+
 
 ---
 

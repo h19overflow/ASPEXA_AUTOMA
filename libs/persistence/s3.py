@@ -29,6 +29,7 @@ from .scan_models import (
     GarakResult,
     ExploitResult,
     ScanResultSummary,
+    CheckpointResult,
 )
 
 logger = logging.getLogger(__name__)
@@ -222,12 +223,13 @@ class S3PersistenceAdapter:
 
     def _get_model_for_scan_type(
         self, scan_type: ScanType
-    ) -> Type[Union[ReconResult, GarakResult, ExploitResult]]:
+    ) -> Type[Union[ReconResult, GarakResult, ExploitResult, CheckpointResult]]:
         """Return the Pydantic model class for a scan type."""
         mapping = {
             ScanType.RECON: ReconResult,
             ScanType.GARAK: GarakResult,
             ScanType.EXPLOIT: ExploitResult,
+            ScanType.CHECKPOINT: CheckpointResult,
         }
         return mapping[scan_type]
 

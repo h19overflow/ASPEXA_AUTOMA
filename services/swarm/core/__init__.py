@@ -6,7 +6,6 @@ from .config import (
     VulnCategory,
     PROBE_MAP,
     PROBE_DESCRIPTIONS,
-    PROBE_CATEGORIES,
     get_probes_for_agent,
     get_all_probe_names,
     resolve_probe_path,
@@ -17,7 +16,6 @@ from .config import (
 from .schema import (
     ScanConfig,
     ScanInput,
-    ScanContext,
     AgentScanResult,
 )
 
@@ -37,7 +35,6 @@ __all__ = [
     "VulnCategory",
     "PROBE_MAP",
     "PROBE_DESCRIPTIONS",
-    "PROBE_CATEGORIES",
     "get_probes_for_agent",
     "get_all_probe_names",
     "resolve_probe_path",
@@ -46,7 +43,6 @@ __all__ = [
     # Schema
     "ScanConfig",
     "ScanInput",
-    "ScanContext",
     "AgentScanResult",
     # Utils
     "StructuredFormatter",

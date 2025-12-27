@@ -184,11 +184,11 @@ graph TB
     STORAGE -->|11. Return| TRANSFORM
     TRANSFORM -->|12. Publish| EVT
 
-    style EventBus fill:#e1f5ff
-    style Consumer fill:#fff3e0
-    style Agent fill:#f3e5f5
-    style Intelligence fill:#e8f5e9
-    style Persistence fill:#fce4ec
+    style EventBus fill:#3b82f6,stroke:#2563eb,stroke-width:2px,color:#fff
+    style Consumer fill:#f59e0b,stroke:#d97706,stroke-width:2px,color:#fff
+    style Agent fill:#8b5cf6,stroke:#7c3aed,stroke-width:2px,color:#fff
+    style Intelligence fill:#10b981,stroke:#059669,stroke-width:2px,color:#fff
+    style Persistence fill:#f43f5e,stroke:#e11d48,stroke-width:2px,color:#fff
 ```
 
 ### Data Flow
@@ -248,27 +248,27 @@ graph TD
     E4 --> F
     F --> G
 
-    style A fill:#e3f2fd
-    style B fill:#f3e5f5
-    style C fill:#fff3e0
-    style C1 fill:#fce4ec
-    style C2 fill:#fce4ec
-    style C3 fill:#fce4ec
-    style C4 fill:#fce4ec
-    style C5 fill:#fce4ec
-    style C6 fill:#fce4ec
-    style D fill:#e8f5e9
-    style D1 fill:#c8e6c9
-    style D2 fill:#c8e6c9
-    style D3 fill:#c8e6c9
-    style D4 fill:#c8e6c9
-    style E fill:#f1f8e9
-    style E1 fill:#dcedc8
-    style E2 fill:#dcedc8
-    style E3 fill:#dcedc8
-    style E4 fill:#dcedc8
-    style F fill:#e0f2f1
-    style G fill:#b2dfdb
+    style A fill:#3b82f6,stroke:#2563eb,stroke-width:2px,color:#fff
+    style B fill:#8b5cf6,stroke:#7c3aed,stroke-width:2px,color:#fff
+    style C fill:#f59e0b,stroke:#d97706,stroke-width:2px,color:#fff
+    style C1 fill:#f43f5e,stroke:#e11d48,stroke-width:1px,color:#fff
+    style C2 fill:#f43f5e,stroke:#e11d48,stroke-width:1px,color:#fff
+    style C3 fill:#f43f5e,stroke:#e11d48,stroke-width:1px,color:#fff
+    style C4 fill:#f43f5e,stroke:#e11d48,stroke-width:1px,color:#fff
+    style C5 fill:#f43f5e,stroke:#e11d48,stroke-width:1px,color:#fff
+    style C6 fill:#f43f5e,stroke:#e11d48,stroke-width:1px,color:#fff
+    style D fill:#10b981,stroke:#059669,stroke-width:2px,color:#fff
+    style D1 fill:#0d9488,stroke:#0f766e,stroke-width:1px,color:#fff
+    style D2 fill:#0d9488,stroke:#0f766e,stroke-width:1px,color:#fff
+    style D3 fill:#0d9488,stroke:#0f766e,stroke-width:1px,color:#fff
+    style D4 fill:#0d9488,stroke:#0f766e,stroke-width:1px,color:#fff
+    style E fill:#6366f1,stroke:#4f46e5,stroke-width:2px,color:#fff
+    style E1 fill:#4f46e5,stroke:#4338ca,stroke-width:1px,color:#fff
+    style E2 fill:#4f46e5,stroke:#4338ca,stroke-width:1px,color:#fff
+    style E3 fill:#4f46e5,stroke:#4338ca,stroke-width:1px,color:#fff
+    style E4 fill:#4f46e5,stroke:#4338ca,stroke-width:1px,color:#fff
+    style F fill:#06b6d4,stroke:#0891b2,stroke-width:2px,color:#fff
+    style G fill:#0ea5e9,stroke:#0284c7,stroke-width:2px,color:#fff
 ```
 
 ---
@@ -282,6 +282,7 @@ graph TD
 **Core Functions**:
 
 **`execute_recon_streaming(request: ReconRequest)`**:
+
 - Main async HTTP handler
 - Yields streaming events during reconnaissance
 - Integrates agent, persistence, and intelligence extraction
@@ -298,6 +299,7 @@ graph TD
 **Core Functions**:
 
 **`build_recon_graph()`**
+
 - Creates LangChain agent with `create_agent()`
 - Model: Google Gemini 2.5 Pro
 - Temperature: 0.1 (reliable structured output)
@@ -305,6 +307,7 @@ graph TD
 - Prompt: RECON_SYSTEM_PROMPT (11 attack vectors)
 
 **`run_reconnaissance_streaming(audit_id, target_url, auth_headers, scope, special_instructions)`**
+
 - Main orchestration loop with streaming events
 - Pre-flight health check via `check_target_health()`
 - Input validation (audit_id, target_url)
@@ -324,17 +327,20 @@ graph TD
 **Responsibility**: Instance-based tool management for concurrent audits
 
 **`ReconToolSet` Class**:
+
 - One instance per reconnaissance session
 - Maintains observations in instance memory (thread-safe)
 - Supports concurrent audits without state collision
 
 **`take_note(observation, category)` Tool**:
+
 - Records technical findings
 - Categories: `system_prompt`, `tools`, `authorization`, `infrastructure`
 - Duplicate detection: 80% similarity threshold (SequenceMatcher)
 - Returns confirmation with observation count
 
 **`analyze_gaps()` Tool**:
+
 - Analyzes intelligence coverage across categories
 - Identifies missing information:
   - Tool signatures missing parameters
@@ -350,6 +356,7 @@ graph TD
 **Responsibility**: Pre-flight health verification
 
 **`check_target_health(url, auth_headers)`**:
+
 - Async HTTP connectivity check
 - Verifies endpoint is reachable before reconnaissance
 - Validates authentication headers work
@@ -363,6 +370,7 @@ graph TD
 **Responsibility**: Transform observations to IF-02 format and persist to S3
 
 **S3 Persistence** (`persist_recon_result`):
+
 - Saves recon blueprint to S3: `scans/recon/{scan_id}.json`
 - Updates campaign stage tracking
 - Auto-creates campaign if needed
@@ -371,18 +379,21 @@ graph TD
 **Intelligence Extraction** (`intelligence/extractors.py`):
 
 **`extract_infrastructure_intel(observations)`**:
+
 - Pattern matching for vector databases (FAISS, Pinecone, Chroma, Weaviate, Qdrant, etc.)
 - LLM model detection (GPT-4, Claude, Gemini, LLaMA, etc.)
 - Rate limit identification
 - Returns `InfrastructureIntel` with detected stack
 
 **`extract_auth_structure(observations)`**:
+
 - Identifies auth type (OAuth, JWT, RBAC, API Key, Session)
 - Extracts access control rules
 - Detects privilege levels and restrictions
 - Returns `AuthStructure` with auth rules
 
 **`extract_detected_tools(observations)`**:
+
 - Parses tool signatures from observations
 - Extracts parameters and types
 - Detects capabilities and limitations
@@ -397,6 +408,7 @@ graph TD
 **Responsibility**: Pydantic V2 models for structured agent output
 
 **`ReconTurn` Model**:
+
 - `deductions`: List of findings with categories
 - `next_question`: Strategic question for target
 - `rationale`: Explanation for question choice
@@ -404,6 +416,7 @@ graph TD
 - `stop_reason`: Optional termination reason
 
 **`Deduction` Model**:
+
 - `category`: Intelligence category (system_prompt, tools, authorization, infrastructure)
 - `finding`: What was discovered
 - `confidence`: low/medium/high
@@ -413,6 +426,7 @@ graph TD
 **Responsibility**: Strategic probing guidance with 11 attack vectors
 
 **11 Attack Vectors**:
+
 1. **Direct Enumeration** - Ask directly about capabilities
 2. **Error Elicitation** - Trigger verbose errors to leak infrastructure
 3. **Feature Probing** - Deep-dive into known capabilities
@@ -426,6 +440,7 @@ graph TD
 11. **Pattern Recognition** - Identify behavioral patterns
 
 **Dual-Track Strategy**:
+
 - Track A: Business logic probing (maintain current strength)
 - Track B: Infrastructure enumeration (aggressively pursue tech stack)
 
@@ -438,21 +453,27 @@ graph TD
 Cartographer organizes intelligence into four categories:
 
 ### 1. System Prompt (`system_prompt`)
+
 The target's role definition and constraints:
+
 - Role/domain (e.g., "You are a helpful coding assistant")
 - Safety rules and restrictions
 - Behavioral constraints
 - Personality traits
 
 ### 2. Tools (`tools`)
+
 Available functions and capabilities:
+
 - Tool names (e.g., `search_documents`, `execute_code`)
 - Parameters and types (e.g., `query: str`, `depth: int`)
 - Return types and descriptions
 - Error handling behavior
 
 ### 3. Authorization (`authorization`)
+
 Access control mechanisms:
+
 - Auth type: OAuth, JWT, RBAC, API Key
 - Validation rules (format, scope, expiration)
 - Role-based access levels
@@ -460,7 +481,9 @@ Access control mechanisms:
 - Vulnerabilities (weak validation, privilege escalation)
 
 ### 4. Infrastructure (`infrastructure`)
+
 Technical stack components:
+
 - **Databases**: PostgreSQL, SQLite, MongoDB, DynamoDB
 - **Vector Stores**: FAISS, Pinecone, Chroma, Weaviate
 - **Embedding Models**: OpenAI, HuggingFace, Google
@@ -485,6 +508,7 @@ scope = {
 ```
 
 **Depth Levels**:
+
 - `shallow`: 5 turns, surface-level probing
 - `standard`: 10 turns, comprehensive coverage (DEFAULT)
 - `aggressive`: 15+ turns, exhaustive intelligence gathering
@@ -501,10 +525,10 @@ Injected into initial agent message to guide questioning.
 
 ### Environment Variables
 
-| Variable | Required | Default | Purpose |
-|----------|----------|---------|---------|
-| `GOOGLE_API_KEY` | Yes | - | Gemini API authentication |
-| `REDIS_URL` | No | `redis://localhost:6379` | Redis broker URL |
+| Variable         | Required | Default                  | Purpose                   |
+| ---------------- | -------- | ------------------------ | ------------------------- |
+| `GOOGLE_API_KEY` | Yes      | -                        | Gemini API authentication |
+| `REDIS_URL`      | No       | `redis://localhost:6379` | Redis broker URL          |
 
 ---
 
@@ -567,19 +591,19 @@ Injected into initial agent message to guide questioning.
 
 ### Libraries
 
-| Library | Purpose | Version |
-|---------|---------|---------|
-| LangChain | Agent framework | Latest |
-| LangChain Google GenAI | Gemini integration | Latest |
-| FastStream | Event-driven microservices | Latest |
-| aiohttp | Async HTTP client | Latest |
-| Pydantic | Data validation | V2 |
-| difflib | Similarity checking | Python stdlib |
-
+| Library                | Purpose                    | Version       |
+| ---------------------- | -------------------------- | ------------- |
+| LangChain              | Agent framework            | Latest        |
+| LangChain Google GenAI | Gemini integration         | Latest        |
+| FastStream             | Event-driven microservices | Latest        |
+| aiohttp                | Async HTTP client          | Latest        |
+| Pydantic               | Data validation            | V2            |
+| difflib                | Similarity checking        | Python stdlib |
 
 - Processes results
 
 **Publishes to**: `EVT_RECON_FINISHED`
+
 - Sends IF-02 ReconBlueprint
 - Downstream services consume for scanning/exploitation
 
@@ -594,12 +618,15 @@ Injected into initial agent message to guide questioning.
 ## Key Design Decisions
 
 ### 1. Instance-Based Tool Set
+
 Each reconnaissance session creates a unique `ReconToolSet` instance. Observations are stored in instance memory (not global state), enabling concurrent audits without state collision.
 
 **Rationale**: Prevents cross-contamination between simultaneous probes.
 
 ### 2. Structured Output + Tool Introspection
+
 Agent returns structured `ReconTurn` objects AND uses `take_note`/`analyze_gaps` tools. This dual mechanism ensures:
+
 - Structured reasoning captured
 - Tool usage creates audit trail
 - Agent can introspect own progress
@@ -607,16 +634,19 @@ Agent returns structured `ReconTurn` objects AND uses `take_note`/`analyze_gaps`
 **Rationale**: Combines benefits of function calling + structured output.
 
 ### 3. Duplicate Prevention
+
 80% similarity threshold using `SequenceMatcher`. Duplicates removed during tool execution (take_note) AND persistence transformation.
 
 **Rationale**: Reduces noise, improves signal clarity.
 
 ### 4. Error Resilience
+
 Network errors don't stop reconnaissance (loop continues). Agent invocation errors break gracefully with logging.
 
 **Rationale**: Ensures maximum intelligence gathering even with target disruptions.
 
 ### 5. Multi-Layer Persistence
+
 - Raw observations stored in tool set
 - Transformed to IF-02 during save
 - Optional structured deductions with confidence
@@ -651,15 +681,15 @@ For deeper technical details, see:
 
 ## Quick Reference
 
-| Task | Location | Method |
-|------|----------|--------|
-| Run reconnaissance | `agent/graph.py:40` | `run_reconnaissance()` |
-| Handle events | `consumer.py:20` | `handle_recon_request()` |
-| Extract intelligence | `consumer.py:50` | `extract_infrastructure_intel()`, `extract_auth_structure()` |
-| Save results | `persistence/json_storage.py:80` | `save_reconnaissance_result()` |
-| Load results | `persistence/json_storage.py:120` | `load_reconnaissance_result()` |
-| Configure tools | `tools/definitions.py:30` | `ReconToolSet.__init__()` |
-| Network communication | `tools/network.py:10` | `call_target_endpoint()` |
+| Task                  | Location                          | Method                                                       |
+| --------------------- | --------------------------------- | ------------------------------------------------------------ |
+| Run reconnaissance    | `agent/graph.py:40`               | `run_reconnaissance()`                                       |
+| Handle events         | `consumer.py:20`                  | `handle_recon_request()`                                     |
+| Extract intelligence  | `consumer.py:50`                  | `extract_infrastructure_intel()`, `extract_auth_structure()` |
+| Save results          | `persistence/json_storage.py:80`  | `save_reconnaissance_result()`                               |
+| Load results          | `persistence/json_storage.py:120` | `load_reconnaissance_result()`                               |
+| Configure tools       | `tools/definitions.py:30`         | `ReconToolSet.__init__()`                                    |
+| Network communication | `tools/network.py:10`             | `call_target_endpoint()`                                     |
 
 ---
 

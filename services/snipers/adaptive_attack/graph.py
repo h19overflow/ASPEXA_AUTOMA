@@ -14,13 +14,23 @@ Routing logic:
 - adapt → articulate: Generate strategy and select chain (single source of truth)
 - evaluate → END: if is_successful or max_iterations reached
 - evaluate → adapt: if failure, continue adapting
+
+Checkpoint support:
+- Checkpoints saved after each iteration for pause/resume
+- Pause signals checked after each iteration
 """
 
 import logging
-from typing import Literal
+from typing import Literal, Optional
 
 from langgraph.graph import StateGraph, START, END
 from libs.monitoring import CallbackHandler
+from libs.persistence import (
+    CheckpointStatus,
+    CheckpointConfig,
+    CheckpointIteration,
+    CheckpointResumeState,
+)
 
 from services.snipers.adaptive_attack.state import (
     AdaptiveAttackState,
@@ -36,6 +46,15 @@ from services.snipers.adaptive_attack.nodes import (
 from services.snipers.adaptive_attack.components.turn_logger import (
     reset_turn_logger,
     get_turn_logger,
+)
+from services.snipers.adaptive_attack.components.pause_signal import (
+    is_pause_requested,
+    clear_pause,
+)
+from services.snipers.utils.persistence.s3_adapter import (
+    create_checkpoint,
+    update_checkpoint,
+    set_checkpoint_status,
 )
 from datetime import datetime, timezone
 from typing import Any, AsyncGenerator
@@ -206,27 +225,32 @@ async def run_adaptive_attack(
 async def run_adaptive_attack_streaming(
     campaign_id: str,
     target_url: str,
+    scan_id: str,
     max_iterations: int = 5,
     payload_count: int = 2,
     framing_types: list[str] | None = None,
     converter_names: list[str] | None = None,
     success_scorers: list[str] | None = None,
     success_threshold: float = 0.8,
+    enable_checkpoints: bool = True,
 ) -> AsyncGenerator[dict[str, Any], None]:
     """
-    Run adaptive attack loop with streaming events.
+    Run adaptive attack loop with streaming events and checkpoint support.
 
     Yields SSE events for real-time monitoring of each iteration and phase.
+    Supports pause/resume via checkpoints saved after each iteration.
 
     Args:
         campaign_id: Campaign ID to load intelligence
         target_url: Target URL to attack
+        scan_id: Unique identifier for this attack run (for checkpoints)
         max_iterations: Maximum adaptation iterations
         payload_count: Initial number of payloads
         framing_types: Initial framing types (None = auto)
         converter_names: Initial converters (None = auto)
         success_scorers: Scorers that must succeed
         success_threshold: Minimum confidence for success
+        enable_checkpoints: Whether to save checkpoints (default True)
 
     Yields:
         Dict events for SSE streaming
@@ -253,6 +277,28 @@ async def run_adaptive_attack_streaming(
     # Reset turn logger for new run
     reset_turn_logger()
 
+    # Clear any existing pause signal for this scan
+    clear_pause(scan_id)
+
+    # Create initial checkpoint if enabled
+    if enable_checkpoints:
+        try:
+            config = CheckpointConfig(
+                max_iterations=max_iterations,
+                payload_count=payload_count,
+                success_scorers=success_scorers or [],
+                success_threshold=success_threshold,
+            )
+            await create_checkpoint(
+                campaign_id=campaign_id,
+                scan_id=scan_id,
+                target_url=target_url,
+                config=config,
+            )
+            logger.info(f"Created initial checkpoint for {scan_id}")
+        except Exception as e:
+            logger.warning(f"Failed to create initial checkpoint: {e}")
+
     # Create initial state
     initial_state = create_initial_state(
         campaign_id=campaign_id,
@@ -272,6 +318,7 @@ async def run_adaptive_attack_streaming(
         data={
             "campaign_id": campaign_id,
             "target_url": target_url,
+            "scan_id": scan_id,
             "max_iterations": max_iterations,
             "payload_count": payload_count,
         },
@@ -496,6 +543,8 @@ async def run_adaptive_attack_streaming(
                 elif node_name == "evaluate":
                     is_successful = node_output.get("is_successful", False)
                     total_score = node_output.get("total_score", 0.0)
+                    best_score = node_output.get("best_score", 0.0)
+                    best_iteration = node_output.get("best_iteration", 0)
 
                     yield make_event(
                         "iteration_complete",
@@ -505,10 +554,125 @@ async def run_adaptive_attack_streaming(
                             "iteration": current_iteration + 1,
                             "is_successful": is_successful,
                             "total_score": total_score,
-                            "best_score": node_output.get("best_score", 0.0),
-                            "best_iteration": node_output.get("best_iteration", 0),
+                            "best_score": best_score,
+                            "best_iteration": best_iteration,
                         },
                     )
+
+                    # Save checkpoint after each iteration
+                    if enable_checkpoints:
+                        try:
+                            # Build iteration data for checkpoint
+                            phase1_result = final_state.get("phase1_result")
+                            phase2_result = final_state.get("phase2_result")
+                            phase3_result = final_state.get("phase3_result")
+
+                            # Build payloads list
+                            payloads = []
+                            if phase2_result:
+                                payloads = [
+                                    {"original": p.original, "converted": p.converted}
+                                    for p in phase2_result.payloads
+                                ]
+
+                            # Build responses list
+                            responses = []
+                            if phase3_result:
+                                responses = [
+                                    {
+                                        "response": r.response,
+                                        "status_code": r.status_code,
+                                        "latency_ms": r.latency_ms,
+                                    }
+                                    for r in phase3_result.attack_responses
+                                ]
+
+                            # Build scorer confidences
+                            scorer_confidences = {}
+                            if phase3_result and phase3_result.composite_score:
+                                for name, sr in phase3_result.composite_score.scorer_results.items():
+                                    scorer_confidences[name] = sr.confidence
+
+                            iteration_data = CheckpointIteration(
+                                iteration=current_iteration + 1,
+                                score=total_score,
+                                is_successful=is_successful,
+                                framing=final_state.get("framing_types"),
+                                converters=final_state.get("converter_names"),
+                                scorer_confidences=scorer_confidences,
+                                payloads=payloads,
+                                responses=responses,
+                                adaptation_reasoning=final_state.get("adaptation_reasoning"),
+                                error=final_state.get("error"),
+                            )
+
+                            # Build resume state
+                            resume_state = CheckpointResumeState(
+                                tried_framings=final_state.get("tried_framings", []),
+                                tried_converters=final_state.get("tried_converters", []),
+                                chain_discovery_context=(
+                                    final_state.get("chain_discovery_context").model_dump()
+                                    if final_state.get("chain_discovery_context")
+                                    else None
+                                ),
+                                custom_framing=final_state.get("custom_framing"),
+                                defense_analysis=final_state.get("defense_analysis", {}),
+                                target_responses=final_state.get("target_responses", []),
+                            )
+
+                            # Determine checkpoint status
+                            checkpoint_status = CheckpointStatus.RUNNING
+                            if is_successful or node_output.get("completed", False):
+                                checkpoint_status = CheckpointStatus.COMPLETED
+
+                            await update_checkpoint(
+                                campaign_id=campaign_id,
+                                scan_id=scan_id,
+                                iteration=iteration_data,
+                                resume_state=resume_state,
+                                best_score=best_score,
+                                best_iteration=best_iteration,
+                                is_successful=is_successful,
+                                status=checkpoint_status,
+                            )
+
+                            yield make_event(
+                                "checkpoint_saved",
+                                f"Progress saved (iteration {current_iteration + 1})",
+                                iteration=current_iteration + 1,
+                                data={
+                                    "scan_id": scan_id,
+                                    "can_resume": True,
+                                },
+                            )
+                        except Exception as e:
+                            logger.warning(f"Failed to save checkpoint: {e}")
+
+                    # Check for pause signal
+                    if is_pause_requested(scan_id):
+                        logger.info(f"Pause requested for {scan_id}, stopping after iteration {current_iteration + 1}")
+
+                        # Update checkpoint status to paused
+                        if enable_checkpoints:
+                            try:
+                                await set_checkpoint_status(campaign_id, scan_id, CheckpointStatus.PAUSED)
+                            except Exception as e:
+                                logger.warning(f"Failed to update checkpoint status to paused: {e}")
+
+                        yield make_event(
+                            "attack_paused",
+                            f"Attack paused after iteration {current_iteration + 1}",
+                            iteration=current_iteration + 1,
+                            data={
+                                "scan_id": scan_id,
+                                "best_score": best_score,
+                                "best_iteration": best_iteration,
+                                "can_resume": True,
+                            },
+                        )
+                        # Clear the pause signal
+                        clear_pause(scan_id)
+                        return  # Exit the generator
 
                 elif node_name == "adapt":
                     adaptation_reasoning = node_output.get("adaptation_reasoning", "")
@@ -603,3 +767,110 @@ async def run_adaptive_attack_streaming(
             data={"error": str(e), "error_type": type(e).__name__},
         )
         raise
+
+
+async def resume_adaptive_attack_streaming(
+    campaign_id: str,
+    scan_id: str,
+) -> AsyncGenerator[dict[str, Any], None]:
+    """
+    Resume an adaptive attack from a checkpoint.
+
+    Loads checkpoint state and continues from where the attack left off.
+
+    Args:
+        campaign_id: Campaign ID
+        scan_id: Scan ID of the checkpoint to resume
+
+    Yields:
+        Dict events for SSE streaming
+    """
+    from services.snipers.utils.persistence.s3_adapter import (
+        load_checkpoint as load_checkpoint_from_s3,
+        set_checkpoint_status,
+    )
+
+    def make_event(
+        event_type: str,
+        message: str,
+        phase: str | None = None,
+        iteration: int | None = None,
+        data: dict | None = None,
+        progress: float | None = None,
+    ) -> dict[str, Any]:
+        """Create a stream event dict."""
+        return {
+            "type": event_type,
+            "phase": phase,
+            "iteration": iteration,
+            "message": message,
+            "data": data,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "progress": progress,
+        }
+
+    # Load checkpoint
+    checkpoint = await load_checkpoint_from_s3(campaign_id, scan_id)
+    if not checkpoint:
+        yield make_event(
+            "error",
+            f"Checkpoint not found: {campaign_id}/{scan_id}",
+            data={"error": "Checkpoint not found"},
+        )
+        return
+
+    # Validate checkpoint can be resumed
+    if checkpoint.status not in [CheckpointStatus.PAUSED, CheckpointStatus.RUNNING]:
+        yield make_event(
+            "error",
+            f"Cannot resume checkpoint with status: {checkpoint.status.value}",
+            data={"error": f"Invalid checkpoint status: {checkpoint.status.value}"},
+        )
+        return
+
+    # Update status to running
+    await set_checkpoint_status(campaign_id, scan_id, CheckpointStatus.RUNNING)
+
+    # Emit resume event
+    yield make_event(
+        "attack_resumed",
+        f"Resuming attack from iteration {checkpoint.current_iteration}",
+        iteration=checkpoint.current_iteration,
+        data={
+            "scan_id": scan_id,
+            "campaign_id": campaign_id,
+            "resuming_from_iteration": checkpoint.current_iteration,
+            "best_score": checkpoint.best_score,
+            "target_url": checkpoint.target_url,
+        },
+    )
+
+    # Calculate remaining iterations
+    remaining_iterations = checkpoint.config.max_iterations - checkpoint.current_iteration
+    if remaining_iterations <= 0:
+        yield make_event(
+            "attack_complete",
+            "Attack already at max iterations",
+            data={
+                "scan_id": scan_id,
+                "is_successful": checkpoint.is_successful,
+                "total_iterations": checkpoint.current_iteration,
+                "best_score": checkpoint.best_score,
+            },
+        )
+        return
+
+    # Continue streaming with remaining iterations
+    async for event in run_adaptive_attack_streaming(
+        campaign_id=campaign_id,
+        target_url=checkpoint.target_url,
+        scan_id=scan_id,
+        max_iterations=remaining_iterations,
+        payload_count=checkpoint.config.payload_count,
+        framing_types=None,  # Let adapt node decide based on checkpoint state
+        converter_names=None,  # Let adapt node decide
+        success_scorers=checkpoint.config.success_scorers or None,
+        success_threshold=checkpoint.config.success_threshold,
+        enable_checkpoints=True,
+    ):
+        yield event

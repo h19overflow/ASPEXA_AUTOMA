@@ -1,18 +1,26 @@
 """S3 persistence adapter for Snipers exploitation service.
 
 Handles loading recon + garak intelligence and saving exploit results.
+Also handles checkpoint persistence for adaptive attack pause/resume.
 """
 import logging
-from datetime import datetime
-from typing import Any, Dict, Optional
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional
 
 from libs.persistence import (
     save_scan,
     load_scan,
+    list_scans,
+    scan_exists,
     ScanType,
     ArtifactUploadError,
     ArtifactNotFoundError,
     S3PersistenceAdapter,
+    CheckpointStatus,
+    CheckpointConfig,
+    CheckpointIteration,
+    CheckpointResumeState,
+    CheckpointResult,
 )
 from libs.persistence.sqlite import CampaignRepository, Stage
 
@@ -280,6 +288,251 @@ async def persist_with_fallback(
         logger.error(f"Persistence error: {e}")
         local_save_func(exploit_result)
         return False
+
+
+# ============================================================================
+# Checkpoint Persistence (Adaptive Attack Pause/Resume)
+# ============================================================================
+
+
+def _build_checkpoint_id(campaign_id: str, scan_id: str) -> str:
+    """Build checkpoint ID from campaign and scan IDs.
+
+    Format: {campaign_id}/{scan_id} for hierarchical S3 storage.
+    """
+    return f"{campaign_id}/{scan_id}"
+
+
+async def create_checkpoint(
+    campaign_id: str,
+    scan_id: str,
+    target_url: str,
+    config: CheckpointConfig,
+) -> CheckpointResult:
+    """Create initial checkpoint when adaptive attack starts.
+
+    Args:
+        campaign_id: Campaign identifier
+        scan_id: Unique scan/attack identifier
+        target_url: Target URL being attacked
+        config: Attack configuration parameters
+
+    Returns:
+        Created CheckpointResult
+
+    Raises:
+        ArtifactUploadError: If S3 upload fails
+    """
+    now = datetime.now(timezone.utc).isoformat()
+    checkpoint = CheckpointResult(
+        scan_id=scan_id,
+        campaign_id=campaign_id,
+        target_url=target_url,
+        status=CheckpointStatus.RUNNING,
+        created_at=now,
+        updated_at=now,
+        config=config,
+        current_iteration=0,
+        best_score=0.0,
+        best_iteration=0,
+        is_successful=False,
+        iteration_history=[],
+        resume_state=CheckpointResumeState(),
+    )
+
+    checkpoint_id = _build_checkpoint_id(campaign_id, scan_id)
+    await save_scan(ScanType.CHECKPOINT, checkpoint_id, checkpoint.model_dump())
+    logger.info(f"Created checkpoint: scans/checkpoint/{checkpoint_id}.json")
+
+    return checkpoint
+
+
+async def update_checkpoint(
+    campaign_id: str,
+    scan_id: str,
+    iteration: CheckpointIteration,
+    resume_state: CheckpointResumeState,
+    best_score: float,
+    best_iteration: int,
+    is_successful: bool = False,
+    status: CheckpointStatus = CheckpointStatus.RUNNING,
+) -> CheckpointResult:
+    """Update checkpoint after an iteration completes.
+
+    Args:
+        campaign_id: Campaign identifier
+        scan_id: Scan identifier
+        iteration: Completed iteration data
+        resume_state: Updated resume state
+        best_score: Best score so far
+        best_iteration: Iteration with best score
+        is_successful: Whether attack succeeded
+        status: Checkpoint status
+
+    Returns:
+        Updated CheckpointResult
+
+    Raises:
+        ArtifactNotFoundError: If checkpoint doesn't exist
+        ArtifactUploadError: If S3 upload fails
+    """
+    checkpoint_id = _build_checkpoint_id(campaign_id, scan_id)
+
+    # Load existing checkpoint
+    existing = await load_scan(ScanType.CHECKPOINT, checkpoint_id, validate=False)
+    checkpoint = CheckpointResult.model_validate(existing)
+
+    # Update fields
+    checkpoint.updated_at = datetime.now(timezone.utc).isoformat()
+    checkpoint.current_iteration = iteration.iteration
+    checkpoint.best_score = best_score
+    checkpoint.best_iteration = best_iteration
+    checkpoint.is_successful = is_successful
+    checkpoint.status = status
+    checkpoint.iteration_history.append(iteration)
+    checkpoint.resume_state = resume_state
+
+    # Save updated checkpoint
+    await save_scan(ScanType.CHECKPOINT, checkpoint_id, checkpoint.model_dump())
+    logger.info(f"Updated checkpoint: iteration {iteration.iteration}, score {iteration.score:.2f}")
+
+    return checkpoint
+
+
+async def set_checkpoint_status(
+    campaign_id: str,
+    scan_id: str,
+    status: CheckpointStatus,
+) -> CheckpointResult:
+    """Update only the status of a checkpoint.
+
+    Args:
+        campaign_id: Campaign identifier
+        scan_id: Scan identifier
+        status: New status
+
+    Returns:
+        Updated CheckpointResult
+    """
+    checkpoint_id = _build_checkpoint_id(campaign_id, scan_id)
+
+    existing = await load_scan(ScanType.CHECKPOINT, checkpoint_id, validate=False)
+    checkpoint = CheckpointResult.model_validate(existing)
+
+    checkpoint.status = status
+    checkpoint.updated_at = datetime.now(timezone.utc).isoformat()
+
+    await save_scan(ScanType.CHECKPOINT, checkpoint_id, checkpoint.model_dump())
+    logger.info(f"Checkpoint {scan_id} status -> {status.value}")
+
+    return checkpoint
+
+
+async def load_checkpoint(
+    campaign_id: str,
+    scan_id: str,
+) -> Optional[CheckpointResult]:
+    """Load checkpoint from S3.
+
+    Args:
+        campaign_id: Campaign identifier
+        scan_id: Scan identifier
+
+    Returns:
+        CheckpointResult if found, None otherwise
+    """
+    checkpoint_id = _build_checkpoint_id(campaign_id, scan_id)
+    try:
+        data = await load_scan(ScanType.CHECKPOINT, checkpoint_id, validate=False)
+        return CheckpointResult.model_validate(data)
+    except ArtifactNotFoundError:
+        return None
+
+
+async def get_latest_checkpoint(campaign_id: str) -> Optional[CheckpointResult]:
+    """Get the most recent checkpoint for a campaign.
+
+    Args:
+        campaign_id: Campaign identifier
+
+    Returns:
+        Most recent CheckpointResult or None
+    """
+    try:
+        # List all checkpoints for this campaign
+        all_checkpoints = await list_scans(ScanType.CHECKPOINT)
+
+        # Filter by campaign_id (checkpoint IDs are formatted as campaign_id/scan_id)
+        campaign_checkpoints = [
+            cp for cp in all_checkpoints
+            if cp.scan_id.startswith(f"{campaign_id}/")
+        ]
+
+        if not campaign_checkpoints:
+            return None
+
+        # Sort by timestamp (newest first) and get the first one
+        campaign_checkpoints.sort(key=lambda x: x.timestamp, reverse=True)
+        latest = campaign_checkpoints[0]
+
+        # Load the full checkpoint
+        return await load_checkpoint(campaign_id, latest.scan_id.split("/")[-1])
+
+    except Exception as e:
+        logger.warning(f"Failed to get latest checkpoint for {campaign_id}: {e}")
+        return None
+
+
+async def list_campaign_checkpoints(campaign_id: str) -> List[Dict[str, Any]]:
+    """List all checkpoints for a campaign.
+
+    Args:
+        campaign_id: Campaign identifier
+
+    Returns:
+        List of checkpoint summaries
+    """
+    try:
+        all_checkpoints = await list_scans(ScanType.CHECKPOINT)
+
+        summaries = []
+        for cp in all_checkpoints:
+            if cp.scan_id.startswith(f"{campaign_id}/"):
+                scan_id = cp.scan_id.split("/")[-1]
+                # Load full checkpoint for details
+                checkpoint = await load_checkpoint(campaign_id, scan_id)
+                if checkpoint:
+                    summaries.append({
+                        "scan_id": scan_id,
+                        "status": checkpoint.status.value,
+                        "current_iteration": checkpoint.current_iteration,
+                        "best_score": checkpoint.best_score,
+                        "is_successful": checkpoint.is_successful,
+                        "created_at": checkpoint.created_at,
+                        "updated_at": checkpoint.updated_at,
+                    })
+
+        return sorted(summaries, key=lambda x: x["created_at"], reverse=True)
+
+    except Exception as e:
+        logger.warning(f"Failed to list checkpoints for {campaign_id}: {e}")
+        return []
+
+
+async def checkpoint_exists(campaign_id: str, scan_id: str) -> bool:
+    """Check if a checkpoint exists.
+
+    Args:
+        campaign_id: Campaign identifier
+        scan_id: Scan identifier
+
+    Returns:
+        True if checkpoint exists
+    """
+    checkpoint_id = _build_checkpoint_id(campaign_id, scan_id)
+    return await scan_exists(ScanType.CHECKPOINT, checkpoint_id)
+
+
 if __name__ == "__main__":
     import asyncio
     import json

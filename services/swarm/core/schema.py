@@ -10,16 +10,12 @@ Note: Output schemas are handled by:
 """
 
 from datetime import datetime
-from typing import List, Dict, Any, Optional, TYPE_CHECKING
+from typing import List, Dict, Any, Optional
 from pydantic import Field, model_validator, field_validator
 
 from libs.contracts.common import StrictBaseModel
 from libs.contracts.scanning import VulnerabilityCluster
 from services.swarm.core.config import ScanApproach
-
-if TYPE_CHECKING:
-    from libs.contracts.scanning import ScanJobDispatch
-    from libs.contracts.recon import ReconBlueprint
 
 
 class ScanConfig(StrictBaseModel):
@@ -115,15 +111,6 @@ class ScanConfig(StrictBaseModel):
         return self
 
 
-class AuthIntelligence(StrictBaseModel):
-    """Authentication/authorization intelligence from recon."""
-    type: str = Field(default="unknown", description="Auth type (RBAC, OAuth, etc.)")
-    rules: List[str] = Field(default_factory=list, description="Auth rules discovered")
-    vulnerabilities: List[str] = Field(
-        default_factory=list, description="Auth vulnerabilities found"
-    )
-
-
 class ScanInput(StrictBaseModel):
     """Input context for a Swarm agent scan.
 
@@ -147,10 +134,6 @@ class ScanInput(StrictBaseModel):
         default_factory=list,
         description="Leaked system prompt fragments from recon"
     )
-    auth_intelligence: Optional[AuthIntelligence] = Field(
-        default=None,
-        description="Authentication structure and vulnerabilities"
-    )
     raw_observations: Dict[str, List[str]] = Field(
         default_factory=dict,
         description="Raw observations by category from recon"
@@ -163,136 +146,6 @@ class ScanInput(StrictBaseModel):
         default_factory=ScanConfig,
         description="User-configurable scan parameters"
     )
-
-
-class ScanContext(StrictBaseModel):
-    """Unified scan context that consolidates all configuration and intelligence.
-
-    This class serves as a single source of truth for scan configuration,
-    eliminating the need for multiple transformations across the codebase.
-    Contains FULL intelligence from recon for context-rich agent planning.
-    """
-    audit_id: str = Field(..., description="Audit identifier")
-    agent_type: str = Field(..., description="Agent type: agent_sql, agent_auth, or agent_jailbreak")
-    target_url: str = Field(..., description="Target LLM endpoint URL")
-    infrastructure: Dict[str, Any] = Field(default_factory=dict, description="Infrastructure details")
-    detected_tools: List[Dict[str, Any]] = Field(default_factory=list, description="Detected tools")
-    # Full intelligence for context-rich planning
-    system_prompt_leaks: List[str] = Field(
-        default_factory=list, description="Leaked system prompt fragments"
-    )
-    auth_intelligence: Optional[AuthIntelligence] = Field(
-        default=None, description="Auth structure and vulnerabilities"
-    )
-    raw_observations: Dict[str, List[str]] = Field(
-        default_factory=dict, description="Raw observations by category"
-    )
-    structured_deductions: Dict[str, List[Dict[str, str]]] = Field(
-        default_factory=dict, description="Structured deductions with confidence"
-    )
-    config: ScanConfig = Field(default_factory=ScanConfig, description="Scan configuration")
-    
-    @classmethod
-    def from_scan_job(
-        cls,
-        request: "ScanJobDispatch",
-        blueprint: "ReconBlueprint",
-        agent_type: str,
-        default_target_url: str = "https://api.target.local/v1/chat"
-    ) -> "ScanContext":
-        """Build ScanContext from ScanJobDispatch and ReconBlueprint.
-
-        Extracts FULL intelligence from blueprint for context-rich planning.
-        """
-        # Extract complete intelligence from blueprint
-        infrastructure = {}
-        detected_tools = []
-        system_prompt_leaks = []
-        auth_intel = None
-        raw_obs = {}
-        struct_ded = {}
-
-        if blueprint.intelligence:
-            # Infrastructure (full extraction)
-            if blueprint.intelligence.infrastructure:
-                infra = blueprint.intelligence.infrastructure
-                infrastructure = {
-                    "vector_db": infra.vector_db,
-                    "model_family": infra.model_family,
-                    "rate_limits": infra.rate_limits,
-                    "database": getattr(infra, "database", None),
-                }
-
-            # Detected tools
-            if blueprint.intelligence.detected_tools:
-                detected_tools = [t.model_dump() for t in blueprint.intelligence.detected_tools]
-
-            # System prompt leaks - critical for jailbreak planning
-            if blueprint.intelligence.system_prompt_leak:
-                system_prompt_leaks = blueprint.intelligence.system_prompt_leak
-
-            # Auth structure - critical for auth agent planning
-            if blueprint.intelligence.auth_structure:
-                auth = blueprint.intelligence.auth_structure
-                auth_intel = AuthIntelligence(
-                    type=auth.type,
-                    rules=auth.rules or [],
-                    vulnerabilities=auth.vulnerabilities or [],
-                )
-
-        # Raw observations - all discovered information
-        if blueprint.raw_observations:
-            raw_obs = blueprint.raw_observations
-
-        # Structured deductions - analyzed findings with confidence
-        if blueprint.structured_deductions:
-            struct_ded = blueprint.structured_deductions
-
-        # Build scan config from request.scan_config
-        req_cfg = request.scan_config
-        scan_config = ScanConfig(
-            approach=req_cfg.approach,
-            custom_probes=req_cfg.custom_probes or None,
-            max_probes=req_cfg.max_probes,
-            enable_parallel_execution=req_cfg.enable_parallel_execution,
-            max_concurrent_probes=req_cfg.max_concurrent_probes,
-            requests_per_second=req_cfg.requests_per_second,
-            max_concurrent_connections=req_cfg.max_concurrent_connections,
-            request_timeout=req_cfg.request_timeout,
-            max_retries=req_cfg.max_retries,
-            retry_backoff=req_cfg.retry_backoff,
-            connection_type=req_cfg.connection_type,
-        )
-
-        resolved_target_url = request.target_url if request.target_url else default_target_url
-
-        return cls(
-            audit_id=blueprint.audit_id,
-            agent_type=agent_type,
-            target_url=resolved_target_url,
-            infrastructure=infrastructure,
-            detected_tools=detected_tools,
-            system_prompt_leaks=system_prompt_leaks,
-            auth_intelligence=auth_intel,
-            raw_observations=raw_obs,
-            structured_deductions=struct_ded,
-            config=scan_config,
-        )
-
-    def to_scan_input(self) -> ScanInput:
-        """Convert ScanContext to ScanInput with full intelligence."""
-        return ScanInput(
-            audit_id=self.audit_id,
-            agent_type=self.agent_type,
-            target_url=self.target_url,
-            infrastructure=self.infrastructure,
-            detected_tools=self.detected_tools,
-            system_prompt_leaks=self.system_prompt_leaks,
-            auth_intelligence=self.auth_intelligence,
-            raw_observations=self.raw_observations,
-            structured_deductions=self.structured_deductions,
-            config=self.config,
-        )
 
 
 class AgentScanResult(StrictBaseModel):

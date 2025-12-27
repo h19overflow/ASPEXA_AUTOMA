@@ -15,7 +15,6 @@ import websockets
 import garak.generators.base
 
 from libs.connectivity.response import ResponseExtractor
-from services.swarm.core.utils import log_performance_metric
 
 logger = logging.getLogger(__name__)
 
@@ -116,7 +115,7 @@ class WebSocketGenerator(garak.generators.base.Generator):
                 response_text = await asyncio.wait_for(ws.recv(), timeout=self.timeout)
 
                 request_duration = time.time() - request_start
-                log_performance_metric("websocket_request_latency", request_duration, "seconds")
+                logger.debug(f"WebSocket request latency: {request_duration:.3f}s")
 
                 try:
                     data = json.loads(response_text)

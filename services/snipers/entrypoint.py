@@ -578,17 +578,24 @@ async def execute_adaptive_attack_streaming(
     start_time = time.time()
     scan_id = f"{campaign_id}-adaptive-{uuid.uuid4().hex[:8]}"
     final_state: dict[str, Any] | None = None
+    was_paused = False
 
     async for event in run_adaptive_attack_streaming(
         campaign_id=campaign_id,
         target_url=target_url,
+        scan_id=scan_id,
         max_iterations=max_iterations,
         payload_count=payload_count,
         framing_types=framing_types,
         converter_names=converter_names,
         success_scorers=success_scorers,
         success_threshold=success_threshold,
+        enable_checkpoints=True,
     ):
+        # Track if attack was paused
+        if event.get("type") == "attack_paused":
+            was_paused = True
+
         # Capture the attack_complete event to extract final state for persistence
         if event.get("type") == "attack_complete":
             final_state = event.get("data", {})
@@ -598,8 +605,8 @@ async def execute_adaptive_attack_streaming(
 
         yield event
 
-    # Persist to S3 after streaming completes
-    if final_state:
+    # Persist to S3 after streaming completes (skip if paused - checkpoint handles state)
+    if final_state and not was_paused:
         execution_time = time.time() - start_time
 
         # Build state dict from final_state for format_exploit_result

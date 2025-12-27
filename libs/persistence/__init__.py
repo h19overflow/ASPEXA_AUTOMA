@@ -37,6 +37,12 @@ from .scan_models import (
     GarakResult,
     ExploitResult,
     ScanResultSummary,
+    # Checkpoint models for adaptive attack pause/resume
+    CheckpointStatus,
+    CheckpointConfig,
+    CheckpointIteration,
+    CheckpointResumeState,
+    CheckpointResult,
 )
 
 # SQLite imports (re-exported for convenience)
@@ -284,6 +290,12 @@ __all__ = [
     "GarakResult",
     "ExploitResult",
     "ScanResultSummary",
+    # Checkpoint models
+    "CheckpointStatus",
+    "CheckpointConfig",
+    "CheckpointIteration",
+    "CheckpointResumeState",
+    "CheckpointResult",
     # Campaign models (SQLite)
     "Campaign",
     "ScanMapping",

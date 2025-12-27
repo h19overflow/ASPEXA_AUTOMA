@@ -14,7 +14,6 @@ from services.swarm.core.constants import (
     PROBE_MAP,
     PROBE_DESCRIPTIONS,
     PROBE_TO_CATEGORY,
-    PROBE_CATEGORIES,
     DEFAULT_PROBES,
     INFRASTRUCTURE_PROBES,
 )

@@ -1,48 +1,69 @@
-1. Conceptual Data Model
-The schema follows a strict hierarchy:
-Target: The asset being tested (e.g., "Customer Service Bot").
-Campaign (Audit): A specific testing session (e.g., "Q3 Security Review").
-Findings: The raw cracks found by the Swarm.
-Operations: The specific attack plans and their execution results.
-2. Entity Relationship Diagram (ERD)
-Here is the visual map of how these tables connect. Notice the central role of the campaigns table.
+# Database Schema & Persistence
 
+This document outlines the data model and persistence strategy for Aspexa Automa, detailing how structured agent outputs are stored and tracked.
 
-3. Schema Specification (Data Definition)
-Here are the specific details for the critical tables, specifically focusing on how we store the complex JSON outputs from our agents.
-A. campaigns (The Session State)
-This table tracks the entire lifecycle.
-recon_blueprint (JSONB): Stores the entire output from Phase 1.
-Why JSONB? The blueprint structure might change as we add new probes (e.g., adding a "Latency" field next month). We don't want to migrate the DB schema every time the Recon agent gets smarter.
-Indexing: We can still query it: SELECT * FROM campaigns WHERE recon_blueprint->'auth_type' = 'oauth'.
-B. scan_findings (The Garak Output)
-This stores the "Clustered" vulnerabilities from Phase 2.
-vuln_type: Indexed string (e.g., injection.sql) for fast lookup by the Strategist.
-evidence_payload: The specific string that broke the target (e.g., ' OR 1=1).
-raw_log: Stores the full context from Garak for debugging, but the Strategist mostly cares about the evidence_payload.
-C. strategy_atlas (The Knowledge Base)
-This is the persistence for Phase 3.
-skeleton_yaml: Stores the PyRit YAML template text directly.
-pyrit_class_ref: The strict allowlist. e.g., pyrit.orchestrator.RedTeamingOrchestrator.
-D. sniper_plans (The Bridge)
-The generated output from Phase 3 waiting for approval.
-generated_config (JSONB): This is the IF-05 payload (The fully hydrated plan with the LLM-generated persona).
-status: The State Machine trigger. When this switches from pending_approval to approved, the Event Bus fires the CMD_EXECUTE_ATTACK event.
-E. plan_signatures (The Audit Trail)
-Critical for Enterprise Security.
-digital_signature: A SHA-256 hash of the generated_config blob at the moment of signing.
-Security Logic: When Phase 4 (Sniper) starts, it re-hashes the plan. If the hash doesn't match this column, it means someone tampered with the plan in the DB after the human signed it. Execution aborts.
-4. The PyRit Sync Strategy (Shadow Storage)
-The Problem: PyRit has its own internal memory (usually DuckDB) to track conversation history during an attack. The Solution: Ephemeral vs. Persistent.
-Ephemeral (During Phase 4): The Sniper Agent spins up a temporary DuckDB instance for the active attack. This allows PyRit to do its fast, complex queries on conversation history.
-Persistent (End of Phase 4): Once the attack is finished (Success/Fail), the Sniper Agent extracts the relevant "Kill Chain" turns (e.g., the 3 turns that led to the leak) and saves them into the main PostgreSQL execution_results table.
-Cleanup: The temporary DuckDB file is wiped.
-5. Operational View (Traceability)
-With this schema, you can answer the following questions effortlessly:
-"What happened in the Audit last Tuesday?"
-SELECT * FROM campaigns WHERE created_at = 'Tuesday...'
-"Show me the proof that we are vulnerable to SQL Injection."
-SELECT proof_artifact FROM execution_results JOIN sniper_plans ON ... WHERE strategy_id = 'sql_exfil'
-"Who authorized this attack?"
-SELECT signer_user_id FROM plan_signatures WHERE plan_id = '...'
+---
 
+## 1. Persistence Strategy
+
+Aspexa Automa uses a dual-layer persistence strategy:
+- **Metadata Layer (PostgreSQL)**: Tracks campaigns, audits, and scan metadata for fast querying and reporting.
+- **Structured Result Layer (S3 / Local)**: Stores the large, detailed JSON outputs from each phase (Blueprints, Vulnerability Reports, Exploit Records).
+
+---
+
+## 2. Core Data Models (Pydantic)
+
+The system uses standardized Pydantic models defined in [`libs/persistence/scan_models.py`](../libs/persistence/scan_models.py) to ensure type safety across all storage operations.
+
+| Phase | Model Name | Description | Link |
+|-------|------------|-------------|------|
+| **Phase 1** | `ReconResult` | Structured intelligence from reconnaissance | [View Model](../libs/persistence/scan_models.py#L65) |
+| **Phase 2** | `GarakResult` | Clustered vulnerabilities and probe results | [View Model](../libs/persistence/scan_models.py#L143) |
+| **Phase 3** | `ExploitResult` | Full record of exploitation attempts and success | [View Model](../libs/persistence/scan_models.py#L182) |
+| **Adaptive** | `CheckpointResult` | State for pause/resume functionality | [View Model](../libs/persistence/scan_models.py#L236) |
+
+---
+
+## 3. Database Schema (PostgreSQL)
+
+### A. `campaigns`
+Tracks the high-level security audit session.
+- `id` (UUID): Primary key.
+- `name` (String): Human-readable name.
+- `target_url` (String): The base URL of the AI system.
+- `status` (Enum): `active`, `completed`, `failed`.
+- `created_at` (Timestamp).
+
+### B. `scans`
+Individual execution records for each service.
+- `id` (UUID): Primary key.
+- `campaign_id` (UUID): Foreign key to `campaigns`.
+- `scan_type` (Enum): `recon`, `garak`, `exploit`.
+- `s3_key` (String): Path to the full JSON result in the structured result layer.
+- `summary` (JSONB): High-level stats extracted from the result for listing.
+
+### C. `vulnerabilities`
+Flattened view of findings for quick analysis.
+- `id` (UUID).
+- `scan_id` (UUID): Foreign key to `scans`.
+- `category` (String): e.g., `injection.sql`, `jailbreak`.
+- `severity` (Enum): `critical`, `high`, `medium`, `low`.
+- `confidence` (Float): 0.0 to 1.0 score from detectors.
+
+---
+
+## 4. Audit Trail & Integrity
+
+For enterprise security, every significant action is recorded:
+- **Digital Signatures**: Exploitation plans (IF-05) are hashed before human approval. If the hash changes before execution, the system aborts.
+- **Correlation IDs**: All logs and results are linked via a unique `audit_id` (also referred to as `campaign_id`).
+
+---
+
+## 5. Summary
+
+By separating metadata (SQL) from structured artifacts (JSON), Aspexa Automa achieves:
+1. **Searchability**: Fast lookups of past campaigns and vulnerability trends.
+2. **Flexibility**: The ability to change detailed schema (e.g., adding new Garak probes) without complex SQL migrations.
+3. **Auditability**: A clear, tamper-evident trail of what was scanned, what was found, and how it was exploited.

@@ -2,251 +2,105 @@
 
 Complete overview of technologies used in Aspexa Automa security testing framework.
 
-## Core Framework & Event Bus
+## Core Framework & Gateway
 
 | Technology | Purpose | Version | Notes |
 |-----------|---------|---------|-------|
-| **FastStream** | Event-driven microservices framework | Latest | Replaces manual event handling |
-| **Redis** | Message broker for event bus | 6.0+ | Enables async microservice communication |
-| **Python** | Primary language | 3.11+ | Type hints, async/await support |
-| **uv** | Package management | Latest | Faster dependency resolution |
-
-**Event Bus Pattern**:
-- Microservices communicate via Redis Streams
-- Topics: `cmd_recon_start`, `evt_recon_finished`, `cmd_scan_start`, etc.
-- Producer-Consumer pattern for decoupled services
+| **FastAPI** | REST API Gateway & Microservices | Latest | High-performance async API framework |
+| **Uvicorn** | ASGI Server | Latest | Production-ready server for FastAPI |
+| **Python** | Primary language | 3.12+ | Type hints, async/await, modern stdlib |
+| **uv** | Package management | Latest | Fast dependency resolution and environment management |
 
 ## AI & LLM Framework
 
 | Technology | Purpose | Version | Notes |
 |-----------|---------|---------|-------|
 | **LangChain** | Agent framework & orchestration | Latest | Multi-provider LLM support |
-| **LangGraph** | Workflow graph orchestration | Latest | Stateful multi-turn agents |
-| **Google Gemini** | Primary LLM provider | 2.5 Flash | Via `langchain-google-genai` |
-| **Pydantic V2** | Data validation & schemas | 2.x | Structured agent outputs |
+| **LangGraph** | Workflow graph orchestration | Latest | Stateful multi-turn agents & workflows |
+| **Google Gemini** | Primary LLM provider | 1.5 Flash | High speed, large context, via `langchain-google-genai` |
+| **Pydantic V2** | Data validation & schemas | 2.x | Structured data contracts and agent outputs |
 
 **Agent Architecture**:
-- Cartographer: LangGraph agent with 11 attack vectors
-- Swarm Trinity: 3 specialized LangChain agents
-- Snipers: LangGraph workflow with HITL interrupts
+- **Cartographer**: LangGraph agent with 11 adaptive attack vectors.
+- **Swarm Trinity**: 3 specialized LangChain agents (SQL, Auth, Jailbreak).
+- **Snipers**: LangGraph workflow with Human-in-the-Loop (HITL) interrupts.
 
 ## Security Testing & Scanning
 
 | Technology | Purpose | Notes |
 |-----------|---------|-------|
 | **Garak** | Vulnerability scanning framework | 50+ security probes, detector system |
-| **PyRIT** | Attack execution framework | 9 payload converters (6 native + 3 custom) |
+| **PyRIT** | Attack execution framework | 9 payload converters and adaptive attack orchestration |
 
 **Garak Components**:
-- Probes: 50+ security testing probes
-- Generators: HTTP, WebSocket protocol support
-- Detectors: Vulnerability detection + confidence scoring
-- Models: ProbeResult data structures
+- Probes: 50+ security testing probes.
+- Generators: HTTP and WebSocket protocol support.
+- Detectors: Vulnerability detection + confidence scoring.
 
 **PyRIT Components**:
 - Prompt Converters: Base64, ROT13, Caesar, URL, TextToHex, Unicode, etc.
-- Custom Converters: HtmlEntity, JsonEscape, XmlEscape
-- Target Adapters: HTTP and WebSocket endpoint support
-- Orchestrator: Attack session management
+- Target Adapters: HTTP and WebSocket endpoint support.
+- Orchestrator: Multi-turn attack session management.
 
 ## HTTP & Network Communication
 
 | Technology | Purpose | Notes |
 |-----------|---------|-------|
-| **aiohttp** | Async HTTP client | Connection pooling, retry logic |
-| **requests** | Synchronous HTTP client | Used in Swarm scanner |
+| **aiohttp** | Async HTTP client | Connection pooling, retry logic for probes |
 | **websockets** | WebSocket communication | For WebSocket endpoint testing |
-| **urllib3** | Retry strategy & connection pooling | Exponential backoff support |
-| **asyncio** | Async event loop | Parallel probe execution |
-
-**Network Patterns**:
-- Cartographer: Exponential backoff retry (2^n seconds)
-- Swarm: Connection pooling with semaphore controls
-- Parallel: Max 10 concurrent probes, 5 concurrent generations
+| **urllib3** | Retry strategy | Exponential backoff support |
+| **asyncio** | Async event loop | Parallel probe and generation execution |
 
 ## Data & State Management
 
 | Technology | Purpose | Version | Notes |
 |-----------|---------|---------|-------|
-| **Pydantic** | Data contracts | V2 | IF-01, IF-02, IF-04 schemas |
-| **JSON** | Data persistence | Standard | Reconnaissance + scan results |
-| **TypedDict** | Type hints for state | Built-in | LangGraph state definitions |
+| **PostgreSQL** | Primary Database | Latest | Persistence for scan results and vulnerability logs |
+| **SQLAlchemy** | ORM | 2.0+ | Async database operations |
+| **Pydantic** | Data contracts | V2 | IF-01 through IF-06 schemas |
+| **S3 / Local** | Artifact storage | Standard | Storage for ReconBlueprints and large logs |
 
 **Data Contracts**:
 - **IF-01**: ReconRequest (input to Cartographer)
 - **IF-02**: ReconBlueprint (output from Cartographer)
 - **IF-03**: ScanJobDispatch (input to Swarm)
 - **IF-04**: VulnerabilityCluster (output from Swarm)
-- **IF-05/IF-06**: ExploitInput/ExploitResult (Snipers)
-
-**Storage**:
-- Reconnaissance results: `tests/recon_results/{audit_id}_{timestamp}.json`
-- Garak reports: `garak_runs/{audit_id}_{agent_type}.jsonl`
-- Decision logs: `logs/swarm_decisions_{audit_id}.json`
+- **IF-05**: ExploitInput (input to Snipers)
+- **IF-06**: ExploitResult (output from Snipers)
 
 ## Testing & Quality
 
 | Technology | Purpose | Notes |
 |-----------|---------|-------|
-| **pytest** | Unit testing framework | Comprehensive test coverage |
-| **asyncio.run** | Async test execution | For async function testing |
-| **Mock objects** | Test isolation | Dependency injection via tools |
-
-**Test Coverage**:
-- Cartographer: 31/31 tests passing (94-96% coverage)
-- Swarm: Integration tests for Trinity agents
-- Snipers: Unit tests for core components
-
-**Test Strategy**:
-- Unit tests: Logic verification
-- Integration tests: Service communication
-- Mock targets: Pre-configured test systems
+| **pytest** | Unit testing framework | Comprehensive suite with `pytest-asyncio` |
+| **pytest-cov** | Coverage reporting | Goal: >60% project-wide coverage |
+| **Mock objects** | Test isolation | Extensive use of `unittest.mock` and `aioresponses` |
 
 ## Logging & Observability
 
 | Technology | Purpose | Format |
 |-----------|---------|--------|
-| **Structured Logging** | JSON-formatted logs | Correlation IDs (audit_id) |
-| **Decision Logging** | Agent decision tracking | JSON Lines (audit_id_{timestamp}.json) |
-| **Correlation IDs** | Request tracing | audit_id + agent_type |
-
-**Logging Levels**:
-- DEBUG: Detailed execution traces
-- INFO: Operational milestones
-- WARNING: Recoverable issues
-- ERROR: Critical failures
-
-## Dependencies by Service
-
-### Cartographer
-```
-├── langchain
-├── langchain-google-genai
-├── faststream[redis]
-├── aiohttp
-├── pydantic
-└── difflib (stdlib)
-```
-
-### Swarm
-```
-├── langchain
-├── langchain-google-genai
-├── garak
-├── requests
-├── faststream[redis]
-├── asyncio (stdlib)
-├── semaphore (asyncio)
-└── pydantic
-```
-
-### Snipers
-```
-├── langchain
-├── langchain-google-genai
-├── langgraph
-├── pyrit
-├── pydantic
-├── asyncio (stdlib)
-└── importlib (stdlib)
-```
-
-## Development Environment
-
-| Tool | Purpose | Configuration |
-|------|---------|---------------|
-| **uv** | Package management | Uses pyproject.toml |
-| **pytest** | Test runner | pytest.ini configuration |
-| **Python** | Runtime | 3.11+ (type hints, async) |
-| **PowerShell** | Command execution | Native Windows support |
-
-**Project Structure**:
-```
-aspexa-automa/
-├── services/         # Microservices (Cartographer, Swarm, Snipers)
-├── libs/            # Shared code (contracts, events, config)
-├── scripts/         # Examples and utilities
-├── tests/           # Test suite
-├── docs/            # Documentation
-└── pyproject.toml   # Project metadata & dependencies
-```
+| **Structured Logging** | Operational tracing | JSON-formatted logs with correlation IDs |
+| **Audit Trails** | Decision tracking | Detailed logs for every agent decision |
+| **Clerk** | Authentication | Identity management for the API Gateway |
 
 ## Architecture Patterns
 
-### Event-Driven Microservices
-- **Pattern**: Pub/Sub via Redis Streams
-- **Framework**: FastStream
-- **Topology**: 3 independent services communicating async
+### REST-Based Microservices
+- **Pattern**: Centralized API Gateway (FastAPI) routing to specialized services.
+- **Communication**: Direct HTTP/REST calls with streaming support (SSE).
+- **Security**: Clerk authentication with role-based access control.
 
-### Agent Framework
-- **Pattern**: LangChain agents + LangGraph workflows
-- **Reasoning**: Chain-of-Thought + Step-Back prompting
-- **Execution**: Structured output with Pydantic validation
+### Agentic Workflows
+- **Pattern**: LangGraph state machines for complex, multi-step reasoning.
+- **Reasoning**: Chain-of-Thought and recursive reflection.
+- **Validation**: Strict Pydantic-based output parsing.
 
-### Tool System
-- **Pattern**: LangChain tools as callable functions
-- **Integration**: Direct invocation from agent loop
-- **State**: Instance-based (Cartographer) or workflow state (Snipers)
-
-### Retry & Resilience
-- **Network**: Exponential backoff (2^n seconds, max 3 attempts)
-- **Parser**: Graceful degradation (skip failed operations)
-- **Error Handling**: Try/except with logging, continue when possible
-
-## Performance Characteristics
-
-### Cartographer
-- **Typical Duration**: 5-10 minutes per audit
-- **Token Usage**: ~30,000-40,000 per full reconnaissance
-- **Concurrency**: Unlimited audits (instance-based state)
-
-### Swarm
-- **Typical Duration**:
-  - Quick: ~2 minutes
-  - Standard: ~10 minutes
-  - Thorough: ~30 minutes
-- **Parallelism**: 3-5x faster with parallel execution
-- **Concurrency**: Limited by target rate limits
-
-### Snipers
-- **Typical Duration**: 2-5 minutes per exploitation
-- **Retry Attempts**: Up to 3 retries with payload modification
-- **Concurrency**: Controlled via semaphores
-
-## Extensibility Points
-
-### Adding New Probes
-- Edit: `services/swarm/core/config.py` (PROBE_MAP)
-- Use: Garak probe classes directly
-
-### Adding New Converters
-- Implement: `pyrit.prompt_converter.PromptConverter`
-- Register: `ConverterFactory` in `services/snipers/tools/pyrit_bridge.py`
-
-### Adding New Detectors
-- Implement: Custom detector class
-- Register: In Garak probe or as fallback
-
-### Adding New Attack Vectors
-- Edit: `services/cartographer/prompts.py` (RECON_SYSTEM_PROMPT)
-- Implement: New probing technique
-- Document: Success criteria and indicators
-
-## Security Considerations
-
-- **API Keys**: Google API key required in environment
-- **Authentication**: Target auth headers passed through payload
-- **Rate Limiting**: Token bucket algorithm prevents DoS
-- **Human-in-Loop**: HITL interrupts prevent autonomous escalation
-- **Audit Trail**: All decisions logged with correlation IDs
+### Resilience & Reliability
+- **Retries**: Exponential backoff for all network operations.
+- **Persistence**: Reliable storage of every reconnaissance and scan result in PostgreSQL/S3.
+- **Human-in-the-Loop**: Critical safety gates for high-impact actions.
 
 ## Summary
 
-Aspexa Automa uses a **modern, scalable AI agent framework** built on:
-1. **Event-driven architecture** (FastStream + Redis)
-2. **LLM agents** (LangChain + Google Gemini)
-3. **Security frameworks** (Garak + PyRIT)
-4. **Async patterns** (asyncio, aiohttp, websockets)
-5. **Type safety** (Pydantic V2, TypedDict)
-
-This stack enables rapid security testing automation while maintaining extensibility, observability, and human control.
+Aspexa Automa is built on a **modern, high-performance Python stack** optimized for AI orchestration and security engineering. The shift from event-driven to **REST-based architecture** simplifies the deployment model while maintaining the power of specialized agents and sophisticated security frameworks.

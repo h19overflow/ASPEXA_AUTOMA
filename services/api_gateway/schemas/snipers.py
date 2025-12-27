@@ -347,3 +347,61 @@ class SniperStreamEvent(BaseModel):
     data: Optional[dict[str, Any]] = Field(None, description="Event-specific data")
     timestamp: str = Field(..., description="ISO timestamp")
     progress: Optional[float] = Field(None, ge=0, le=1, description="Progress 0-1 within current phase")
+
+
+# =============================================================================
+# Checkpoint & Pause/Resume
+# =============================================================================
+
+class CheckpointStatusEnum(str, Enum):
+    """Status of an adaptive attack checkpoint."""
+    RUNNING = "running"
+    PAUSED = "paused"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
+class CheckpointSummary(BaseModel):
+    """Summary of a checkpoint for listing."""
+    scan_id: str
+    campaign_id: str
+    status: CheckpointStatusEnum
+    current_iteration: int
+    best_score: float
+    is_successful: bool
+    created_at: str
+    updated_at: str
+
+
+class CheckpointDetail(BaseModel):
+    """Detailed checkpoint information."""
+    scan_id: str
+    campaign_id: str
+    target_url: str
+    status: CheckpointStatusEnum
+    created_at: str
+    updated_at: str
+    # Config
+    max_iterations: int
+    payload_count: int
+    success_scorers: list[str]
+    success_threshold: float
+    # Progress
+    current_iteration: int
+    best_score: float
+    best_iteration: int
+    is_successful: bool
+    # Iteration history
+    iteration_history: list[dict[str, Any]]
+
+
+class PauseResponse(BaseModel):
+    """Response from pause request."""
+    success: bool
+    message: str
+    scan_id: str
+
+
+class ResumeRequest(BaseModel):
+    """Request to resume an attack from checkpoint."""
+    scan_id: str = Field(..., description="Scan ID of the checkpoint to resume")

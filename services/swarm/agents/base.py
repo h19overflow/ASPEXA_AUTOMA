@@ -116,10 +116,6 @@ def build_planning_input(scan_input: ScanInput) -> HumanMessage:
     if scan_input.system_prompt_leaks:
         recon_parts.append(f"System prompt leaks: {len(scan_input.system_prompt_leaks)} fragments found")
 
-    # Auth vulnerabilities
-    if scan_input.auth_intelligence and scan_input.auth_intelligence.vulnerabilities:
-        recon_parts.append(f"Auth vulnerabilities: {', '.join(scan_input.auth_intelligence.vulnerabilities[:3])}")
-
     recon_summary = "\n".join(f"- {p}" for p in recon_parts) if recon_parts else "- No specific intelligence gathered"
 
     content = f"""

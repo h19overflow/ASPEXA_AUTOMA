@@ -24,19 +24,6 @@ from .scanning import (
     Evidence,
     VulnerabilityCluster,
 )
-from .attack import (
-    PyRitConfiguration,
-    DeepTeamConfiguration,
-    ExploitationPlan,
-    CompliancePlan,
-    SniperPlan,
-    KillChainStep,
-    ExploitationProof,
-    ComplianceMetrics,
-    ExploitationResult,
-    ComplianceResult,
-    KillChainResult,
-)
 
 __all__ = [
     # Common
@@ -61,16 +48,4 @@ __all__ = [
     "ScanJobDispatch",
     "Evidence",
     "VulnerabilityCluster",
-    # Attack
-    "PyRitConfiguration",
-    "DeepTeamConfiguration",
-    "ExploitationPlan",
-    "CompliancePlan",
-    "SniperPlan",
-    "KillChainStep",
-    "ExploitationProof",
-    "ComplianceMetrics",
-    "ExploitationResult",
-    "ComplianceResult",
-    "KillChainResult",
 ]
