@@ -61,3 +61,17 @@ aspexa-automa/
 ```
 
 For a detailed breakdown, see **[docs/code_base_structure.md](docs/code_base_structure.md)**.
+
+---
+
+## Vault Documentation
+
+Full consolidated documentation is maintained in the Obsidian vault:
+
+**Location:** `OS/04_Engineering/Projects/Aspects_Automa/`
+
+The vault contains:
+- Detailed specifications with Mermaid diagrams
+- Onboarding and contributor guides
+- Cross-linked documentation with source file references
+- Task tracking and project management
