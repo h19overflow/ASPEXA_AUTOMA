@@ -19,10 +19,9 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from services.api_gateway.routers import recon, scan, campaigns, scans
 from services.api_gateway.routers.snipers import (
-    phase1_router,
     phase2_router,
-    phase3_router,
-    attack_router,
+    one_shot_router,
+    adaptive_router,
 )
 from services.api_gateway.auth import require_friend
 
@@ -72,28 +71,18 @@ app.include_router(
 )
 
 # Protected snipers endpoints (friends only)
-# These routers expose the specific phases of the Sniper attack workflow.
-# - Phase 1: Initial access and recon
-# - Phase 2: Enumeration and scanning
-# - Phase 3: Exploitation
-# - Attack: Orchestrated attack execution
-app.include_router(
-    phase1_router,
-    prefix="/api/snipers",
-    dependencies=[Depends(require_friend)],
-)
 app.include_router(
     phase2_router,
     prefix="/api/snipers",
     dependencies=[Depends(require_friend)],
 )
 app.include_router(
-    phase3_router,
+    one_shot_router,
     prefix="/api/snipers",
     dependencies=[Depends(require_friend)],
 )
 app.include_router(
-    attack_router,
+    adaptive_router,
     prefix="/api/snipers",
     dependencies=[Depends(require_friend)],
 )
