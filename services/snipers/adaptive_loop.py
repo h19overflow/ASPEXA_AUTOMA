@@ -1,13 +1,4 @@
-"""
-Adaptive Attack Loop.
-
-Purpose: Iterative attack loop that analyzes failures and evolves strategy
-Role: Orchestrates Phase 1->2->3 with LLM-powered adaptation between iterations
-Dependencies: Phase implementations, LLM agents, S3 persistence
-
-Simple while loop replacing the former LangGraph state machine.
-Same functionality, fewer abstractions.
-"""
+"""Adaptive attack loop: orchestrates Phase 1->2->3 with LLM-powered adaptation."""
 
 import logging
 from typing import Any, AsyncGenerator
@@ -20,7 +11,8 @@ from services.snipers.infrastructure.persistence.s3_adapter import (
 )
 from services.snipers.internals.constants import ALL_SCORERS, FRAMING_TYPES
 from services.snipers.internals.events import make_event
-from services.snipers.internals.loop_runner import LoopState, create_initial_checkpoint, run_loop
+from services.snipers.internals.loop_runner import run_loop
+from services.snipers.internals.state import LoopState, create_initial_checkpoint
 
 # Backward-compatible re-exports
 from services.snipers.internals.evaluation import check_success  # noqa: F401
@@ -40,12 +32,7 @@ async def run_adaptive_attack_streaming(
     success_threshold: float = 0.8,
     enable_checkpoints: bool = True,
 ) -> AsyncGenerator[dict[str, Any], None]:
-    """
-    Run adaptive attack loop with SSE streaming and checkpoint support.
-
-    Simple while loop: each iteration runs Phase 1->2->3, evaluates,
-    then adapts strategy via LLM agents if not successful.
-    """
+    """Run adaptive attack loop with SSE streaming and checkpoint support."""
     success_scorers = success_scorers or []
     clear_pause(scan_id)
 

@@ -41,13 +41,10 @@ async def run_adaptation(
     tried_framings: list[str],
     phase1_result: Phase1Result | None,
 ) -> dict[str, Any]:
-    """
-    Run LLM-powered adaptation: FailureAnalyzer -> ChainDiscovery -> Strategy.
-
-    Returns dict with converter_names, framing_types, custom_framing,
-    recon_custom_framing, payload_guidance, adaptation_reasoning.
-    """
-    objective = _get_objective(phase1_result)
+    """Run LLM-powered adaptation: FailureAnalyzer -> ChainDiscovery -> Strategy."""
+    objective = "test security boundaries"
+    if phase1_result and hasattr(phase1_result, "garak_objective"):
+        objective = phase1_result.garak_objective or objective
     recon_intelligence = extract_recon_intelligence(phase1_result)
 
     chain_context = await _run_failure_analysis(
@@ -63,13 +60,6 @@ async def run_adaptation(
     )
 
     return _build_adaptation_result(decision, selection)
-
-
-def _get_objective(phase1_result: Phase1Result | None) -> str:
-    objective = "test security boundaries"
-    if phase1_result and hasattr(phase1_result, "garak_objective"):
-        objective = phase1_result.garak_objective or objective
-    return objective
 
 
 async def _run_failure_analysis(
@@ -128,29 +118,12 @@ async def _run_strategy_generation(
 
 
 def _build_adaptation_result(decision, selection) -> dict[str, Any]:
-    custom_framing = None
-    if decision.use_custom_framing and decision.custom_framing:
-        cf = decision.custom_framing
-        custom_framing = {
-            "name": cf.name,
-            "system_context": cf.system_context,
-            "user_prefix": cf.user_prefix,
-            "user_suffix": cf.user_suffix,
-        }
-
-    recon_custom_framing = None
-    if decision.recon_custom_framing:
-        rcf = decision.recon_custom_framing
-        recon_custom_framing = {
-            "role": rcf.role,
-            "context": rcf.context,
-            "justification": rcf.justification,
-        }
-
-    framing_types = None
-    if not decision.use_custom_framing and decision.preset_framing:
-        framing_types = [decision.preset_framing]
-
+    custom_framing = _extract_custom_framing(decision)
+    recon_custom_framing = _extract_recon_framing(decision)
+    framing_types = (
+        [decision.preset_framing]
+        if not decision.use_custom_framing and decision.preset_framing else None
+    )
     return {
         "converter_names": selection.selected_chain,
         "framing_types": framing_types,
@@ -159,3 +132,18 @@ def _build_adaptation_result(decision, selection) -> dict[str, Any]:
         "payload_guidance": decision.payload_adjustments,
         "adaptation_reasoning": decision.reasoning,
     }
+
+
+def _extract_custom_framing(decision) -> dict | None:
+    if not (decision.use_custom_framing and decision.custom_framing):
+        return None
+    cf = decision.custom_framing
+    return {"name": cf.name, "system_context": cf.system_context,
+            "user_prefix": cf.user_prefix, "user_suffix": cf.user_suffix}
+
+
+def _extract_recon_framing(decision) -> dict | None:
+    if not decision.recon_custom_framing:
+        return None
+    rcf = decision.recon_custom_framing
+    return {"role": rcf.role, "context": rcf.context, "justification": rcf.justification}

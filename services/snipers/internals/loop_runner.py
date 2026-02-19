@@ -1,60 +1,17 @@
-"""Core loop logic for the adaptive attack loop."""
+"""Main while-loop: Phase 1->2->3, evaluate, checkpoint, adapt."""
 
 import logging
 from typing import Any, AsyncGenerator
 
-from libs.persistence import CheckpointConfig, CheckpointStatus
-from services.snipers.core.components.pause_signal import clear_pause, is_pause_requested
-from services.snipers.infrastructure.persistence.s3_adapter import (
-    create_checkpoint,
-    set_checkpoint_status,
-)
+from services.snipers.core.components.pause_signal import is_pause_requested
 from services.snipers.internals.checkpoints import save_checkpoint_events
-from services.snipers.internals.evaluation import check_success, determine_failure_cause
+from services.snipers.internals.evaluation import check_success
 from services.snipers.internals.events import build_complete_event, make_event
-from services.snipers.internals.adaptation import run_adaptation
+from services.snipers.internals.pause_and_adapt import adapt_strategy, handle_pause
 from services.snipers.internals.phase_runners import run_phase1, run_phase2, run_phase3
+from services.snipers.internals.state import LoopState
 
 logger = logging.getLogger(__name__)
-
-
-class LoopState:
-    """Mutable state for the attack loop."""
-
-    def __init__(self, converters: list[str], framings: list[str]) -> None:
-        self.converters = converters
-        self.framings = framings
-        self.custom_framing: dict | None = None
-        self.recon_custom_framing: dict | None = None
-        self.payload_guidance: str | None = None
-        self.adaptation_reasoning: str = ""
-        self.chain_context = None
-        self.tried_framings: list[str] = []
-        self.tried_converters: list[list[str]] = []
-        self.iteration_history: list[dict[str, Any]] = []
-        self.best_score: float = 0.0
-        self.best_iteration: int = 0
-        self.phase1_result = None
-        self.phase2_result = None
-        self.phase3_result = None
-
-
-async def create_initial_checkpoint(
-    campaign_id: str, scan_id: str, target_url: str,
-    max_iterations: int, payload_count: int,
-    success_scorers: list[str], success_threshold: float,
-) -> None:
-    """Create the initial S3 checkpoint for a new attack run."""
-    try:
-        await create_checkpoint(
-            campaign_id=campaign_id, scan_id=scan_id, target_url=target_url,
-            config=CheckpointConfig(
-                max_iterations=max_iterations, payload_count=payload_count,
-                success_scorers=success_scorers, success_threshold=success_threshold,
-            ),
-        )
-    except Exception as e:
-        logger.warning(f"Failed to create initial checkpoint: {e}")
 
 
 async def run_loop(
@@ -73,9 +30,59 @@ async def run_loop(
                          iteration=iter_num,
                          data={"iteration": iter_num, "max_iterations": max_iterations})
 
-        if not await _run_phases(campaign_id, target_url, payload_count, iter_num, state):
+        # Phase 1
+        yield make_event("phase1_start", "Phase 1: Payload Articulation",
+                         phase="phase1", iteration=iter_num, progress=0.0)
+        try:
+            state.phase1_result, events = await run_phase1(
+                campaign_id, payload_count, state.framings, state.custom_framing,
+                state.recon_custom_framing, state.payload_guidance,
+                state.chain_context, iter_num, state.tried_framings,
+            )
+            for e in events:
+                yield e
+        except Exception as e:
+            logger.error(f"Phase 1 failed: {e}")
+            yield make_event("error", f"Phase 1 failed: {e}", phase="phase1",
+                             iteration=iter_num, data={"error": str(e), "node": "articulate"})
             break
 
+        # Phase 2
+        yield make_event("phase2_start", "Phase 2: Payload Conversion",
+                         phase="phase2", iteration=iter_num, progress=0.0)
+        try:
+            state.phase2_result, events = await run_phase2(
+                state.phase1_result.articulated_payloads, state.converters,
+                iter_num, state.tried_converters,
+            )
+            for e in events:
+                yield e
+        except Exception as e:
+            logger.error(f"Phase 2 failed: {e}")
+            yield make_event("error", f"Phase 2 failed: {e}", phase="phase2",
+                             iteration=iter_num, data={"error": str(e), "node": "convert"})
+            break
+
+        # Phase 3
+        yield make_event("phase3_start", f"Phase 3: Attacking {target_url}",
+                         phase="phase3", iteration=iter_num,
+                         data={"target_url": target_url}, progress=0.0)
+        try:
+            state.phase3_result, events = await run_phase3(
+                campaign_id, target_url, state.phase2_result.payloads, iter_num,
+            )
+            if state.phase3_result.total_score > state.best_score:
+                state.best_score = state.phase3_result.total_score
+                state.best_iteration = iter_num
+            for e in events:
+                yield e
+        except Exception as e:
+            logger.error(f"Phase 3 failed: {e}")
+            yield make_event("error", f"Phase 3 failed: {e}", phase="phase3",
+                             iteration=iter_num, data={"error": str(e), "node": "execute"})
+            break
+
+        # Evaluate
         is_successful, scorer_confidences = check_success(
             state.phase3_result, success_scorers, success_threshold,
         )
@@ -104,7 +111,7 @@ async def run_loop(
                 yield event
 
         if is_pause_requested(scan_id):
-            async for event in _handle_pause(
+            async for event in handle_pause(
                 campaign_id, scan_id, enable_checkpoints,
                 iter_num, state.best_score, state.best_iteration,
             ):
@@ -113,7 +120,7 @@ async def run_loop(
 
         iteration += 1
         if not is_successful and iteration < max_iterations:
-            async for event in _adapt_strategy(state):
+            async for event in adapt_strategy(state):
                 yield event
 
     yield build_complete_event(
