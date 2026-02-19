@@ -85,8 +85,12 @@ def run_detectors_on_attempt(attempt: Attempt, probe) -> Dict[str, List[float]]:
     if defaults:
         detector_paths.extend(defaults)
 
-    # Always include MitigationBypass as fallback detector
-    if not detector_paths or "mitigation.MitigationBypass" not in detector_paths:
+    # Only use MitigationBypass as a last-resort fallback when the probe defines
+    # no detectors of its own. Adding it unconditionally causes false positives:
+    # e.g. promptinj uses AttackRogueString (checks if the rogue payload appeared
+    # in the output), but MitigationBypass scores 1.0 whenever the LLM's refusal
+    # phrase doesn't exactly match its keyword list — marking a clear refusal as VULN.
+    if not detector_paths:
         detector_paths.append("mitigation.MitigationBypass")
 
     # Remove duplicates while preserving order

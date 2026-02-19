@@ -247,9 +247,14 @@ async def execute_agent(state: SwarmState) -> Dict[str, Any]:
                     agent=agent_type,
                     data={
                         "probe_name": event.probe_name,
+                        "prompt_index": event.prompt_index,
+                        "total_prompts": event.total_prompts,
                         "status": event.status,
                         "detector_name": event.detector_name,
                         "detector_score": event.detector_score,
+                        "detection_reason": event.detection_reason,
+                        "prompt": event.prompt,
+                        "output": event.output,
                     },
                 ).model_dump())
 
