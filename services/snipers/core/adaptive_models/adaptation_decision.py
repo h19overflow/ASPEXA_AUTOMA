@@ -8,7 +8,7 @@ Dependencies: pydantic, defense_analysis
 
 from pydantic import BaseModel, Field
 
-from services.snipers.graphs.adaptive_attack.models.defense_analysis import DefenseAnalysis
+from services.snipers.core.adaptive_models.defense_analysis import DefenseAnalysis
 
 
 class ReconCustomFraming(BaseModel):

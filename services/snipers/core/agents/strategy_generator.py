@@ -15,9 +15,9 @@ load_dotenv()
 from langchain.agents import create_agent
 from langchain.agents.structured_output import ToolStrategy
 
-from services.snipers.graphs.adaptive_attack.models.adaptation_decision import AdaptationDecision
-from services.snipers.graphs.adaptive_attack.models.chain_discovery import ChainDiscoveryContext
-from services.snipers.graphs.adaptive_attack.agents.prompts.adaptation_prompt import (
+from services.snipers.core.adaptive_models.adaptation_decision import AdaptationDecision
+from services.snipers.core.adaptive_models.chain_discovery import ChainDiscoveryContext
+from services.snipers.core.agents.prompts.adaptation_prompt import (
     ADAPTATION_SYSTEM_PROMPT,
     build_adaptation_user_prompt,
 )

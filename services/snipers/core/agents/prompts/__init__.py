@@ -1,19 +1,16 @@
 """
-Adaptive Attack Prompts.
-
-Purpose: LLM system prompts for adaptation strategy generation
-Role: Define prompts for the red team strategist, chain discovery, and failure analysis agents
+LLM system prompts for adaptive attack agents.
 """
 
-from services.snipers.graphs.adaptive_attack.agents.prompts.adaptation_prompt import (
+from services.snipers.core.agents.prompts.adaptation_prompt import (
     ADAPTATION_SYSTEM_PROMPT,
     build_adaptation_user_prompt,
 )
-from services.snipers.graphs.adaptive_attack.agents.prompts.chain_discovery_prompt import (
+from services.snipers.core.agents.prompts.chain_discovery_prompt import (
     CHAIN_DISCOVERY_SYSTEM_PROMPT,
     build_chain_discovery_user_prompt,
 )
-from services.snipers.graphs.adaptive_attack.agents.prompts.failure_analysis_prompt import (
+from services.snipers.core.agents.prompts.failure_analysis_prompt import (
     FAILURE_ANALYSIS_SYSTEM_PROMPT,
     build_failure_analysis_user_prompt,
 )

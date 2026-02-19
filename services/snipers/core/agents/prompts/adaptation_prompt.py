@@ -9,7 +9,7 @@ Dependencies: ChainDiscoveryContext for failure analysis
 from typing import Any, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from services.snipers.graphs.adaptive_attack.models.chain_discovery import ChainDiscoveryContext
+    from services.snipers.core.adaptive_models.chain_discovery import ChainDiscoveryContext
 
 
 ADAPTATION_SYSTEM_PROMPT = """

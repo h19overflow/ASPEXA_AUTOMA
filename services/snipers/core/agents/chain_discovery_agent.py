@@ -15,13 +15,13 @@ load_dotenv()
 from langchain.agents import create_agent
 from langchain.agents.structured_output import ToolStrategy
 
-from services.snipers.graphs.adaptive_attack.models.chain_discovery import (
+from services.snipers.core.adaptive_models.chain_discovery import (
     ChainDiscoveryContext,
     ChainDiscoveryDecision,
     ChainSelectionResult,
     ConverterChainCandidate,
 )
-from services.snipers.graphs.adaptive_attack.agents.prompts.chain_discovery_prompt import (
+from services.snipers.core.agents.prompts.chain_discovery_prompt import (
     CHAIN_DISCOVERY_SYSTEM_PROMPT,
     build_chain_discovery_user_prompt,
 )

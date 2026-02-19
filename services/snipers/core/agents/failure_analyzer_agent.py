@@ -15,15 +15,14 @@ load_dotenv()
 from langchain.agents import create_agent
 from langchain.agents.structured_output import ToolStrategy
 
-from services.snipers.graphs.adaptive_attack.models.chain_discovery import ChainDiscoveryContext
-from services.snipers.graphs.adaptive_attack.models.failure_analysis import (
+from services.snipers.core.adaptive_models.chain_discovery import ChainDiscoveryContext
+from services.snipers.core.adaptive_models.failure_analysis import (
     FailureAnalysisDecision,
 )
-from services.snipers.graphs.adaptive_attack.agents.prompts.failure_analysis_prompt import (
+from services.snipers.core.agents.prompts.failure_analysis_prompt import (
     FAILURE_ANALYSIS_SYSTEM_PROMPT,
     build_failure_analysis_user_prompt,
 )
-from services.snipers.graphs.adaptive_attack.components.failure_analyzer import FailureAnalyzer
 from services.snipers.core.phases.articulation.models.tool_intelligence import ReconIntelligence
 
 logger = logging.getLogger(__name__)
@@ -35,8 +34,6 @@ class FailureAnalyzerAgent:
 
     Uses create_agent with ToolStrategy(FailureAnalysisDecision) for
     semantic understanding of attack failures.
-
-    Falls back to rule-based FailureAnalyzer on LLM failure.
     """
 
     def __init__(self, agent: Any = None):
@@ -52,7 +49,6 @@ class FailureAnalyzerAgent:
                 response_format=ToolStrategy(FailureAnalysisDecision),
             )
         self._agent = agent
-        self._rule_based_fallback = FailureAnalyzer()
         self.logger = logging.getLogger(__name__)
 
     async def analyze(
@@ -99,13 +95,17 @@ class FailureAnalyzerAgent:
                 config=config,
             )
         except Exception as e:
-            self.logger.warning(f"LLM analysis failed: {e}, using rule-based fallback")
-            return self._rule_based_fallback.analyze(
-                phase3_result=phase3_result,
-                failure_cause=failure_cause,
-                target_responses=target_responses,
-                iteration_history=iteration_history,
-                tried_converters=tried_converters,
+            self.logger.warning(f"LLM analysis failed: {e}, returning minimal context")
+            return ChainDiscoveryContext(
+                defense_signals=[],
+                failure_root_cause=str(e),
+                defense_evolution="exploring",
+                converter_effectiveness={},
+                unexplored_directions=["Try different converter chain"],
+                required_properties=[],
+                iteration_count=len(iteration_history),
+                best_score_achieved=0.0,
+                best_chain_so_far=[],
             )
 
     async def _analyze_with_llm(

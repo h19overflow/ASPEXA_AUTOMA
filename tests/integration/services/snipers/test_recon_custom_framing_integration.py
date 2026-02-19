@@ -18,7 +18,7 @@ from services.snipers.core.phases.articulation.models.payload_context import (
     TargetInfo,
     AttackHistory,
 )
-from services.snipers.graphs.adaptive_attack.models.adaptation_decision import (
+from services.snipers.core.adaptive_models.adaptation_decision import (
     ReconCustomFraming,
 )
 

@@ -15,11 +15,11 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from pydantic import ValidationError
 
-from services.snipers.graphs.adaptive_attack.agents.chain_discovery_agent import (
+from services.snipers.core.agents.chain_discovery_agent import (
     ChainDiscoveryAgent,
     AVAILABLE_CONVERTERS,
 )
-from services.snipers.graphs.adaptive_attack.models.chain_discovery import (
+from services.snipers.core.adaptive_models.chain_discovery import (
     ChainDiscoveryContext,
     ChainDiscoveryDecision,
     ConverterChainCandidate,
@@ -40,7 +40,7 @@ class TestChainDiscoveryAgentInitialization:
         """Test that init without agent creates default (we just check it initializes)."""
         # We can't easily test the real init without mocking langchain,
         # so we test the basic structure
-        with patch("services.snipers.graphs.adaptive_attack.components.chain_discovery_agent.create_agent"):
+        with patch("services.snipers.core.components.chain_discovery_agent.create_agent"):
             agent = ChainDiscoveryAgent(agent=MagicMock())
             assert agent._agent is not None
 
@@ -732,10 +732,10 @@ class TestChainLengthValidation:
 
     def test_chain_length_filtering(self):
         """Test that chains exceeding MAX_CHAIN_LENGTH are filtered out."""
-        from services.snipers.graphs.adaptive_attack.components.chain_discovery_agent import (
+        from services.snipers.core.components.chain_discovery_agent import (
             MAX_CHAIN_LENGTH,
         )
-        from services.snipers.graphs.adaptive_attack.models.chain_discovery import (
+        from services.snipers.core.adaptive_models.chain_discovery import (
             ChainDiscoveryContext,
         )
 
@@ -787,10 +787,10 @@ class TestChainLengthValidation:
 
     def test_chain_length_fallback(self):
         """Test fallback when ALL chains exceed MAX_CHAIN_LENGTH."""
-        from services.snipers.graphs.adaptive_attack.components.chain_discovery_agent import (
+        from services.snipers.core.components.chain_discovery_agent import (
             MAX_CHAIN_LENGTH,
         )
-        from services.snipers.graphs.adaptive_attack.models.chain_discovery import (
+        from services.snipers.core.adaptive_models.chain_discovery import (
             ChainDiscoveryContext,
         )
 
@@ -831,7 +831,7 @@ class TestChainLengthValidation:
 
     def test_calculate_length_score_optimal_length(self):
         """Test that optimal length (2-3) gets bonus."""
-        from services.snipers.graphs.adaptive_attack.components.chain_discovery_agent import (
+        from services.snipers.core.components.chain_discovery_agent import (
             OPTIMAL_LENGTH_BONUS,
         )
 
@@ -860,7 +860,7 @@ class TestChainLengthValidation:
 
     def test_calculate_length_score_penalty_for_long_chains(self):
         """Test that long chains get penalty."""
-        from services.snipers.graphs.adaptive_attack.components.chain_discovery_agent import (
+        from services.snipers.core.components.chain_discovery_agent import (
             LENGTH_PENALTY_FACTOR,
         )
 
@@ -876,7 +876,7 @@ class TestChainLengthValidation:
 
     def test_prompt_includes_length_constraints(self):
         """Test that chain discovery prompt includes length constraints."""
-        from services.snipers.graphs.adaptive_attack.prompts.chain_discovery_prompt import (
+        from services.snipers.core.agents.prompts.chain_discovery_prompt import (
             CHAIN_DISCOVERY_SYSTEM_PROMPT,
         )
 

@@ -67,10 +67,9 @@ from services.snipers.core.phases import (
     AttackExecution,
 )
 from services.snipers.models import Phase1Result, Phase2Result, Phase3Result
-from services.snipers.graphs.adaptive_attack import (
+from services.snipers.adaptive_loop import (
     run_adaptive_attack,
     run_adaptive_attack_streaming,
-    AdaptiveAttackState,
 )
 from services.snipers.infrastructure.persistence.s3_adapter import (
     persist_exploit_result,
@@ -660,12 +659,11 @@ async def execute_adaptive_attack(
     converter_names: list[str] | None = None,
     success_scorers: list[str] | None = None,
     success_threshold: float = 0.8,
-) -> AdaptiveAttackState:
+) -> dict[str, Any]:
     """
     Execute adaptive attack with automatic parameter adjustment.
 
-    Uses LangGraph state machine to iterate through attack phases,
-    automatically adapting framing/converters based on failure analysis.
+    Iterates through attack phases with LLM-powered adaptation.
 
     Args:
         campaign_id: Campaign ID to load intelligence from S3
@@ -716,41 +714,33 @@ async def execute_adaptive_attack(
     return result
 
 
-def _adaptive_result_to_state_dict(state: AdaptiveAttackState) -> dict:
-    """Convert AdaptiveAttackState to state dict for format_exploit_result."""
-    phase3 = state.get("phase3_result")
-    phase1 = state.get("phase1_result")
+def _adaptive_result_to_state_dict(state: dict[str, Any]) -> dict:
+    """Convert adaptive attack result dict to state dict for format_exploit_result."""
+    phase3_data = state.get("phase3", {})
+    phase1_data = state.get("phase1", {})
+    phase2_data = state.get("phase2", {})
 
-    # Build attack results from phase3 if available
     attack_results = []
-    if phase3:
-        for resp in phase3.attack_responses:
-            attack_results.append({
-                "success": resp.error is None and state.get("is_successful", False),
-                "payload": resp.payload,
-                "response": resp.response,
-            })
+    for resp in (phase3_data.get("attack_responses", []) if phase3_data else []):
+        attack_results.append({
+            "success": state.get("is_successful", False),
+            "payload": resp.get("payload", ""),
+            "response": resp.get("response", ""),
+        })
 
-    # Get converter selection from chain selection result or phase1
     converter_selection = None
-    chain_selection = state.get("chain_selection_result")
-    if chain_selection:
+    if phase2_data:
         converter_selection = {
-            "selected_converters": chain_selection.selected_chain or [],
-        }
-    elif phase1 and phase1.selected_chain:
-        converter_selection = {
-            "selected_converters": phase1.selected_chain.converter_names,
+            "selected_converters": phase2_data.get("converter_names", []),
         }
 
     return {
-        "probe_name": phase1.framing_type if phase1 else "adaptive",
-        "pattern_analysis": phase1.context_summary if phase1 else {},
+        "probe_name": phase1_data.get("framing_type", "adaptive") if phase1_data else "adaptive",
+        "pattern_analysis": {},
         "converter_selection": converter_selection,
         "attack_results": attack_results,
-        "recon_intelligence": phase1.context_summary.get("recon_used") if phase1 else None,
-        # Adaptive-specific fields for logging
-        "iteration_count": state.get("iteration", 0) + 1,
+        "recon_intelligence": None,
+        "iteration_count": state.get("total_iterations", 1),
         "best_score": state.get("best_score", 0.0),
         "best_iteration": state.get("best_iteration", 0),
         "adaptation_reasoning": state.get("adaptation_reasoning", ""),
