@@ -67,6 +67,7 @@ class QueryProcessor:
             tools=[],  # No tools needed - pure synthesis
             system_prompt=SYNTHESIS_SYSTEM_PROMPT,
             response_format=ToolStrategy(SynthesizedInsight),
+            thinking_budget=1024, thinking_level="low",
         )
 
     async def query(

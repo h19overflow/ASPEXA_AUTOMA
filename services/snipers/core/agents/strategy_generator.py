@@ -44,6 +44,7 @@ class StrategyGenerator:
             agent = create_agent(
                 model="google_genai:gemini-3-flash-preview",
                 response_format=ToolStrategy(AdaptationDecision),
+                thinking_budget=1024, thinking_level="low",
             )
         self._agent = agent
         self.logger = logging.getLogger(__name__)

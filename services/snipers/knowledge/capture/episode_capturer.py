@@ -63,6 +63,7 @@ class EpisodeCapturer:
             tools=[],  # No tools needed - pure reasoning extraction
             system_prompt=REASONING_SYSTEM_PROMPT,
             response_format=ToolStrategy(ReasoningOutput),
+            thinking_budget=1024, thinking_level="low",
         )
 
     def should_capture(self, jailbreak_score: float) -> bool:

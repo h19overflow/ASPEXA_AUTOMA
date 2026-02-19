@@ -31,7 +31,8 @@ app = FastAPI(
 # Initialize Gemini model
 model = ChatGoogleGenerativeAI(
     model="gemini-3-flash-preview",
-    temperature=0.7
+    temperature=0.7,
+    thinking_budget=1024, thinking_level="low"
 )
 
 # Conversation history storage (in-memory for simplicity)

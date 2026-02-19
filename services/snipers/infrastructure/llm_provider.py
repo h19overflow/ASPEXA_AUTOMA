@@ -46,6 +46,7 @@ def get_default_agent(
         _default_agent = create_agent(
             model=model_id,
             system_prompt=system_prompt,
+            thinking_budget=1024, thinking_level="low",
         )
         logger.info(f"Created default agent with model {model_id}")
 
@@ -77,6 +78,7 @@ def create_gemini_agent(
         model=model_id,
         tools=tools or [],
         system_prompt=system_prompt,
+        thinking_budget=1024, thinking_level="low",
     )
 
     logger.info(
@@ -106,7 +108,11 @@ def get_default_chat_model(
     global _default_chat_model
 
     if _default_chat_model is None:
-        _default_chat_model = init_chat_model(model_id, temperature=temperature)
+        _default_chat_model = init_chat_model(
+            model_id, 
+            temperature=temperature,
+            thinking_budget=1024, thinking_level="low",
+        )
         logger.info(f"Created default chat model with {model_id}")
 
     return _default_chat_model
@@ -134,6 +140,7 @@ def create_specialized_agent(
     agent = create_agent(
         model="google_genai:gemini-3-flash-preview",
         system_prompt=system_prompt,
+        thinking_budget=1024, thinking_level="low",
     )
 
     logger.info(

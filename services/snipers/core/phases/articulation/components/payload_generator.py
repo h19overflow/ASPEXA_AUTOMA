@@ -83,6 +83,7 @@ class PayloadGenerator:
                 model="google_genai:gemini-3-flash-preview",
                 system_prompt=PAYLOAD_GENERATION_SYSTEM_PROMPT,
                 response_format=ToolStrategy(GeneratedPayloadResponse),
+                thinking_budget=1024, thinking_level="low",
             )
 
         self.agent = agent
