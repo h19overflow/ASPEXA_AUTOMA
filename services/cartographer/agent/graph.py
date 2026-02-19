@@ -23,9 +23,12 @@ def build_recon_graph():
     tools = tool_set.get_tools()
 
     # Initialize model - lower temperature for more reliable structured output
+    # thinking_budget=0 disables thinking mode to avoid thought_signature errors
+    # when using tools + response_format together (Gemini 3 requirement)
     model = ChatGoogleGenerativeAI(
         model="gemini-3-flash-preview",
         temperature=0.1,
+        thinking_budget=0,
     )
 
     # Create agent using langchain.agents.create_agent

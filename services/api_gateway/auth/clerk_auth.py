@@ -92,31 +92,33 @@ async def get_current_user(request: Request) -> ClerkUser:
         )
 
     try:
-        # Authenticate the request using Clerk SDK
+        # Authenticate the request using Clerk SDK.
+        # authorized_parties must match the `azp` claim in the JWT, which Clerk
+        # sets to the origin of the browser page that called getToken().
+        # Include all origins the frontend may run on (dev + local network).
         request_state = clerk.authenticate_request(
             request,
             AuthenticateRequestOptions(
-                # Accept session tokens from the frontend
                 authorized_parties=[
-                    "http://localhost:8080",  # Dev frontend
-                    "http://localhost:5173",  # Vite default
-                    "http://192.168.0.4:8080",  # Local network access
-                    "http://192.168.0.4:5173",  # Local network Vite
+                    "http://localhost:3000",
+                    "http://localhost:5173",
+                    "http://localhost:5174",
+                    "http://localhost:8080",
+                    "http://localhost:8081",
+                    "http://192.168.0.4:3000",
+                    "http://192.168.0.4:5173",
+                    "http://192.168.0.4:5174",
+                    "http://192.168.0.4:8080",
                 ],
-                # Allow 30 seconds of clock skew to handle network latency
-                # and minor clock drift between server and Clerk
                 clock_skew_in_ms=30000,
             ),
         )
 
-        print(f"[Auth Debug] is_signed_in: {request_state.is_signed_in}")
-        print(f"[Auth Debug] All attributes: {dir(request_state)}")
-        print(f"[Auth Debug] request_state dict: {vars(request_state) if hasattr(request_state, '__dict__') else 'no __dict__'}")
-
         if not request_state.is_signed_in:
-            reason = getattr(request_state, 'reason', 'Unknown')
-            message = getattr(request_state, 'message', 'Invalid or expired token')
-            raise HTTPException(status_code=401, detail=f"Not signed in: {reason} - {message}")
+            raw_payload = getattr(request_state, "payload", None) or {}
+            reason = getattr(request_state, "reason", "Unknown")
+            print(f"[Auth] Rejected - azp: {raw_payload.get('azp', 'N/A')}, reason: {reason}")
+            raise HTTPException(status_code=401, detail=f"Not signed in: {reason}")
 
         return ClerkUser.from_request_state(request_state, clerk_client=clerk)
 

@@ -2,76 +2,330 @@
 
 ## Overview
 
-Aspexa Automa is an automated red teaming engine designed for stress-testing AI systems. It orchestrates sophisticated "kill chains"—coordinated attack sequences that demonstrate how an AI system can be exploited.
+Aspexa Automa is an automated red teaming engine for stress-testing AI systems. Rather than simple vulnerability scanning, it orchestrates sophisticated "kill chains"—coordinated attack sequences that prove exactly how an AI system can be exploited.
 
-**Philosophy**: Aspexa enforces strict separation of concerns through specialized agents:
-1. **Cartographer** (reconnaissance) → intelligence gathering
-2. **Swarm** (scanning) → vulnerability discovery
-3. **Snipers** (exploitation) → impact demonstration
+**Philosophy**: Aspexa enforces strict separation of concerns. Instead of one giant AI trying to do everything, specialized agents work in a clean assembly line:
+1. **Cartographer** (reconnaissance) → gathers intelligence
+2. **Swarm** (scanning) → finds vulnerabilities
+3. **Snipers** (exploitation) → proves the impact
 
----
-
-## Quick Links
-
-- **[Full Documentation](docs/main.md)** - Comprehensive project guide
-- **[Architecture](docs/code_base_structure.md)** - System design and folder structure
-- **[Technology Stack](docs/tech_stack.md)** - Tools and frameworks used
-- **[Onboarding](docs/onboarding.md)** - Guide for new contributors
+**Safety First**: All operations include mandatory human-in-the-loop checkpoints before sensitive actions (scanning critical tools, executing high-risk payloads, finalizing verdicts).
 
 ---
 
-## Core Pipeline
+## How It Works: The 3-Phase Pipeline
 
-Aspexa follows a 3-phase pipeline to identify and exploit vulnerabilities in AI systems:
+### Phase 1: Cartographer (Reconnaissance)
 
-1.  **Cartographer**: Maps attack surfaces and identifies integration points using an adaptive LangGraph agent.
-2.  **Swarm**: Executes context-aware security scans using a trinity of specialized agents (SQL, Auth, Jailbreak) powered by the Garak framework.
-3.  **Snipers**: Conducts high-precision exploitation with mandatory human-in-the-loop (HITL) checkpoints, utilizing the PyRIT framework.
+**Goal**: Map target systems without triggering alarms using intelligent, adaptive questioning.
+
+**Engine**: LangGraph agent + Google Gemini 1.5 Flash
+
+**Workflow**:
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant G as API Gateway
+    participant C as Cartographer Agent (LangGraph)
+    participant T as Target LLM
+    participant S as S3 Storage
+
+    U->>G: POST /api/recon (ReconRequest)
+    G->>C: Execute run_reconnaissance_streaming
+    loop Intelligence Gathering
+        C->>T: Probe (Direct Enumeration, etc.)
+        T-->>C: Response
+        C->>C: analyze_gaps() & take_note()
+    end
+    C->>C: Final Intelligence Extraction
+    C->>S: Persist ReconResult (IF-02)
+    C-->>G: Streaming Progress Events
+    G-->>U: Final ReconBlueprint (SSE)
+```
+
+**Strategy**: 11 attack vectors
+1. Direct Enumeration ("What can you do?")
+2. Error Elicitation (trigger stack traces for tech stack fingerprinting)
+3. Feature Probing (deep dive into specific tools)
+4. Boundary Testing (find numerical limits)
+5. Context Exploitation (simulate user flows)
+6. Meta-Questioning (ask about the AI's role)
+7. Indirect Observation (behavioral analysis)
+8. Infrastructure Probing (direct tech stack questions)
+9. RAG Mining (ask for technical docs to leak vector stores)
+10. Error Parsing (extract "PostgreSQL", "FAISS" from errors)
+11. Behavior Analysis (pattern matching on responses)
+
+**Output**: IF-02 ReconBlueprint containing:
+- System prompt leaks
+- Tool signatures (function names, parameters, types)
+- Infrastructure details (database type, vector store, embedding model)
+- Authorization structure (auth type, validation rules, privilege levels)
+
+**Intelligence Loop**: The agent self-reflects after each turn:
+- Calculates coverage metrics ("I've found 3 tools, but DB is unknown")
+- Adjusts strategy ("Next: use Error Elicitation to find DB type")
+- Stops when gaps are closed
+
+**Test Coverage**: 31/31 tests passing, 94-96% code coverage
 
 ---
 
-## Tech Stack
+### Phase 2: Swarm (Intelligent Scanning)
 
-- **Primary Language**: Python 3.12+ (managed via `uv`)
-- **Agent Orchestration**: LangChain & LangGraph
-- **LLM Provider**: Google Gemini (1.5 Flash recommended)
-- **Security Engines**: Garak & PyRIT
-- **API Framework**: FastAPI (REST Gateway)
-- **Persistence**: PostgreSQL (SQLAlchemy)
+**Goal**: Conduct context-aware security scanning using reconnaissance intelligence to guide probe selection.
+
+**Engine**: LangChain agents + Garak framework (50+ security probes)
+
+**Workflow**:
+```mermaid
+graph LR
+    Blueprint[ReconBlueprint] --> Trinity[Trinity Factory]
+    Trinity --> SQL[SQL Agent]
+    Trinity --> Auth[Auth Agent]
+    Trinity --> Jailbreak[Jailbreak Agent]
+
+    SQL --> Garak[Garak Scanner]
+    Auth --> Garak
+    Jailbreak --> Garak
+
+    Garak --> Probes{50+ Probes}
+    Probes --> Result[Vulnerability Clusters]
+```
+
+**Architecture**: The Trinity (3 specialized agents)
+
+Each agent interprets reconnaissance data differently:
+
+**SQL Agent** (Data Surface Attacker)
+- Focuses on: SQL injection, XSS, encoding bypasses
+- Consumes: `recon.tools`, `recon.infrastructure.database`
+- Strategy: If "PostgreSQL" detected, prioritize SQL injection probes
+- Success: Extracts data or triggers SQL error
+
+**Auth Agent** (Authorization Surface Attacker)
+- Focuses on: BOLA, privilege escalation, role bypass
+- Consumes: `recon.authorization`, role structure, limits
+- Strategy: Uses discovered limits ("Max refund $5000") to generate boundary tests ($5001, $0, -1)
+- Success: Accesses restricted data or escalates privileges
+
+**Jailbreak Agent** (Prompt Surface Attacker)
+- Focuses on: Breaking character, overriding constraints, leaking system prompt
+- Consumes: `recon.system_prompt_leak`, `recon.infrastructure.model_family`
+- Strategy: If "GPT-4" detected, use specific jailbreak variants
+- Success: Violates stated constraints or reveals hidden instructions
+
+**Execution**:
+- Parallel probes (up to 10 concurrent)
+- Parallel generations per probe (up to 5 concurrent)
+- Rate limiting: Token bucket algorithm (configurable requests/second)
+- Approaches: Quick (2 min), Standard (10 min), Thorough (30 min)
+
+**Detection Pipeline**:
+- Extract probes from Garak
+- Generate outputs via HTTP/WebSocket
+- Run detectors (vulnerability scoring 0.0-1.0)
+- Aggregate with fallback detection
+
+**Output**: IF-04 VulnerabilityCluster[] containing:
+- Vulnerability type and confidence score (0.0-1.0)
+- Successful payloads with examples
+- Target responses (evidence)
+- Detector scores
+- Metadata (agent type, execution time, generations)
 
 ---
 
-## Getting Started
+### Phase 3: Snipers (Adaptive Exploitation)
 
-1.  Set your `GOOGLE_API_KEY` in your environment.
-2.  Ensure PostgreSQL is running.
-3.  Install dependencies: `uv sync`.
-4.  Start the API Gateway: `python -m services.api_gateway.main`.
+**Goal**: Analyze vulnerability patterns, plan multi-turn attacks, and execute with mandatory human approval or via an adaptive autonomous loop.
+
+**Engine**: LangGraph workflow + PyRIT framework
+
+**Workflow**:
+```mermaid
+graph TD
+    Start[Vulnerability Findings] --> Phase1[Phase 1: Payload Articulation]
+    Phase1 --> Phase2[Phase 2: Conversion]
+    Phase2 --> Phase3[Phase 3: Attack Execution]
+    Phase3 --> Score[Scoring & Learning]
+    Score --> Success{Success?}
+    Success -- No (Retry) --> Phase1
+    Success -- Yes --> Final[Final ExploitResult]
+    
+    subgraph "Adaptive Loop (LangGraph)"
+    Phase1
+    Phase2
+    Phase3
+    Score
+    end
+```
+
+
+**Execution Modes**:
+- **Single-shot**: A single pass through the 3-phase pipeline.
+- **Adaptive**: A LangGraph-driven loop that automatically adjusts framing and converters based on failure analysis until success is achieved or the maximum iterations are reached.
+- **Streaming**: Supports real-time monitoring of each phase and attack turn via SSE.
+
+**PyRIT Integration**:
+- 9+ payload converters (Base64, ROT13, Caesar, URL, TextToHex, Unicode, + custom converters).
+- Target adapters for HTTP and WebSocket communication.
+- Composite scorers for high-accuracy success evaluation.
+
+**Output**: IF-06 ExploitResult containing:
+- Attack success status and overall severity.
+- Full kill-chain transcripts (request/response pairs).
+- Learned attack chains and failure analysis.
+
+**Status**: ✅ Complete
+- ✅ 3-Phase core workflow (Articulation, Conversion, Execution)
+- ✅ Adaptive LangGraph loop with pause/resume support
+- ✅ REST API endpoints and SSE streaming
+- ✅ Persistence to PostgreSQL and S3
+
+
+---
+
+## Data Contracts
+
+Aspexa uses 6 standardized contracts (IF-01 through IF-06) for service communication:
+
+| Contract | Flow | Purpose |
+|----------|------|---------|
+| **IF-01** | User → Cartographer | ReconRequest (target URL, depth, scope) |
+| **IF-02** | Cartographer → Swarm | ReconBlueprint (discovered intelligence) |
+| **IF-03** | User → Swarm | ScanJobDispatch (scan approach, config) |
+| **IF-04** | Swarm → Snipers | VulnerabilityCluster[] (findings with evidence) |
+| **IF-05** | User → Snipers | ExploitInput (vulnerability + auth context) |
+| **IF-06** | Snipers → User | ExploitResult (proof of exploitation) |
+
+All contracts use Pydantic V2 for validation and type safety.
+
+---
+
+## Architecture: REST-Based Gateway
+
+Aspexa Automa is designed as a collection of microservices accessible via a centralized HTTP Gateway:
+
+**API Gateway**:
+- **Framework**: FastAPI
+- **Security**: Clerk-based authentication (requires `friend` role)
+- **Routing**: Centralized routing to Cartographer, Swarm, and Snipers
+- **Observability**: Structured JSON logging with correlation IDs
+
+**Direct Service Invocation**:
+- Services can be invoked directly via their respective `entrypoint.py` for synchronous or streaming (SSE) results.
+- Persistence is handled automatically via service-specific adapters (e.g., S3/Local for blueprints, PostgreSQL for scan results).
+
+---
+
+## Key Design Principles
+
+### 1. Separation of Concerns
+Each service has one job:
+- **Cartographer**: Gathering intelligence
+- **Swarm**: Finding vulnerabilities
+- **Snipers**: Proving impact
+
+### 2. Intelligence-Driven Decisions
+Swarm doesn't run all 50 probes equally. It prioritizes based on reconnaissance:
+- Detected PostgreSQL → prioritize SQL injection
+- Detected GPT-4 → use specific jailbreak variants
+- Found vector store → add semantic attack probes
+
+### 3. Pattern Learning (Snipers)
+Instead of running static templates, Snipers learns from Garak's successful probes:
+- "These 3 payloads succeeded, these 47 failed"
+- Extract common patterns: comment injection, encoding, social engineering
+- Adapt attack phrasing to target's domain/tone
+
+### 4. Human-in-the-Loop Safety
+Two mandatory approval gates:
+1. **Plan Review**: Human audits the attack plan before execution
+2. **Result Review**: Human confirms vulnerability proof before reporting
+
+### 5. Production-Grade Resilience
+- Exponential backoff retry (network errors don't stop reconnaissance)
+- Graceful degradation (missing detectors fall back to generic detection)
+- Duplicate prevention (80% similarity threshold deduplicates findings)
+- Audit trails (all decisions logged with correlation IDs)
 
 ---
 
 ## Directory Structure
 
+See **docs/code_base_structure.md** for complete file organization:
+
 ```
 aspexa-automa/
-├── libs/            # Shared code (contracts, persistence, config)
-├── services/        # Microservices (Cartographer, Swarm, Snipers, API Gateway)
+├── libs/            # Shared contracts, config, persistence
+├── services/
+│   ├── api_gateway/     # Centralized HTTP access
+│   ├── cartographer/    # Phase 1: Reconnaissance (Complete)
+│   ├── swarm/           # Phase 2: Scanning (Complete)
+│   └── snipers/         # Phase 3: Exploitation (64% complete)
+├── scripts/         # Examples and utilities
 ├── tests/           # Unit and integration tests
-└── docs/            # Project documentation
+└── docs/            # Documentation
 ```
-
-For a detailed breakdown, see **[docs/code_base_structure.md](docs/code_base_structure.md)**.
 
 ---
 
-## Vault Documentation
+## Getting Started
 
-Full consolidated documentation is maintained in the Obsidian vault:
+See **README.md** and **docs/onboarding.md** for project-wide setup. For service-specific details, see:
+- **services/cartographer/README.md**
+- **services/swarm/README.md**
+- **services/snipers/README.md**
 
-**Location:** `OS/04_Engineering/Projects/Aspects_Automa/`
+---
 
-The vault contains:
-- Detailed specifications with Mermaid diagrams
-- Onboarding and contributor guides
-- Cross-linked documentation with source file references
-- Task tracking and project management
+## Technology Stack
+
+See **docs/tech_stack.md** for complete breakdown:
+
+**Core**: FastAPI (API Gateway), PostgreSQL (Storage), Python 3.12+
+**Agents**: LangChain, LangGraph, Google Gemini 1.5 Flash
+**Security**: Garak (probes), PyRIT (exploitation)
+**Data**: Pydantic V2 (validation), SQL/JSON (persistence)
+**Testing**: pytest (unit/integration), 94-96% coverage
+
+
+---
+
+## Phases & Completion
+
+| Phase | Service | Status | Output |
+|-------|---------|--------|--------|
+| 1 | Cartographer | ✅ Complete | IF-02 ReconBlueprint |
+| 2 | Swarm | ✅ Complete | IF-04 VulnerabilityCluster[] |
+| 3 | Snipers | 🟡 64% Complete | IF-06 ExploitResult |
+
+Phase 1 & 2 are production-ready. Phase 3 pending REST API endpoints and WebSocket controller.
+
+---
+
+## Summary
+
+Aspexa Automa transforms LLM security testing from chaotic manual work into an orchestrated, intelligent process:
+
+- **Cartographer** asks the right questions to understand the target
+- **Swarm** uses that intelligence to probe efficiently
+- **Snipers** learns from successes and crafts targeted kill chains
+- **Humans** maintain control at critical approval gates
+
+The result: fast, accurate, comprehensive red team assessments with proof of impact.
+
+---
+
+## See Also
+
+- **docs/code_base_structure.md** - Directory organization and module responsibilities
+- **docs/persistence.md** - Campaign tracking and S3 storage
+- **docs/Phases/PHASE1_CARTOGRAPHER.md** - Phase 1 reconnaissance details
+- **docs/Phases/PHASE2_SWARM_SCANNER.md** - Phase 2 scanning details
+- **docs/Phases/PHASE4_SNIPERS_EXPLOIT.md** - Phase 3 exploitation details
+- **docs/tech_stack.md** - Technology overview
+- **services/cartographer/README.md** - Cartographer service guide
+- **services/swarm/README.md** - Swarm service guide
+- **services/snipers/README.md** - Snipers service guide

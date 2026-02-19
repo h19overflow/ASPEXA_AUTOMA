@@ -1,7 +1,18 @@
 """API Gateway - HTTP entry point for all services.
 
-Provides REST endpoints as an alternative to event-driven consumers.
-Includes Clerk-based authentication for protected endpoints.
+This module provides the main FastAPI application instance for the Aspexa Automa system.
+It acts as the central entry point for all HTTP-based interactions, including:
+- Reconnaissance services
+- Scanning operations
+- Sniper attack phases
+- Campaign and scan persistence management
+
+Authentication:
+    Protected endpoints require a valid Clerk session. The `require_friend` dependency
+    enforces this check.
+
+Attributes:
+    app (FastAPI): The main application instance.
 """
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
@@ -17,12 +28,20 @@ from services.api_gateway.auth import require_friend
 
 app = FastAPI(
     title="Aspexa Automa API",
-    description="HTTP gateway for reconnaissance, scanning, and exploitation services",
+    description="""HTTP gateway for reconnaissance, scanning, and exploitation services.
+
+    This API provides access to the full suite of Aspexa security tools.
+    All protected endpoints require authentication via Clerk.
+    """,
     version="1.0.0",
 )
 
 # CORS middleware for frontend access
 # Note: Updated to support Clerk authentication with credentials
+# Configuration:
+# - Allows specific origins (dev and local network)
+# - Supports credentials (cookies) for Clerk
+# - Exposes X-Scan-Id header for SSE client tracking
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -39,6 +58,8 @@ app.add_middleware(
 )
 
 # Protected service execution endpoints (friends only)
+# These routers handle the core reconnaissance and scanning logic.
+# Authentication: All endpoints in this group depend on `require_friend` to verify Clerk session.
 app.include_router(
     recon.router,
     prefix="/api",
@@ -51,6 +72,11 @@ app.include_router(
 )
 
 # Protected snipers endpoints (friends only)
+# These routers expose the specific phases of the Sniper attack workflow.
+# - Phase 1: Initial access and recon
+# - Phase 2: Enumeration and scanning
+# - Phase 3: Exploitation
+# - Attack: Orchestrated attack execution
 app.include_router(
     phase1_router,
     prefix="/api/snipers",
@@ -73,6 +99,7 @@ app.include_router(
 )
 
 # Protected persistence endpoints (friends only)
+# These routers provide CRUD access to campaign and scan data.
 app.include_router(
     campaigns.router,
     prefix="/api",
@@ -87,13 +114,25 @@ app.include_router(
 
 @app.get("/health")
 async def health_check():
-    """Service health check (public endpoint)."""
+    """Service health check (public endpoint).
+
+    Returns:
+        dict: A dictionary containing the service status and name.
+            - status (str): The health status (e.g., "healthy").
+            - service (str): The name of the service ("api_gateway").
+    """
     return {"status": "healthy", "service": "api_gateway"}
 
 
 @app.get("/api/auth/status")
 async def auth_status():
-    """Check if authentication is configured (public endpoint)."""
+    """Check if authentication is configured (public endpoint).
+
+    Returns:
+        dict: A dictionary containing the authentication configuration status.
+            - auth_configured (bool): True if Clerk secret key is set.
+            - auth_provider (str): The name of the auth provider ("clerk").
+    """
     from libs.config import get_settings
 
     settings = get_settings()
