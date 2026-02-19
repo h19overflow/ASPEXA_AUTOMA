@@ -94,8 +94,6 @@ def configure_scanner_from_plan(plan: "ScanPlan") -> Dict[str, Any]:
     return {
         "audit_id": plan.audit_id,
         "agent_type": plan.agent_type,
-        "enable_parallel_execution": plan.scan_config.enable_parallel_execution,
-        "max_concurrent_probes": plan.scan_config.max_concurrent_probes,
         "requests_per_second": plan.scan_config.requests_per_second,
     }
 
@@ -116,18 +114,10 @@ def estimate_scan_duration(plan: "ScanPlan") -> Optional[int]:
         Estimated duration in seconds, or None if cannot estimate
     """
     try:
-        # Average: 10 prompts per probe, 2 seconds per execution
-        avg_prompts_per_probe = 10
+        max_prompts = getattr(plan.scan_config, 'max_prompts_per_probe', 5)
         avg_seconds_per_execution = 2
-
-        total_operations = len(plan.selected_probes) * avg_prompts_per_probe
-
-        # Adjust for parallelism
-        if plan.scan_config.enable_parallel_execution:
-            concurrent_factor = plan.scan_config.max_concurrent_probes
-            return int((total_operations * avg_seconds_per_execution) / concurrent_factor)
-        else:
-            return total_operations * avg_seconds_per_execution
+        total_operations = len(plan.selected_probes) * max_prompts
+        return total_operations * avg_seconds_per_execution
     except Exception:
         return None
 

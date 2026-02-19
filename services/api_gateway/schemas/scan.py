@@ -18,47 +18,33 @@ class ScanStreamMode(str, Enum):
 
 
 class ScanConfigRequest(BaseModel):
-    """User-configurable scan parameters for API requests.
-
-    Simplified model: each probe runs once (no generations/retry concept).
-    """
+    """User-configurable scan parameters for API requests."""
 
     approach: str = Field(
         default="standard",
-        description="Scan intensity: quick (~3 probes), standard (~6 probes), or thorough (~10 probes)"
+        description="Scan intensity: quick, standard, or thorough"
     )
     custom_probes: Optional[List[str]] = Field(
         default=None,
         description="Override: specific probe names to run instead of defaults"
     )
     max_probes: int = Field(
-        default=6,
-        ge=1,
-        le=20,
-        description="Maximum number of probes to run (1-20)"
-    )
-    # Parallel execution controls
-    enable_parallel_execution: bool = Field(
-        default=True,
-        description="Enable parallel execution of probes (faster scans)"
-    )
-    max_concurrent_probes: int = Field(
         default=3,
         ge=1,
-        le=10,
-        description="Maximum number of probes to run concurrently (1-10)"
+        le=20,
+        description="Maximum number of probes per agent (1-20)"
+    )
+    max_prompts_per_probe: int = Field(
+        default=5,
+        ge=1,
+        le=50,
+        description="Maximum number of prompts to execute per probe (1-50)"
     )
     # Rate limiting
     requests_per_second: Optional[float] = Field(
         default=None,
         gt=0.0,
         description="Rate limit in requests per second (None = unlimited)"
-    )
-    max_concurrent_connections: int = Field(
-        default=15,
-        ge=1,
-        le=50,
-        description="Maximum concurrent connections to target API (1-50)"
     )
     # Request configuration
     request_timeout: int = Field(
@@ -79,7 +65,6 @@ class ScanConfigRequest(BaseModel):
         le=10.0,
         description="Exponential backoff multiplier for retries (0.1-10.0)"
     )
-    # Connection type
     connection_type: str = Field(
         default="http",
         description="Connection protocol: 'http' or 'websocket'"

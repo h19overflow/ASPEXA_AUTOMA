@@ -156,7 +156,7 @@ class GarakScanner:
             audit_id=plan.audit_id,
             agent_type=plan.agent_type,
             total_probes=len(probe_names),
-            parallel_enabled=plan.scan_config.enable_parallel_execution,
+            parallel_enabled=False,
             rate_limit_rps=plan.scan_config.requests_per_second,
             estimated_duration_seconds=estimate_scan_duration(plan)
         )

@@ -119,12 +119,19 @@ async def execute_scan_streaming(
             "blocked_attack_vectors": request.safety_policy.blocked_attack_vectors or [],
         }
 
-    # Build scan config
-    scan_config = {
-        "approach": request.scan_config.approach if request.scan_config else "standard",
-        "timeout": request.scan_config.request_timeout if request.scan_config else 30,
-        "headers": {},
+    # Build scan config — map contract fields to ScanConfig fields only
+    cfg = request.scan_config
+    scan_config: Dict[str, Any] = {
+        "approach": cfg.approach if cfg else "standard",
+        "max_probes": cfg.max_probes if cfg else 3,
+        "max_prompts_per_probe": cfg.max_prompts_per_probe if cfg else 5,
+        "request_timeout": cfg.request_timeout if cfg else 30,
+        "max_retries": cfg.max_retries if cfg else 3,
+        "retry_backoff": cfg.retry_backoff if cfg else 1.0,
+        "connection_type": cfg.connection_type if cfg else "http",
     }
+    if cfg and cfg.requests_per_second is not None:
+        scan_config["requests_per_second"] = cfg.requests_per_second
 
     # Build initial state
     initial_state = SwarmState(

@@ -24,9 +24,8 @@ class ScanConfig(StrictBaseModel):
     This allows users to control:
     - Scan approach (quick/standard/thorough)
     - Specific probes to run
-    - Maximum probes limit
-    - Parallel execution and rate limiting
-    - Connection type (HTTP/WebSocket)
+    - Maximum probes and prompts per probe limits
+    - Rate limiting and connection type (HTTP/WebSocket)
     """
     approach: str = Field(
         default=ScanApproach.STANDARD,
@@ -37,33 +36,22 @@ class ScanConfig(StrictBaseModel):
         description="Override: specific probe names to run instead of defaults"
     )
     max_probes: int = Field(
-        default=10,
-        ge=1,
-        le=20,
-        description="Maximum number of probes agent can run (1-20)"
-    )
-    # Parallel execution controls
-    enable_parallel_execution: bool = Field(
-        default=True,
-        description="Enable parallel execution of probes"
-    )
-    max_concurrent_probes: int = Field(
         default=3,
         ge=1,
-        le=10,
-        description="Maximum number of probes to run concurrently (1-10)"
+        le=20,
+        description="Maximum number of probes per agent (1-20)"
+    )
+    max_prompts_per_probe: int = Field(
+        default=5,
+        ge=1,
+        le=50,
+        description="Maximum number of prompts to execute per probe (1-50)"
     )
     # Rate limiting
     requests_per_second: Optional[float] = Field(
         default=None,
         gt=0.0,
         description="Rate limit in requests per second (None = unlimited)"
-    )
-    max_concurrent_connections: int = Field(
-        default=15,
-        ge=1,
-        le=50,
-        description="Maximum concurrent connections to target API (1-50)"
     )
     # Request configuration
     request_timeout: int = Field(
@@ -93,59 +81,13 @@ class ScanConfig(StrictBaseModel):
     @model_validator(mode='after')
     def validate_configuration(self):
         """Validate configuration consistency."""
-        # Validate connection type
         if self.connection_type not in ["http", "websocket"]:
             raise ValueError(f"connection_type must be 'http' or 'websocket', got '{self.connection_type}'")
 
-        # Validate requests_per_second if provided
         if self.requests_per_second is not None and self.requests_per_second <= 0:
             raise ValueError("requests_per_second must be > 0 if provided")
 
-        # Validate concurrent probes don't exceed connection pool
-        if self.max_concurrent_probes > self.max_concurrent_connections:
-            raise ValueError(
-                f"max_concurrent_probes ({self.max_concurrent_probes}) "
-                f"exceeds max_concurrent_connections ({self.max_concurrent_connections})"
-            )
-
         return self
-
-
-class ScanInput(StrictBaseModel):
-    """Input context for a Swarm agent scan.
-
-    Contains full intelligence from reconnaissance phase to enable
-    intelligent probe selection by the planning agent.
-    """
-
-    audit_id: str = Field(..., description="Audit identifier")
-    agent_type: str = Field(
-        ..., description="Agent type: agent_sql, agent_auth, or agent_jailbreak"
-    )
-    target_url: str = Field(..., description="Target LLM endpoint URL")
-    infrastructure: Dict[str, Any] = Field(
-        default_factory=dict, description="Infrastructure details from recon"
-    )
-    detected_tools: List[Dict[str, Any]] = Field(
-        default_factory=list, description="Detected tools to test"
-    )
-    # Full intelligence fields for context-rich planning
-    system_prompt_leaks: List[str] = Field(
-        default_factory=list,
-        description="Leaked system prompt fragments from recon"
-    )
-    raw_observations: Dict[str, List[str]] = Field(
-        default_factory=dict,
-        description="Raw observations by category from recon"
-    )
-    structured_deductions: Dict[str, List[Dict[str, str]]] = Field(
-        default_factory=dict,
-        description="Structured deductions with confidence levels"
-    )
-    config: ScanConfig = Field(
-        default_factory=ScanConfig,
-        description="User-configurable scan parameters"
-    )
 
 
 class AgentScanResult(StrictBaseModel):
@@ -202,25 +144,3 @@ class ScanPlan(StrictBaseModel):
         if not v:
             raise ValueError("selected_probes cannot be empty")
         return v
-
-
-class PlanningPhaseResult(StrictBaseModel):
-    """Result of the agent planning phase.
-
-    Internal tracking model for entrypoint orchestration.
-    """
-    success: bool = Field(..., description="Whether planning succeeded")
-    plan: Optional[ScanPlan] = Field(None, description="The plan if successful")
-    error: Optional[str] = Field(None, description="Error message if failed")
-    duration_ms: int = Field(default=0, description="Planning duration in milliseconds")
-
-    @classmethod
-    def from_success(cls, plan: ScanPlan, duration_ms: int) -> "PlanningPhaseResult":
-        """Create a successful planning result."""
-        return cls(success=True, plan=plan, duration_ms=duration_ms)
-
-    @classmethod
-    def from_error(cls, error: str, duration_ms: int = 0) -> "PlanningPhaseResult":
-        """Create a failed planning result."""
-        return cls(success=False, error=error, duration_ms=duration_ms)
-

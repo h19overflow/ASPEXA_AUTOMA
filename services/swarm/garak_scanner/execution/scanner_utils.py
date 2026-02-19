@@ -162,6 +162,10 @@ async def stream_probe_execution(
             probe = probe_class(generator)
             prompts = probe.prompts
 
+            # Enforce prompt cap from scan config
+            max_prompts = getattr(plan.scan_config, 'max_prompts_per_probe', 5)
+            prompts = prompts[:max_prompts]
+
             # Emit event indicating probe is starting
             yield ProbeStartEvent(
                 probe_name=probe_name,

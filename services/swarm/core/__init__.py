@@ -15,7 +15,6 @@ from .config import (
 
 from .schema import (
     ScanConfig,
-    ScanInput,
     AgentScanResult,
 )
 
@@ -42,7 +41,6 @@ __all__ = [
     "get_probe_category",
     # Schema
     "ScanConfig",
-    "ScanInput",
     "AgentScanResult",
     # Utils
     "StructuredFormatter",
