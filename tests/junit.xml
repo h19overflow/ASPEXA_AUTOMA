@@ -1,1 +1,65 @@
-<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="0" skipped="0" tests="3" time="63.019" timestamp="2025-12-30T22:25:49.197759+08:00" hostname="Adonis2"><testcase classname="tests.unit.services.test_api_gateway_docs" name="test_module_docstring_google_style" time="0.002" /><testcase classname="tests.unit.services.test_api_gateway_docs" name="test_health_check_docstring_google_style" time="0.001" /><testcase classname="tests.unit.services.test_api_gateway_docs" name="test_auth_status_docstring_google_style" time="0.001" /></testsuite></testsuites>
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="8" failures="0" skipped="0" tests="8" time="66.911" timestamp="2026-02-20T06:28:10.170699+08:00" hostname="Adonis2"><testcase classname="" name="tests.unit.services.snipers.adaptive_attack.test_failure_analyzer" time="0.000"><error message="collection failure">ImportError while importing test module 'C:\Users\User\Projects\Aspexa_Automa\tests\unit\services\snipers\adaptive_attack\test_failure_analyzer.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+..\..\AppData\Roaming\uv\python\cpython-3.12.11-windows-x86_64-none\Lib\importlib\__init__.py:90: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests\unit\services\snipers\adaptive_attack\test_failure_analyzer.py:18: in &lt;module&gt;
+    from services.snipers.core.components.failure_analyzer import (
+E   ModuleNotFoundError: No module named 'services.snipers.core.components.failure_analyzer'</error></testcase><testcase classname="" name="tests.unit.services.snipers.adaptive_attack.test_feedback_loop" time="0.000"><error message="collection failure">ImportError while importing test module 'C:\Users\User\Projects\Aspexa_Automa\tests\unit\services\snipers\adaptive_attack\test_feedback_loop.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+..\..\AppData\Roaming\uv\python\cpython-3.12.11-windows-x86_64-none\Lib\importlib\__init__.py:90: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests\unit\services\snipers\adaptive_attack\test_feedback_loop.py:30: in &lt;module&gt;
+    from services.snipers.core.nodes.adapt import adapt_node
+E   ModuleNotFoundError: No module named 'services.snipers.core.nodes'</error></testcase><testcase classname="" name="tests.unit.services.snipers.test_entrypoint_persistence" time="0.000"><error message="collection failure">ImportError while importing test module 'C:\Users\User\Projects\Aspexa_Automa\tests\unit\services\snipers\test_entrypoint_persistence.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+..\..\AppData\Roaming\uv\python\cpython-3.12.11-windows-x86_64-none\Lib\importlib\__init__.py:90: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests\unit\services\snipers\test_entrypoint_persistence.py:14: in &lt;module&gt;
+    from services.snipers.entrypoint import (
+E   ImportError: cannot import name 'execute_full_attack' from 'services.snipers.entrypoint' (C:\Users\User\Projects\Aspexa_Automa\services\snipers\entrypoint.py)</error></testcase><testcase classname="" name="tests.unit.services.snipers.test_orchestrators" time="0.000"><error message="collection failure">ImportError while importing test module 'C:\Users\User\Projects\Aspexa_Automa\tests\unit\services\snipers\test_orchestrators.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+..\..\AppData\Roaming\uv\python\cpython-3.12.11-windows-x86_64-none\Lib\importlib\__init__.py:90: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests\unit\services\snipers\test_orchestrators.py:51: in &lt;module&gt;
+    from services.snipers.orchestrators.guided_orchestrator import GuidedAttackOrchestrator
+E   ModuleNotFoundError: No module named 'services.snipers.orchestrators'</error></testcase><testcase classname="" name="tests.unit.services.snipers.test_probe_registry" time="0.000"><error message="collection failure">ImportError while importing test module 'C:\Users\User\Projects\Aspexa_Automa\tests\unit\services\snipers\test_probe_registry.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+..\..\AppData\Roaming\uv\python\cpython-3.12.11-windows-x86_64-none\Lib\importlib\__init__.py:90: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests\unit\services\snipers\test_probe_registry.py:36: in &lt;module&gt;
+    from services.snipers.infrastructure.pyrit.probe_registry import (
+E   ModuleNotFoundError: No module named 'services.snipers.infrastructure.pyrit.probe_registry'</error></testcase><testcase classname="" name="tests.unit.services.snipers.test_pyrit_scorers" time="0.000"><error message="collection failure">ImportError while importing test module 'C:\Users\User\Projects\Aspexa_Automa\tests\unit\services\snipers\test_pyrit_scorers.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+..\..\AppData\Roaming\uv\python\cpython-3.12.11-windows-x86_64-none\Lib\importlib\__init__.py:90: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests\unit\services\snipers\test_pyrit_scorers.py:59: in &lt;module&gt;
+    from services.snipers.core.scoring.jailbreak_scorer import (
+E   ImportError: cannot import name 'create_jailbreak_scorer' from 'services.snipers.core.scoring.jailbreak_scorer' (C:\Users\User\Projects\Aspexa_Automa\services\snipers\core\scoring\jailbreak_scorer.py)</error></testcase><testcase classname="" name="tests.unit.services.snipers.test_scorers" time="0.000"><error message="collection failure">ImportError while importing test module 'C:\Users\User\Projects\Aspexa_Automa\tests\unit\services\snipers\test_scorers.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+..\..\AppData\Roaming\uv\python\cpython-3.12.11-windows-x86_64-none\Lib\importlib\__init__.py:90: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests\unit\services\snipers\test_scorers.py:9: in &lt;module&gt;
+    from services.snipers.utils.scorers import (
+E   ModuleNotFoundError: No module named 'services.snipers.utils'</error></testcase><testcase classname="" name="tests.routers_api_gateway.test_snipers_routers" time="0.000"><error message="collection failure">ImportError while importing test module 'C:\Users\User\Projects\Aspexa_Automa\tests\routers_api_gateway\test_snipers_routers.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+..\..\AppData\Roaming\uv\python\cpython-3.12.11-windows-x86_64-none\Lib\importlib\__init__.py:90: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests\routers_api_gateway\test_snipers_routers.py:28: in &lt;module&gt;
+    from services.api_gateway.routers.snipers.phase1 import router as phase1_router
+E   ModuleNotFoundError: No module named 'services.api_gateway.routers.snipers.phase1'</error></testcase></testsuite></testsuites>

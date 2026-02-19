@@ -68,34 +68,6 @@ async def run_adaptive_attack_streaming(
         raise
 
 
-async def run_adaptive_attack(
-    campaign_id: str,
-    target_url: str,
-    max_iterations: int = 5,
-    payload_count: int = 2,
-    framing_types: list[str] | None = None,
-    converter_names: list[str] | None = None,
-    success_scorers: list[str] | None = None,
-    success_threshold: float = 0.8,
-) -> dict[str, Any]:
-    """Run adaptive attack (non-streaming). Returns final state dict."""
-    import uuid
-
-    scan_id = f"{campaign_id}-adaptive-{uuid.uuid4().hex[:8]}"
-    final_event: dict[str, Any] = {}
-
-    async for event in run_adaptive_attack_streaming(
-        campaign_id=campaign_id, target_url=target_url, scan_id=scan_id,
-        max_iterations=max_iterations, payload_count=payload_count,
-        framing_types=framing_types, converter_names=converter_names,
-        success_scorers=success_scorers, success_threshold=success_threshold,
-        enable_checkpoints=False,
-    ):
-        if event.get("type") == "attack_complete":
-            final_event = event.get("data", {})
-
-    return final_event
-
 
 async def resume_adaptive_attack_streaming(
     campaign_id: str,
