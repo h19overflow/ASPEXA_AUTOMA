@@ -9,14 +9,14 @@ Tests:
 """
 
 import pytest
-from services.snipers.utils.scoring.models import (
+from services.snipers.core.scoring.models import (
     ScoreResult,
     CompositeScore,
     SeverityLevel,
     PIIType,
 )
-from services.snipers.utils.scoring.tool_abuse_scorer import ToolAbuseScorer
-from services.snipers.utils.scoring.pii_exposure_scorer import PIIExposureScorer
+from services.snipers.core.scoring.tool_abuse_scorer import ToolAbuseScorer
+from services.snipers.core.scoring.pii_exposure_scorer import PIIExposureScorer
 
 
 class TestScoreResultModel:

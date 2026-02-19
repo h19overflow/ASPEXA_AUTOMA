@@ -61,18 +61,18 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, AsyncGenerator
 
-from services.snipers.attack_phases import (
+from services.snipers.core.phases import (
     PayloadArticulation,
     Conversion,
     AttackExecution,
 )
 from services.snipers.models import Phase1Result, Phase2Result, Phase3Result
-from services.snipers.adaptive_attack import (
+from services.snipers.graphs.adaptive_attack import (
     run_adaptive_attack,
     run_adaptive_attack_streaming,
     AdaptiveAttackState,
 )
-from services.snipers.utils.persistence.s3_adapter import (
+from services.snipers.infrastructure.persistence.s3_adapter import (
     persist_exploit_result,
     format_exploit_result,
 )

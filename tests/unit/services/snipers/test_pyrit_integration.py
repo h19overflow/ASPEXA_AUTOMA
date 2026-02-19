@@ -49,7 +49,7 @@ class TestConverterFactory:
 
     def test_nine_converters_available(self, capture_logs):
         """Test that all 9 converters are available."""
-        from services.snipers.utils.pyrit.pyrit_bridge import ConverterFactory
+        from services.snipers.infrastructure.pyrit.pyrit_bridge import ConverterFactory
 
         logger.info("Testing 9 converters availability")
         factory = ConverterFactory()

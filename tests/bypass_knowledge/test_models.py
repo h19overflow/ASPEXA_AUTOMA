@@ -8,13 +8,13 @@ import json
 import pytest
 from datetime import datetime
 
-from services.snipers.bypass_knowledge.models.episode import (
+from services.snipers.knowledge.models.episode import (
     BypassEpisode,
     Hypothesis,
     ProbeResult,
     FailureDepth,
 )
-from services.snipers.bypass_knowledge.models.insight import (
+from services.snipers.knowledge.models.insight import (
     HistoricalInsight,
     TechniqueStats,
 )

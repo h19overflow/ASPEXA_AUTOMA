@@ -13,31 +13,31 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from services.snipers.bypass_knowledge.integration.config import (
+from services.snipers.knowledge.integration.config import (
     BypassKnowledgeConfig,
     get_config,
     reset_config,
 )
-from services.snipers.bypass_knowledge.integration.models import (
+from services.snipers.knowledge.integration.models import (
     HistoryContext,
     CaptureResult,
 )
-from services.snipers.bypass_knowledge.integration.local_logger import (
+from services.snipers.knowledge.integration.local_logger import (
     BypassKnowledgeLogger,
     get_bypass_logger,
     reset_bypass_logger,
 )
-from services.snipers.bypass_knowledge.integration.adapt_hook import (
+from services.snipers.knowledge.integration.adapt_hook import (
     AdaptNodeHook,
     get_adapt_hook,
     reset_adapt_hook,
 )
-from services.snipers.bypass_knowledge.integration.evaluate_hook import (
+from services.snipers.knowledge.integration.evaluate_hook import (
     EvaluateNodeHook,
     get_evaluate_hook,
     reset_evaluate_hook,
 )
-from services.snipers.bypass_knowledge.models.insight import (
+from services.snipers.knowledge.models.insight import (
     HistoricalInsight,
     TechniqueStats,
 )

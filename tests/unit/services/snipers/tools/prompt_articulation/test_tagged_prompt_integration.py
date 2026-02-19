@@ -8,20 +8,20 @@ generation and payload context integration.
 import pytest
 from unittest.mock import MagicMock, patch
 
-from services.snipers.utils.prompt_articulation.models.payload_context import (
+from services.snipers.core.phases.articulation.models.payload_context import (
     AttackHistory,
     PayloadContext,
     TargetInfo,
 )
-from services.snipers.utils.prompt_articulation.models.tool_intelligence import (
+from services.snipers.core.phases.articulation.models.tool_intelligence import (
     ReconIntelligence,
     ToolParameter,
     ToolSignature,
 )
-from services.snipers.utils.prompt_articulation.extractors.recon_extractor import (
+from services.snipers.core.phases.articulation.extractors.recon_extractor import (
     ReconIntelligenceExtractor,
 )
-from services.snipers.utils.prompt_articulation.schemas.tagged_prompt_builder import (
+from services.snipers.core.phases.articulation.schemas.tagged_prompt_builder import (
     TaggedPromptBuilder,
 )
 

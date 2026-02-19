@@ -8,13 +8,13 @@ Dependencies: pytest, pyrit, suffix_converters
 
 import pytest
 
-from services.snipers.utils.converters.suffix_converters import (
+from services.snipers.core.converters.suffix_converters import (
     get_suffix_converters,
     SUFFIX_CONVERTER_METADATA,
     SUFFIX_CONVERTER_NAMES,
 )
-from services.snipers.utils.pyrit.pyrit_bridge import ConverterFactory
-from services.snipers.adaptive_attack.agents.chain_discovery_agent import (
+from services.snipers.infrastructure.pyrit.pyrit_bridge import ConverterFactory
+from services.snipers.graphs.adaptive_attack.agents.chain_discovery_agent import (
     AVAILABLE_CONVERTERS,
 )
 
@@ -148,7 +148,7 @@ class TestChainWithSuffixConverter:
     @pytest.mark.asyncio
     async def test_chain_base64_then_suffix(self):
         """Test chain with base64 followed by suffix."""
-        from services.snipers.utils.pyrit.pyrit_bridge import PayloadTransformer
+        from services.snipers.infrastructure.pyrit.pyrit_bridge import PayloadTransformer
 
         factory = ConverterFactory()
         transformer = PayloadTransformer(factory)
@@ -167,7 +167,7 @@ class TestChainWithSuffixConverter:
     @pytest.mark.asyncio
     async def test_chain_homoglyph_then_suffix(self):
         """Test chain with homoglyph followed by suffix."""
-        from services.snipers.utils.pyrit.pyrit_bridge import PayloadTransformer
+        from services.snipers.infrastructure.pyrit.pyrit_bridge import PayloadTransformer
 
         factory = ConverterFactory()
         transformer = PayloadTransformer(factory)

@@ -8,12 +8,12 @@ tool exploitation using reconnaissance intelligence.
 import pytest
 import xml.etree.ElementTree as ET
 
-from services.snipers.utils.prompt_articulation.models.tool_intelligence import (
+from services.snipers.core.phases.articulation.models.tool_intelligence import (
     ReconIntelligence,
     ToolParameter,
     ToolSignature,
 )
-from services.snipers.utils.prompt_articulation.schemas.tagged_prompt_builder import (
+from services.snipers.core.phases.articulation.schemas.tagged_prompt_builder import (
     TaggedPromptBuilder,
 )
 

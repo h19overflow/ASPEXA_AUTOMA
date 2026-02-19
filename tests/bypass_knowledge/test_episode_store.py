@@ -8,13 +8,13 @@ and embedder for isolated unit testing.
 import pytest
 from unittest.mock import MagicMock, patch
 
-from services.snipers.bypass_knowledge.models import (
+from services.snipers.knowledge.models import (
     BypassEpisode,
     DefenseFingerprint,
     EpisodeStoreConfig,
     SimilarEpisode,
 )
-from services.snipers.bypass_knowledge.storage.episode_store import (
+from services.snipers.knowledge.storage.episode_store import (
     EpisodeStore,
     get_episode_store,
 )
@@ -102,8 +102,8 @@ class TestSimilarEpisode:
 class TestEpisodeStore:
     """Tests for EpisodeStore class."""
 
-    @patch("services.snipers.bypass_knowledge.storage.episode_store.boto3")
-    @patch("services.snipers.bypass_knowledge.storage.episode_store.get_embedder")
+    @patch("services.snipers.knowledge.storage.episode_store.boto3")
+    @patch("services.snipers.knowledge.storage.episode_store.get_embedder")
     def test_store_episode(self, mock_get_embedder, mock_boto3, config, sample_episode):
         """store_episode embeds and stores with correct parameters."""
         mock_embedder = MagicMock()
@@ -125,8 +125,8 @@ class TestEpisodeStore:
         assert len(call_args.kwargs["vectors"]) == 1
         assert call_args.kwargs["vectors"][0]["key"] == "test-123"
 
-    @patch("services.snipers.bypass_knowledge.storage.episode_store.boto3")
-    @patch("services.snipers.bypass_knowledge.storage.episode_store.get_embedder")
+    @patch("services.snipers.knowledge.storage.episode_store.boto3")
+    @patch("services.snipers.knowledge.storage.episode_store.get_embedder")
     def test_store_batch(self, mock_get_embedder, mock_boto3, config, sample_episode):
         """store_batch handles multiple episodes."""
         mock_embedder = MagicMock()
@@ -147,8 +147,8 @@ class TestEpisodeStore:
         assert result == ["test-123", "test-456"]
         mock_client.put_vectors.assert_called_once()
 
-    @patch("services.snipers.bypass_knowledge.storage.episode_store.boto3")
-    @patch("services.snipers.bypass_knowledge.storage.episode_store.get_embedder")
+    @patch("services.snipers.knowledge.storage.episode_store.boto3")
+    @patch("services.snipers.knowledge.storage.episode_store.get_embedder")
     def test_query_similar(self, mock_get_embedder, mock_boto3, config, sample_episode):
         """query_similar returns episodes with similarity scores."""
         mock_embedder = MagicMock()
@@ -178,8 +178,8 @@ class TestEpisodeStore:
         assert results[0].similarity == pytest.approx(0.9, rel=0.01)
         assert results[0].episode.episode_id == "test-123"
 
-    @patch("services.snipers.bypass_knowledge.storage.episode_store.boto3")
-    @patch("services.snipers.bypass_knowledge.storage.episode_store.get_embedder")
+    @patch("services.snipers.knowledge.storage.episode_store.boto3")
+    @patch("services.snipers.knowledge.storage.episode_store.get_embedder")
     def test_query_by_text(self, mock_get_embedder, mock_boto3, config, sample_episode):
         """query_by_text uses query embedder."""
         mock_embedder = MagicMock()
@@ -204,8 +204,8 @@ class TestEpisodeStore:
         assert len(results) == 1
         mock_embedder.embed_query.assert_called_with("encoding failed, need bypass")
 
-    @patch("services.snipers.bypass_knowledge.storage.episode_store.boto3")
-    @patch("services.snipers.bypass_knowledge.storage.episode_store.get_embedder")
+    @patch("services.snipers.knowledge.storage.episode_store.boto3")
+    @patch("services.snipers.knowledge.storage.episode_store.get_embedder")
     def test_min_similarity_filter(
         self, mock_get_embedder, mock_boto3, config, sample_episode
     ):
@@ -241,8 +241,8 @@ class TestEpisodeStore:
         assert len(results) == 1
         assert results[0].similarity == pytest.approx(0.9, rel=0.01)
 
-    @patch("services.snipers.bypass_knowledge.storage.episode_store.boto3")
-    @patch("services.snipers.bypass_knowledge.storage.episode_store.get_embedder")
+    @patch("services.snipers.knowledge.storage.episode_store.boto3")
+    @patch("services.snipers.knowledge.storage.episode_store.get_embedder")
     def test_get_episode(self, mock_get_embedder, mock_boto3, config, sample_episode):
         """get_episode retrieves by ID."""
         mock_embedder = MagicMock()
@@ -261,8 +261,8 @@ class TestEpisodeStore:
         assert result.episode_id == "test-123"
         mock_client.get_vectors.assert_called_once()
 
-    @patch("services.snipers.bypass_knowledge.storage.episode_store.boto3")
-    @patch("services.snipers.bypass_knowledge.storage.episode_store.get_embedder")
+    @patch("services.snipers.knowledge.storage.episode_store.boto3")
+    @patch("services.snipers.knowledge.storage.episode_store.get_embedder")
     def test_get_episode_not_found(self, mock_get_embedder, mock_boto3, config):
         """get_episode returns None for missing ID."""
         mock_embedder = MagicMock()
@@ -277,8 +277,8 @@ class TestEpisodeStore:
 
         assert result is None
 
-    @patch("services.snipers.bypass_knowledge.storage.episode_store.boto3")
-    @patch("services.snipers.bypass_knowledge.storage.episode_store.get_embedder")
+    @patch("services.snipers.knowledge.storage.episode_store.boto3")
+    @patch("services.snipers.knowledge.storage.episode_store.get_embedder")
     def test_delete_episode(self, mock_get_embedder, mock_boto3, config):
         """delete_episode calls delete_vectors."""
         mock_embedder = MagicMock()
@@ -301,22 +301,22 @@ class TestEpisodeStore:
 class TestGetEpisodeStore:
     """Tests for singleton factory."""
 
-    @patch("services.snipers.bypass_knowledge.storage.episode_store.boto3")
-    @patch("services.snipers.bypass_knowledge.storage.episode_store.get_embedder")
+    @patch("services.snipers.knowledge.storage.episode_store.boto3")
+    @patch("services.snipers.knowledge.storage.episode_store.get_embedder")
     def test_requires_config_on_first_call(self, mock_get_embedder, mock_boto3):
         """First call requires config."""
-        import services.snipers.bypass_knowledge.storage.episode_store as module
+        import services.snipers.knowledge.storage.episode_store as module
 
         module._store = None
 
         with pytest.raises(ValueError, match="Config required"):
             get_episode_store()
 
-    @patch("services.snipers.bypass_knowledge.storage.episode_store.boto3")
-    @patch("services.snipers.bypass_knowledge.storage.episode_store.get_embedder")
+    @patch("services.snipers.knowledge.storage.episode_store.boto3")
+    @patch("services.snipers.knowledge.storage.episode_store.get_embedder")
     def test_singleton_returns_same_instance(self, mock_get_embedder, mock_boto3):
         """get_episode_store returns the same instance."""
-        import services.snipers.bypass_knowledge.storage.episode_store as module
+        import services.snipers.knowledge.storage.episode_store as module
 
         module._store = None
 

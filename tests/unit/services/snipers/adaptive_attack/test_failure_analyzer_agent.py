@@ -17,17 +17,17 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from pydantic import ValidationError
 
-from services.snipers.adaptive_attack.models.failure_analysis import (
+from services.snipers.graphs.adaptive_attack.models.failure_analysis import (
     FailureAnalysisDecision,
     DefenseSignal,
 )
-from services.snipers.adaptive_attack.models.chain_discovery import (
+from services.snipers.graphs.adaptive_attack.models.chain_discovery import (
     ChainDiscoveryContext,
 )
-from services.snipers.adaptive_attack.prompts.failure_analysis_prompt import (
+from services.snipers.graphs.adaptive_attack.prompts.failure_analysis_prompt import (
     build_failure_analysis_user_prompt,
 )
-from services.snipers.adaptive_attack.agents.failure_analyzer_agent import (
+from services.snipers.graphs.adaptive_attack.agents.failure_analyzer_agent import (
     FailureAnalyzerAgent,
 )
 

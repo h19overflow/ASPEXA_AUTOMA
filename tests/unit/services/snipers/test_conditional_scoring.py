@@ -18,12 +18,12 @@ Tests cover:
 
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
-from services.snipers.utils.scoring.models import (
+from services.snipers.core.scoring.models import (
     ScoreResult,
     CompositeScore,
     SeverityLevel,
 )
-from services.snipers.utils.nodes.composite_scoring_node import CompositeScoringNodePhase34
+from services.snipers.core.scoring.composite_scoring_node import CompositeScoringNodePhase34
 
 
 class TestCompositeScoreRequiredScorers:

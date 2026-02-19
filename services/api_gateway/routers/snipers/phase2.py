@@ -10,7 +10,7 @@ import logging
 from fastapi import APIRouter, HTTPException
 
 from services.api_gateway.schemas.snipers import AvailableConvertersResponse
-from services.snipers.attack_phases import Conversion
+from services.snipers.core.phases import Conversion
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/phase2", tags=["snipers-phase2"])

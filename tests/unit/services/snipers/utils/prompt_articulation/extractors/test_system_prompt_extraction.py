@@ -10,7 +10,7 @@ System Role: Unit test layer
 
 import pytest
 
-from services.snipers.utils.prompt_articulation.extractors.recon_extractor import (
+from services.snipers.core.phases.articulation.extractors.recon_extractor import (
     ReconIntelligenceExtractor,
 )
 

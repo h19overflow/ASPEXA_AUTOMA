@@ -11,27 +11,27 @@ import pytest
 from unittest.mock import Mock, AsyncMock, patch, MagicMock
 from typing import Any
 
-from services.snipers.adaptive_attack.agents.chain_discovery_agent import (
+from services.snipers.graphs.adaptive_attack.agents.chain_discovery_agent import (
     ChainDiscoveryAgent,
 )
-from services.snipers.adaptive_attack.agents.strategy_generator import (
+from services.snipers.graphs.adaptive_attack.agents.strategy_generator import (
     StrategyGenerator,
 )
-from services.snipers.adaptive_attack.models.chain_discovery import (
+from services.snipers.graphs.adaptive_attack.models.chain_discovery import (
     ChainDiscoveryContext,
     ChainSelectionResult,
 )
-from services.snipers.utils.prompt_articulation.components.payload_generator import (
+from services.snipers.core.phases.articulation.components.payload_generator import (
     PayloadGenerator,
 )
-from services.snipers.utils.prompt_articulation.models.payload_context import (
+from services.snipers.core.phases.articulation.models.payload_context import (
     PayloadContext,
 )
-from services.snipers.adaptive_attack.nodes.adapt import adapt_node
-from services.snipers.adaptive_attack.nodes.articulate import articulate_node
-from services.snipers.adaptive_attack.nodes.convert import convert_node
-from services.snipers.adaptive_attack.nodes.execute import execute_node
-from services.snipers.adaptive_attack.state import AdaptiveAttackState
+from services.snipers.graphs.adaptive_attack.nodes.adapt import adapt_node
+from services.snipers.graphs.adaptive_attack.nodes.articulate import articulate_node
+from services.snipers.graphs.adaptive_attack.nodes.convert import convert_node
+from services.snipers.graphs.adaptive_attack.nodes.execute import execute_node
+from services.snipers.graphs.adaptive_attack.state import AdaptiveAttackState
 
 
 class TestBreak1_ChainDiscoveryRootCauseInclusion:
@@ -54,7 +54,7 @@ class TestBreak1_ChainDiscoveryRootCauseInclusion:
 
     async def test_chain_discovery_prompt_builder_includes_root_cause(self):
         """Prompt builder should include failure_root_cause in user prompt"""
-        from services.snipers.adaptive_attack.prompts.chain_discovery_prompt import (
+        from services.snipers.graphs.adaptive_attack.prompts.chain_discovery_prompt import (
             build_chain_discovery_user_prompt,
         )
 
@@ -108,7 +108,7 @@ class TestBreak2_StrategyGeneratorReceivesChainContext:
     async def test_strategy_generator_signature_has_chain_discovery_context(self):
         """StrategyGenerator.generate() should accept chain_discovery_context parameter"""
         import inspect
-        from services.snipers.adaptive_attack.components.strategy_generator import (
+        from services.snipers.graphs.adaptive_attack.components.strategy_generator import (
             StrategyGenerator,
         )
 
@@ -323,7 +323,7 @@ class TestBreak6_FramingSystemDefaults:
 
     def test_state_has_recon_custom_framing_field(self):
         """AdaptiveAttackState should have recon_custom_framing field"""
-        from services.snipers.adaptive_attack.state import AdaptiveAttackState
+        from services.snipers.graphs.adaptive_attack.state import AdaptiveAttackState
 
         # Create an instance
         state = AdaptiveAttackState(
@@ -492,7 +492,7 @@ class TestPromptInclusionOfRootCause:
 
     def test_chain_discovery_prompt_includes_root_cause_section(self):
         """Chain discovery prompt should have explicit root cause section"""
-        from services.snipers.adaptive_attack.prompts.chain_discovery_prompt import (
+        from services.snipers.graphs.adaptive_attack.prompts.chain_discovery_prompt import (
             build_chain_discovery_user_prompt,
         )
 
@@ -519,7 +519,7 @@ class TestPromptInclusionOfRootCause:
 
     def test_strategy_generator_prompt_includes_root_cause(self):
         """Strategy generator prompt should reference root cause"""
-        from services.snipers.adaptive_attack.prompts.adaptation_prompt import (
+        from services.snipers.graphs.adaptive_attack.prompts.adaptation_prompt import (
             build_adaptation_user_prompt,
         )
 

@@ -20,12 +20,12 @@ from services.api_gateway.schemas.snipers import (
 )
 from services.api_gateway.utils import serialize_event
 from services.snipers.entrypoint import execute_adaptive_attack_streaming
-from services.snipers.adaptive_attack.graph import resume_adaptive_attack_streaming
-from services.snipers.adaptive_attack.components.pause_signal import (
+from services.snipers.graphs.adaptive_attack.graph import resume_adaptive_attack_streaming
+from services.snipers.graphs.adaptive_attack.components.pause_signal import (
     request_pause,
     is_pause_requested,
 )
-from services.snipers.utils.persistence.s3_adapter import (
+from services.snipers.infrastructure.persistence.s3_adapter import (
     load_checkpoint,
     get_latest_checkpoint,
     list_campaign_checkpoints,

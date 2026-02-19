@@ -8,20 +8,20 @@ import pytest
 import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from services.snipers.utils.prompt_articulation.components import (
+from services.snipers.core.phases.articulation.components import (
     EffectivenessTracker,
     FormatControl,
     FormatControlType,
     FramingLibrary,
     PayloadGenerator,
 )
-from services.snipers.utils.prompt_articulation.models import (
+from services.snipers.core.phases.articulation.models import (
     AttackHistory,
     FramingType,
     PayloadContext,
     TargetInfo,
 )
-from services.snipers.utils.prompt_articulation.config import DEFAULT_STRATEGIES
+from services.snipers.core.phases.articulation.config import DEFAULT_STRATEGIES
 
 
 class TestFormatControl:
@@ -273,7 +273,7 @@ class TestGeneratedPayloadResponse:
 
     def test_generated_payload_response_creation(self):
         """Test creating GeneratedPayloadResponse with ToolStrategy output."""
-        from services.snipers.utils.prompt_articulation.components import (
+        from services.snipers.core.phases.articulation.components import (
             GeneratedPayloadResponse,
         )
 
@@ -289,7 +289,7 @@ class TestGeneratedPayloadResponse:
 
     def test_generated_payload_response_validation(self):
         """Test that GeneratedPayloadResponse validates required fields."""
-        from services.snipers.utils.prompt_articulation.components import (
+        from services.snipers.core.phases.articulation.components import (
             GeneratedPayloadResponse,
         )
         from pydantic import ValidationError
@@ -331,7 +331,7 @@ class TestPayloadGenerator:
 
     def test_articulated_payload_model(self):
         """Test ArticulatedPayload model creation."""
-        from services.snipers.utils.prompt_articulation.components import (
+        from services.snipers.core.phases.articulation.components import (
             ArticulatedPayload,
         )
 
@@ -350,7 +350,7 @@ class TestPayloadGenerator:
     @pytest.mark.asyncio
     async def test_payload_generator_extract_payload_from_structured_response(self):
         """Test extraction of payload from ToolStrategy structured response."""
-        from services.snipers.utils.prompt_articulation.components import (
+        from services.snipers.core.phases.articulation.components import (
             GeneratedPayloadResponse,
         )
 

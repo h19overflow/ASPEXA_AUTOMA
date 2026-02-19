@@ -15,10 +15,10 @@ FailureAnalyzer bridges evaluate_node output and chain discovery.
 import pytest
 from unittest.mock import MagicMock
 
-from services.snipers.adaptive_attack.components.failure_analyzer import (
+from services.snipers.graphs.adaptive_attack.components.failure_analyzer import (
     FailureAnalyzer,
 )
-from services.snipers.adaptive_attack.models.chain_discovery import (
+from services.snipers.graphs.adaptive_attack.models.chain_discovery import (
     ChainDiscoveryContext,
 )
 

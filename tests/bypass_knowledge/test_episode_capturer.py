@@ -8,13 +8,13 @@ state extraction, LLM reasoning, and storage integration.
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from services.snipers.bypass_knowledge.capture.episode_capturer import (
+from services.snipers.knowledge.capture.episode_capturer import (
     CaptureConfig,
     EpisodeCapturer,
     ReasoningOutput,
 )
-from services.snipers.bypass_knowledge.models.episode import FailureDepth
-from services.snipers.bypass_knowledge.storage import EpisodeStoreConfig
+from services.snipers.knowledge.models.episode import FailureDepth
+from services.snipers.knowledge.storage import EpisodeStoreConfig
 
 
 @pytest.fixture
@@ -71,7 +71,7 @@ class TestEpisodeCapturer:
         """Verify capture triggers at or above threshold."""
         mock_llm = MagicMock()
         with patch(
-            "services.snipers.bypass_knowledge.capture.episode_capturer.get_episode_store"
+            "services.snipers.knowledge.capture.episode_capturer.get_episode_store"
         ):
             capturer = EpisodeCapturer(config, mock_llm)
             assert capturer.should_capture(0.95) is True
@@ -97,7 +97,7 @@ class TestEpisodeCapturer:
         mock_store = MagicMock()
 
         with patch(
-            "services.snipers.bypass_knowledge.capture.episode_capturer.get_episode_store"
+            "services.snipers.knowledge.capture.episode_capturer.get_episode_store"
         ) as mock_get_store:
             mock_get_store.return_value = mock_store
 
@@ -131,7 +131,7 @@ class TestEpisodeCapturer:
         sample_state["jailbreak_score"] = 0.5
 
         with patch(
-            "services.snipers.bypass_knowledge.capture.episode_capturer.get_episode_store"
+            "services.snipers.knowledge.capture.episode_capturer.get_episode_store"
         ):
             capturer = EpisodeCapturer(config, mock_llm)
             episode = await capturer.capture_from_state(
@@ -152,7 +152,7 @@ class TestEpisodeCapturer:
         }
 
         with patch(
-            "services.snipers.bypass_knowledge.capture.episode_capturer.get_episode_store"
+            "services.snipers.knowledge.capture.episode_capturer.get_episode_store"
         ):
             capturer = EpisodeCapturer(config, mock_llm)
             failed = capturer._extract_failed_attempts(state)
@@ -174,7 +174,7 @@ class TestEpisodeCapturer:
         }
 
         with patch(
-            "services.snipers.bypass_knowledge.capture.episode_capturer.get_episode_store"
+            "services.snipers.knowledge.capture.episode_capturer.get_episode_store"
         ):
             capturer = EpisodeCapturer(config, mock_llm)
             depths = capturer._map_failure_depths(failed_attempts)
@@ -195,7 +195,7 @@ class TestEpisodeCapturer:
         }
 
         with patch(
-            "services.snipers.bypass_knowledge.capture.episode_capturer.get_episode_store"
+            "services.snipers.knowledge.capture.episode_capturer.get_episode_store"
         ):
             capturer = EpisodeCapturer(config, mock_llm)
             hypotheses = capturer._extract_hypotheses(state)
@@ -221,7 +221,7 @@ class TestEpisodeCapturer:
         }
 
         with patch(
-            "services.snipers.bypass_knowledge.capture.episode_capturer.get_episode_store"
+            "services.snipers.knowledge.capture.episode_capturer.get_episode_store"
         ):
             capturer = EpisodeCapturer(config, mock_llm)
             probes = capturer._extract_probes(state)
@@ -255,7 +255,7 @@ class TestEpisodeCapturer:
         }
 
         with patch(
-            "services.snipers.bypass_knowledge.capture.episode_capturer.get_episode_store"
+            "services.snipers.knowledge.capture.episode_capturer.get_episode_store"
         ) as mock_get_store:
             mock_get_store.return_value = mock_store
 

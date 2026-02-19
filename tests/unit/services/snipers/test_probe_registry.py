@@ -33,7 +33,7 @@ mock_pyrit.common.IN_MEMORY = "in_memory"
 mock_pyrit.common.DUCK_DB = "duck_db"
 mock_pyrit.memory.CentralMemory = MagicMock()
 
-from services.snipers.utils.pyrit.probe_registry import (
+from services.snipers.infrastructure.pyrit.probe_registry import (
     PROBE_CATEGORIES,
     PROBE_PAYLOADS,
     AVAILABLE_CONVERTERS,

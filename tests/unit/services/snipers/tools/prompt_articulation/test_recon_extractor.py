@@ -7,10 +7,10 @@ into structured ToolSignature models.
 
 import pytest
 
-from services.snipers.utils.prompt_articulation.extractors.recon_extractor import (
+from services.snipers.core.phases.articulation.extractors.recon_extractor import (
     ReconIntelligenceExtractor,
 )
-from services.snipers.utils.prompt_articulation.models.tool_intelligence import (
+from services.snipers.core.phases.articulation.models.tool_intelligence import (
     ReconIntelligence,
     ToolParameter,
     ToolSignature,

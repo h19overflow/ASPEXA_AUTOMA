@@ -8,12 +8,12 @@ XML generation for structured prompt creation.
 import pytest
 import xml.etree.ElementTree as ET
 
-from services.snipers.utils.prompt_articulation.models.tool_intelligence import (
+from services.snipers.core.phases.articulation.models.tool_intelligence import (
     ReconIntelligence,
     ToolParameter,
     ToolSignature,
 )
-from services.snipers.utils.prompt_articulation.schemas.prompt_tags import (
+from services.snipers.core.phases.articulation.schemas.prompt_tags import (
     IntelligenceTag,
     OutputFormatTag,
     TaskTag,

@@ -8,8 +8,8 @@ functionality with mocked embedding clients.
 import pytest
 from unittest.mock import MagicMock, patch
 
-from services.snipers.bypass_knowledge.models import DefenseFingerprint
-from services.snipers.bypass_knowledge.embeddings.google_embedder import (
+from services.snipers.knowledge.models import DefenseFingerprint
+from services.snipers.knowledge.embeddings.google_embedder import (
     GoogleEmbedder,
     get_embedder,
 )
@@ -67,7 +67,7 @@ class TestGoogleEmbedder:
     """Tests for GoogleEmbedder class."""
 
     @patch(
-        "services.snipers.bypass_knowledge.embeddings.google_embedder.GoogleGenerativeAIEmbeddings"
+        "services.snipers.knowledge.embeddings.google_embedder.GoogleGenerativeAIEmbeddings"
     )
     def test_initializes_two_embedders(self, mock_embeddings_class):
         """Creates both document and query embedders."""
@@ -80,7 +80,7 @@ class TestGoogleEmbedder:
         assert calls[1].kwargs["task_type"] == "RETRIEVAL_QUERY"
 
     @patch(
-        "services.snipers.bypass_knowledge.embeddings.google_embedder.GoogleGenerativeAIEmbeddings"
+        "services.snipers.knowledge.embeddings.google_embedder.GoogleGenerativeAIEmbeddings"
     )
     def test_embed_fingerprint(self, mock_embeddings_class):
         """embed_fingerprint uses document embedder."""
@@ -99,7 +99,7 @@ class TestGoogleEmbedder:
         mock_query_embedder.embed_query.assert_not_called()
 
     @patch(
-        "services.snipers.bypass_knowledge.embeddings.google_embedder.GoogleGenerativeAIEmbeddings"
+        "services.snipers.knowledge.embeddings.google_embedder.GoogleGenerativeAIEmbeddings"
     )
     def test_embed_query(self, mock_embeddings_class):
         """embed_query uses query embedder."""
@@ -119,7 +119,7 @@ class TestGoogleEmbedder:
         mock_doc_embedder.embed_query.assert_not_called()
 
     @patch(
-        "services.snipers.bypass_knowledge.embeddings.google_embedder.GoogleGenerativeAIEmbeddings"
+        "services.snipers.knowledge.embeddings.google_embedder.GoogleGenerativeAIEmbeddings"
     )
     def test_embed_batch(self, mock_embeddings_class):
         """embed_batch uses document embedder's batch method."""
@@ -144,7 +144,7 @@ class TestGoogleEmbedder:
         mock_doc_embedder.embed_documents.assert_called_once()
 
     @patch(
-        "services.snipers.bypass_knowledge.embeddings.google_embedder.GoogleGenerativeAIEmbeddings"
+        "services.snipers.knowledge.embeddings.google_embedder.GoogleGenerativeAIEmbeddings"
     )
     def test_model_constant(self, mock_embeddings_class):
         """Model constant is set correctly."""
@@ -156,11 +156,11 @@ class TestGetEmbedder:
     """Tests for singleton factory."""
 
     @patch(
-        "services.snipers.bypass_knowledge.embeddings.google_embedder.GoogleGenerativeAIEmbeddings"
+        "services.snipers.knowledge.embeddings.google_embedder.GoogleGenerativeAIEmbeddings"
     )
     def test_singleton_returns_same_instance(self, mock_embeddings_class):
         """get_embedder returns the same instance."""
-        import services.snipers.bypass_knowledge.embeddings.google_embedder as module
+        import services.snipers.knowledge.embeddings.google_embedder as module
 
         module._embedder = None
 
@@ -170,11 +170,11 @@ class TestGetEmbedder:
         assert embedder1 is embedder2
 
     @patch(
-        "services.snipers.bypass_knowledge.embeddings.google_embedder.GoogleGenerativeAIEmbeddings"
+        "services.snipers.knowledge.embeddings.google_embedder.GoogleGenerativeAIEmbeddings"
     )
     def test_singleton_creates_once(self, mock_embeddings_class):
         """GoogleEmbedder is only instantiated once."""
-        import services.snipers.bypass_knowledge.embeddings.google_embedder as module
+        import services.snipers.knowledge.embeddings.google_embedder as module
 
         module._embedder = None
 

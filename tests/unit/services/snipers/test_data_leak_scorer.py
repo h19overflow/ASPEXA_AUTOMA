@@ -14,7 +14,7 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from pyrit.score.self_ask_true_false_scorer import Score
 
-from services.snipers.utils.scoring.data_leak_scorer import DataLeakScorer, PATTERNS
+from services.snipers.core.scoring.data_leak_scorer import DataLeakScorer, PATTERNS
 
 
 class TestDataLeakScorerPatternDetection:

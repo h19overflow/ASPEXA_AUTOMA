@@ -8,7 +8,7 @@ that represent discovered tool signatures and business rules.
 import pytest
 from pydantic import ValidationError
 
-from services.snipers.utils.prompt_articulation.models.tool_intelligence import (
+from services.snipers.core.phases.articulation.models.tool_intelligence import (
     ReconIntelligence,
     ToolParameter,
     ToolSignature,
@@ -219,7 +219,7 @@ class TestReconIntelligence:
 
         intel = ReconIntelligence(
             tools=tools,
-            llm_model="gemini-2.5-flash",
+            llm_model="gemini-3-flash-preview",
             database_type="ChromaDB",
             content_filters=[
                 "rate_limiting_100_per_hour",
@@ -237,7 +237,7 @@ class TestReconIntelligence:
         assert len(intel.tools[0].parameters) == 2
         assert len(intel.tools[0].business_rules) == 2
         assert len(intel.content_filters) == 3
-        assert intel.llm_model == "gemini-2.5-flash"
+        assert intel.llm_model == "gemini-3-flash-preview"
         assert intel.database_type == "ChromaDB"
 
     def test_recon_intelligence_empty_content_filters(self):

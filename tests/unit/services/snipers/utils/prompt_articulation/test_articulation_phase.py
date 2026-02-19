@@ -11,8 +11,8 @@ System Role: Unit test layer
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from services.snipers.utils.prompt_articulation.articulation_phase import ArticulationPhase
-from services.snipers.utils.prompt_articulation.models import (
+from services.snipers.core.phases.articulation.articulation_phase import ArticulationPhase
+from services.snipers.core.phases.articulation.models import (
     PayloadContext,
     TargetInfo,
     AttackHistory,

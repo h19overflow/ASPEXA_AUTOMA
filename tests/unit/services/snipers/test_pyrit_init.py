@@ -93,7 +93,7 @@ class TestGetLLMProvider:
 
     def test_provider_returns_gemini_when_google_key_set(self):
         """Test _get_llm_provider returns 'gemini' when GOOGLE_API_KEY is set."""
-        from services.snipers.utils.pyrit.pyrit_init import _get_llm_provider
+        from services.snipers.infrastructure.pyrit.pyrit_init import _get_llm_provider
 
         with patch.dict(os.environ, {"GOOGLE_API_KEY": "test-key"}, clear=False):
             result = _get_llm_provider()
@@ -101,7 +101,7 @@ class TestGetLLMProvider:
 
     def test_provider_returns_openai_when_openai_key_set(self):
         """Test _get_llm_provider returns 'openai' when OPENAI_API_KEY is set."""
-        from services.snipers.utils.pyrit.pyrit_init import _get_llm_provider
+        from services.snipers.infrastructure.pyrit.pyrit_init import _get_llm_provider
 
         env = {"OPENAI_API_KEY": "test-key"}
         # Remove GOOGLE_API_KEY if present
@@ -112,7 +112,7 @@ class TestGetLLMProvider:
 
     def test_provider_prefers_gemini_over_openai(self):
         """Test _get_llm_provider prefers Gemini when both keys set."""
-        from services.snipers.utils.pyrit.pyrit_init import _get_llm_provider
+        from services.snipers.infrastructure.pyrit.pyrit_init import _get_llm_provider
 
         with patch.dict(os.environ, {
             "GOOGLE_API_KEY": "google-key",
@@ -123,7 +123,7 @@ class TestGetLLMProvider:
 
     def test_provider_raises_when_no_credentials(self):
         """Test _get_llm_provider raises ValueError when no credentials set."""
-        from services.snipers.utils.pyrit.pyrit_init import _get_llm_provider
+        from services.snipers.infrastructure.pyrit.pyrit_init import _get_llm_provider
 
         with patch.dict(os.environ, {
             "GOOGLE_API_KEY": "",
@@ -139,7 +139,7 @@ class TestGetAdversarialChat:
 
     def test_get_adversarial_chat_returns_target(self):
         """Test get_adversarial_chat returns a PromptChatTarget instance."""
-        from services.snipers.utils.pyrit.pyrit_init import get_adversarial_chat
+        from services.snipers.infrastructure.pyrit.pyrit_init import get_adversarial_chat
 
         # Mock GeminiChatTarget where it's imported in pyrit_init
         mock_gemini_class = MagicMock()
@@ -154,7 +154,7 @@ class TestGetAdversarialChat:
 
     def test_get_adversarial_chat_uses_openai_when_provider_is_openai(self):
         """Test get_adversarial_chat returns OpenAIChatTarget when provider is OpenAI."""
-        from services.snipers.utils.pyrit.pyrit_init import get_adversarial_chat
+        from services.snipers.infrastructure.pyrit.pyrit_init import get_adversarial_chat
 
         with patch("services.snipers.core.pyrit_init._get_llm_provider", return_value="openai"):
             with patch("pyrit.prompt_target.OpenAIChatTarget") as mock_class:
@@ -168,7 +168,7 @@ class TestGetAdversarialChat:
 
     def test_get_adversarial_chat_creates_new_instance_each_time(self):
         """Test get_adversarial_chat creates new instance on each call."""
-        from services.snipers.utils.pyrit.pyrit_init import get_adversarial_chat
+        from services.snipers.infrastructure.pyrit.pyrit_init import get_adversarial_chat
 
         mock_gemini_class = MagicMock()
         instance1 = MagicMock(name="instance1")
@@ -190,7 +190,7 @@ class TestGetScoringTarget:
 
     def test_get_scoring_target_returns_target(self):
         """Test get_scoring_target returns a PromptChatTarget instance."""
-        from services.snipers.utils.pyrit.pyrit_init import get_scoring_target
+        from services.snipers.infrastructure.pyrit.pyrit_init import get_scoring_target
 
         mock_gemini_class = MagicMock()
         mock_instance = MagicMock()
@@ -204,7 +204,7 @@ class TestGetScoringTarget:
 
     def test_get_scoring_target_uses_openai_when_provider_is_openai(self):
         """Test get_scoring_target returns OpenAIChatTarget when provider is OpenAI."""
-        from services.snipers.utils.pyrit.pyrit_init import get_scoring_target
+        from services.snipers.infrastructure.pyrit.pyrit_init import get_scoring_target
 
         with patch("services.snipers.core.pyrit_init._get_llm_provider", return_value="openai"):
             with patch("pyrit.prompt_target.OpenAIChatTarget") as mock_class:
@@ -218,7 +218,7 @@ class TestGetScoringTarget:
 
     def test_get_scoring_target_creates_new_instance_each_time(self):
         """Test get_scoring_target creates new instance on each call."""
-        from services.snipers.utils.pyrit.pyrit_init import get_scoring_target
+        from services.snipers.infrastructure.pyrit.pyrit_init import get_scoring_target
 
         mock_gemini_class = MagicMock()
         instance1 = MagicMock(name="instance1")

@@ -8,7 +8,7 @@ and effectiveness tracking models.
 import pytest
 from datetime import datetime
 
-from services.snipers.utils.prompt_articulation.models import (
+from services.snipers.core.phases.articulation.models import (
     AttackHistory,
     EffectivenessRecord,
     EffectivenessSummary,

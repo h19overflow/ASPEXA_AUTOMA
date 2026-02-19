@@ -1,0 +1,34 @@
+"""
+Adaptive Attack Models.
+
+Purpose: Pydantic models for LLM-powered adaptation decisions
+Role: Define structured schemas for defense analysis and strategy generation
+"""
+
+from services.snipers.graphs.adaptive_attack.models.defense_analysis import DefenseAnalysis
+from services.snipers.graphs.adaptive_attack.models.adaptation_decision import (
+    CustomFraming,
+    AdaptationDecision,
+)
+from services.snipers.graphs.adaptive_attack.models.chain_discovery import (
+    ChainDiscoveryContext,
+    ChainDiscoveryDecision,
+    ChainSelectionResult,
+    ConverterChainCandidate,
+)
+from services.snipers.graphs.adaptive_attack.models.failure_analysis import (
+    DefenseSignal,
+    FailureAnalysisDecision,
+)
+
+__all__ = [
+    "DefenseAnalysis",
+    "CustomFraming",
+    "AdaptationDecision",
+    "ChainDiscoveryContext",
+    "ChainDiscoveryDecision",
+    "ChainSelectionResult",
+    "ConverterChainCandidate",
+    "DefenseSignal",
+    "FailureAnalysisDecision",
+]

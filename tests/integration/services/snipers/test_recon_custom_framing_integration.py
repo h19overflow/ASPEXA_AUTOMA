@@ -10,15 +10,15 @@ System Role: Integration test layer
 
 import pytest
 
-from services.snipers.utils.prompt_articulation.extractors.recon_extractor import (
+from services.snipers.core.phases.articulation.extractors.recon_extractor import (
     ReconIntelligenceExtractor,
 )
-from services.snipers.utils.prompt_articulation.models.payload_context import (
+from services.snipers.core.phases.articulation.models.payload_context import (
     PayloadContext,
     TargetInfo,
     AttackHistory,
 )
-from services.snipers.adaptive_attack.models.adaptation_decision import (
+from services.snipers.graphs.adaptive_attack.models.adaptation_decision import (
     ReconCustomFraming,
 )
 

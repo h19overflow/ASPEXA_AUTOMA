@@ -12,7 +12,7 @@ for the chain discovery workflow.
 import pytest
 from pydantic import ValidationError
 
-from services.snipers.adaptive_attack.models.chain_discovery import (
+from services.snipers.graphs.adaptive_attack.models.chain_discovery import (
     ChainDiscoveryContext,
     ConverterChainCandidate,
     ChainDiscoveryDecision,

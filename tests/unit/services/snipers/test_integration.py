@@ -197,7 +197,7 @@ class TestConverterFactoryIntegration:
 
     def test_converter_chain(self):
         """Test applying multiple converters in chain."""
-        from services.snipers.utils.pyrit.pyrit_bridge import (
+        from services.snipers.infrastructure.pyrit.pyrit_bridge import (
             ConverterFactory,
             PayloadTransformer
         )
@@ -231,7 +231,7 @@ class TestConverterFactoryIntegration:
 
     def test_unavailable_converter_handling(self):
         """Test handling of unavailable converters."""
-        from services.snipers.utils.pyrit.pyrit_bridge import (
+        from services.snipers.infrastructure.pyrit.pyrit_bridge import (
             ConverterFactory,
             PayloadTransformer
         )
