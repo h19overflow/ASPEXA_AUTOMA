@@ -1,6 +1,6 @@
-"""Cartographer agent structured output schema for reconnaissance turns."""
 from typing import List, Optional
 from pydantic import BaseModel, Field
+from libs.contracts.recon import Intelligence
 
 
 class Deduction(BaseModel):
@@ -37,4 +37,8 @@ class ReconTurn(BaseModel):
     stop_reason: Optional[str] = Field(
         default=None,
         description="Reason for stopping if should_continue is False"
+    )
+    intelligence: Optional[Intelligence] = Field(
+        default=None,
+        description="Final structured intelligence. ONLY provide this when should_continue is False."
     )

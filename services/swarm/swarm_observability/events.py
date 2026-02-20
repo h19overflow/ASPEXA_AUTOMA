@@ -5,14 +5,11 @@ Purpose: Define event types and models for SSE streaming from Swarm workflows
 Dependencies: pydantic, datetime, enum
 """
 
-import logging
 from datetime import UTC, datetime
 from enum import Enum
 from typing import Any, Dict, Optional
 
 from pydantic import BaseModel, Field
-
-logger = logging.getLogger(__name__)
 
 
 class EventType(str, Enum):

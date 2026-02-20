@@ -39,8 +39,8 @@ class ReconIntelligenceExtractor:
             return ReconIntelligence(raw_intelligence={})
 
         # Extract basic metadata
-        intelligence_section = recon_blueprint.get("intelligence", {})
-        infrastructure = intelligence_section.get("infrastructure", {})
+        intelligence_section = recon_blueprint.get("intelligence") or {}
+        infrastructure = intelligence_section.get("infrastructure") or {}
 
         # Extract LLM model
         llm_model = infrastructure.get("model_family") or infrastructure.get(
@@ -57,7 +57,7 @@ class ReconIntelligenceExtractor:
         if infrastructure.get("rate_limits"):
             content_filters.append(f"rate_limiting_{infrastructure['rate_limits']}")
 
-        auth_structure = intelligence_section.get("auth_structure", {})
+        auth_structure = intelligence_section.get("auth_structure") or {}
         if auth_structure.get("type"):
             content_filters.append(f"auth_{auth_structure['type'].lower()}")
 
@@ -292,8 +292,8 @@ class ReconIntelligenceExtractor:
                 rules.append(f"{rule_key} validation: {rule_value}")
 
         # Extract from authorization structure
-        auth_structure = intelligence.get("auth_structure", {})
-        vulnerabilities = auth_structure.get("vulnerabilities", [])
+        auth_structure = intelligence.get("auth_structure") or {}
+        vulnerabilities = auth_structure.get("vulnerabilities") or []
         if vulnerabilities:
             for vuln in vulnerabilities:
                 rules.append(f"Known vulnerability: {vuln}")

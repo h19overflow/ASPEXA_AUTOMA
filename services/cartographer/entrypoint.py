@@ -2,7 +2,7 @@
 
 Purpose: Exposes reconnaissance logic for direct invocation via API gateway
 Role: HTTP API handler - synchronous and streaming execution
-Dependencies: libs.contracts.recon, agent.graph, persistence, intelligence
+Dependencies: libs.contracts.recon, agent.graph, persistence
 """
 
 import logging
@@ -15,11 +15,6 @@ from services.cartographer.agent.graph import (
     run_reconnaissance_streaming,
 )
 from services.cartographer.persistence.s3_adapter import persist_recon_result
-from services.cartographer.intelligence import (
-    extract_infrastructure_intel,
-    extract_auth_structure,
-    extract_detected_tools,
-)
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +29,7 @@ async def execute_recon_streaming(request: ReconRequest) -> AsyncGenerator[Dict[
 
     observations = {}
     all_deductions = {}
+    agent_intelligence = None
 
     async for event in run_reconnaissance_streaming(
         audit_id=request.audit_id,
@@ -51,27 +47,29 @@ async def execute_recon_streaming(request: ReconRequest) -> AsyncGenerator[Dict[
         elif event.get("type") == "all_deductions":
             # Use comprehensive deductions from graph (replaces incremental collection)
             all_deductions = event.get("data", {})
+        elif event.get("type") == "intelligence":
+            # Final structured intelligence summary from the agent
+            agent_intelligence = event.get("data")
         elif event.get("type") == "deduction":
             # Stream deduction to frontend as it happens
             yield event
         else:
             yield event
 
-    system_prompts = list(dict.fromkeys(observations.get("system_prompt", [])))
-
-    # Combine all observations for comprehensive extraction
-    all_tool_obs = observations.get("tools", []) + observations.get("infrastructure", [])
-    all_auth_obs = observations.get("authorization", [])
+    # Fallback to empty context if agent didn't provide structured intelligence
+    if not agent_intelligence:
+        from libs.contracts.recon import InfrastructureIntel, AuthStructure
+        agent_intelligence = Intelligence(
+            system_prompt_leak=[],
+            detected_tools=[],
+            infrastructure=InfrastructureIntel(vector_db=None, model_family=None, rate_limits=None),
+            auth_structure=AuthStructure(type="Unknown", rules=[], vulnerabilities=[]),
+        )
 
     blueprint = ReconBlueprint(
         audit_id=request.audit_id,
         timestamp=datetime.utcnow().isoformat() + "Z",
-        intelligence=Intelligence(
-            system_prompt_leak=system_prompts,
-            detected_tools=extract_detected_tools(all_tool_obs),
-            infrastructure=extract_infrastructure_intel(all_tool_obs),
-            auth_structure=extract_auth_structure(all_auth_obs),
-        ),
+        intelligence=agent_intelligence,
         raw_observations=observations if observations else None,
         structured_deductions=all_deductions if all_deductions else None,
     )

@@ -13,7 +13,6 @@ from services.swarm.core.schema import ScanState
 from services.swarm.swarm_observability import (
     EventType,
     create_event,
-    get_cancellation_manager,
 )
 
 logger = logging.getLogger(__name__)
@@ -32,14 +31,6 @@ async def load_recon(
         state: Current scan state
         emit: Async callback that sends an SSE event dict to the client
     """
-    manager = get_cancellation_manager(state.audit_id)
-
-    await emit(create_event(
-        EventType.NODE_ENTER,
-        node="load_recon",
-        message="Starting recon validation",
-    ).model_dump())
-
     await emit(create_event(
         EventType.SCAN_STARTED,
         node="load_recon",
@@ -50,15 +41,6 @@ async def load_recon(
             "agent_types": state.agent_types,
         },
     ).model_dump())
-
-    if await manager.checkpoint():
-        await emit(create_event(
-            EventType.SCAN_CANCELLED,
-            node="load_recon",
-            message="Scan cancelled before recon validation",
-        ).model_dump())
-        state.cancelled = True
-        return
 
     if not state.recon_context:
         logger.warning(f"No recon context for audit {state.audit_id}")

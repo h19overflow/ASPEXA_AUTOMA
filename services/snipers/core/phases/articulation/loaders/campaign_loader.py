@@ -81,8 +81,8 @@ class CampaignLoader:
 
         intel = await load_campaign_intel(campaign_id)
 
-        recon_data = intel.get("recon", {})
-        garak_data = intel.get("garak", {})
+        recon_data = intel.get("recon") or {}
+        garak_data = intel.get("garak") or {}
 
         tools = self._extract_tools(recon_data)
         vulnerabilities = garak_data.get("vulnerabilities", [])
@@ -110,8 +110,8 @@ class CampaignLoader:
 
     def _extract_tools(self, recon_data: dict[str, Any]) -> list[str]:
         """Extract tool names from recon raw observations."""
-        raw_observations = recon_data.get("raw_observations", {})
-        tools_raw = raw_observations.get("tools", [])
+        raw_observations = recon_data.get("raw_observations") or {}
+        tools_raw = raw_observations.get("tools") or []
 
         tools = []
         for tool_str in tools_raw:

@@ -42,7 +42,7 @@ async def run_loop(
             for e in events:
                 yield e
         except Exception as e:
-            logger.error(f"Phase 1 failed: {e}")
+            logger.error(f"Phase 1 failed: {e}", exc_info=True)
             yield make_event("error", f"Phase 1 failed: {e}", phase="phase1",
                              iteration=iter_num, data={"error": str(e), "node": "articulate"})
             break

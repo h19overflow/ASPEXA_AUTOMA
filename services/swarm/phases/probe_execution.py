@@ -21,19 +21,18 @@ from services.swarm.core.schema import ScanState, ScanPlan, AgentResult
 from services.swarm.swarm_observability import (
     EventType,
     create_event,
-    get_cancellation_manager,
 )
 
 logger = logging.getLogger(__name__)
 
 
-async def execute_agent(
+async def run_probe_execution(
     state: ScanState,
     emit: Callable[[Dict[str, Any]], Awaitable[None]],
 ) -> None:
     """Run the scanner and append an AgentResult to state.agent_results.
 
-    Phase: EXECUTE_AGENT
+    Phase: PROBE_EXECUTION
     Modifies state.agent_results and state.cancelled in place.
 
     Args:
@@ -41,35 +40,25 @@ async def execute_agent(
         emit: Async callback that sends an SSE event dict to the client
     """
     agent_type = state.current_agent
-    manager = get_cancellation_manager(state.audit_id)
     base_progress = state.current_agent_index / max(state.total_agents, 1)
     agent_progress_share = 0.9 / state.total_agents
 
     await emit(create_event(
         EventType.NODE_ENTER,
-        node="execute_agent",
+        node="probe_execution",
         agent=agent_type,
-        message=f"Starting execution for {agent_type}",
+        message=f"Starting probe execution for category {agent_type}",
         progress=base_progress + 0.1 / state.total_agents,
     ).model_dump())
-
-    if await manager.checkpoint():
-        await emit(create_event(
-            EventType.SCAN_CANCELLED,
-            node="execute_agent",
-            agent=agent_type,
-            message="Scan cancelled before execution",
-        ).model_dump())
-        state.cancelled = True
-        return
 
     if not state.current_plan:
         logger.error(f"[{agent_type}] No plan available for execution")
         await emit(create_event(
             EventType.NODE_EXIT,
-            node="execute_agent",
+            node="probe_execution",
             agent=agent_type,
             message="No plan available for execution",
+            progress=base_progress + (1.0 / state.total_agents),
         ).model_dump())
         state.agent_results.append(AgentResult(
             agent_type=agent_type,
@@ -101,34 +90,6 @@ async def execute_agent(
         scanner = get_scanner()
 
         async for event in scanner.scan_with_streaming(plan):
-            if await manager.checkpoint():
-                manager.save_snapshot({
-                    "agent": agent_type,
-                    "completed_probes": current_probe_index,
-                    "results": probe_results_list,
-                    "total_pass": total_pass,
-                    "total_fail": total_fail,
-                })
-                await emit(create_event(
-                    EventType.SCAN_CANCELLED,
-                    node="execute_agent",
-                    agent=agent_type,
-                    message=f"Scan cancelled after {current_probe_index} probes",
-                    data={
-                        "completed_probes": current_probe_index,
-                        "partial_results": len(probe_results_list),
-                    },
-                ).model_dump())
-                state.cancelled = True
-                state.agent_results.append(AgentResult(
-                    agent_type=agent_type,
-                    status="cancelled",
-                    scan_id=scan_id,
-                    plan=state.current_plan,
-                    results=probe_results_list,
-                    vulnerabilities_found=total_fail,
-                ))
-                return
 
             if isinstance(event, ScanStartEvent):
                 logger.debug(f"[{agent_type}] Scanner initialized: {event.total_probes} probes")
@@ -203,7 +164,7 @@ async def execute_agent(
                 await emit(create_event(
                     EventType.AGENT_COMPLETE,
                     agent=agent_type,
-                    message=f"Agent {agent_type} complete",
+                    message=f"Scan complete for category {agent_type}",
                     data={
                         "total_probes": event.total_probes,
                         "total_results": event.total_results,
@@ -217,7 +178,7 @@ async def execute_agent(
             elif isinstance(event, ScanErrorEvent):
                 await emit(create_event(
                     EventType.SCAN_ERROR,
-                    node="execute_agent",
+                    node="probe_execution",
                     agent=agent_type,
                     message=event.error_message,
                     data={
@@ -244,9 +205,9 @@ async def execute_agent(
 
         await emit(create_event(
             EventType.NODE_EXIT,
-            node="execute_agent",
+            node="probe_execution",
             agent=agent_type,
-            message=f"Execution complete for {agent_type}",
+            message=f"Probe execution complete for {agent_type}",
             progress=base_progress + (1.0 / state.total_agents),
         ).model_dump())
 
@@ -264,7 +225,7 @@ async def execute_agent(
 
         await emit(create_event(
             EventType.SCAN_ERROR,
-            node="execute_agent",
+            node="probe_execution",
             agent=agent_type,
             message=f"Execution error: {e}",
             data={"phase": "execution", "error": str(e)},
@@ -272,9 +233,10 @@ async def execute_agent(
 
         await emit(create_event(
             EventType.NODE_EXIT,
-            node="execute_agent",
+            node="probe_execution",
             agent=agent_type,
             message=f"Execution failed for {agent_type}",
+            progress=base_progress + (1.0 / state.total_agents),
         ).model_dump())
 
         state.agent_results.append(AgentResult(

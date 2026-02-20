@@ -8,10 +8,6 @@ from libs.contracts.scanning import ScanJobDispatch, SafetyPolicy, ScanConfigCon
 from services.api_gateway.utils import serialize_event
 from services.swarm.entrypoint import (
     execute_scan_streaming,
-    cancel_scan,
-    pause_scan,
-    resume_scan,
-    get_scan_status,
 )
 from services.api_gateway.schemas import ScanStartRequest
 
@@ -86,60 +82,4 @@ async def start_scan_stream(request: ScanStartRequest) -> StreamingResponse:
     )
 
 
-@router.post("/{scan_id}/cancel")
-async def cancel_scan_endpoint(scan_id: str) -> Dict[str, Any]:
-    """Cancel a running scan.
 
-    The scan will be cancelled at the next checkpoint in the workflow.
-    Partial results may be saved if cancellation occurs mid-execution.
-
-    Args:
-        scan_id: The scan's audit_id (from SCAN_STARTED event)
-
-    Returns:
-        Status dict with scan_id and cancelled state
-    """
-    return cancel_scan(scan_id)
-
-
-@router.post("/{scan_id}/pause")
-async def pause_scan_endpoint(scan_id: str) -> Dict[str, Any]:
-    """Pause a running scan at the next checkpoint.
-
-    The scan will block at the next checkpoint until resumed or cancelled.
-
-    Args:
-        scan_id: The scan's audit_id (from SCAN_STARTED event)
-
-    Returns:
-        Status dict with scan_id and paused state
-    """
-    return pause_scan(scan_id)
-
-
-@router.post("/{scan_id}/resume")
-async def resume_scan_endpoint(scan_id: str) -> Dict[str, Any]:
-    """Resume a paused scan.
-
-    The scan will continue from where it was paused.
-
-    Args:
-        scan_id: The scan's audit_id (from SCAN_STARTED event)
-
-    Returns:
-        Status dict with scan_id and resumed state
-    """
-    return resume_scan(scan_id)
-
-
-@router.get("/{scan_id}/status")
-async def get_scan_status_endpoint(scan_id: str) -> Dict[str, Any]:
-    """Get the current status of a scan.
-
-    Args:
-        scan_id: The scan's audit_id (from SCAN_STARTED event)
-
-    Returns:
-        Status dict with scan_id, cancelled, paused, and found states
-    """
-    return get_scan_status(scan_id)

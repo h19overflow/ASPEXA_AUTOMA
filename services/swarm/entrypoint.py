@@ -4,10 +4,9 @@ Purpose: Orchestrate sequential scan phases with async streaming
 Dependencies: phases/, core/schema.py, swarm_observability, persistence
 
 Architecture:
-- Sequential phases: load_recon → plan_agent → execute_agent → persist_results
+- Sequential phases: load_recon → run_deterministic_planning → run_probe_execution → persist_results
 - ScanState is a plain dataclass (no LangGraph)
 - emit() callback passes events directly to the async generator
-- CancellationManager handles pause/resume/cancel between probe calls
 """
 
 import logging
@@ -20,14 +19,9 @@ from services.swarm.core.schema import ScanState
 from services.swarm.persistence.s3_adapter import load_recon_for_campaign
 from services.swarm.phases import (
     load_recon,
-    plan_agent,
-    execute_agent,
+    run_deterministic_planning,
+    run_probe_execution,
     persist_results,
-)
-from services.swarm.swarm_observability import (
-    get_cancellation_manager,
-    remove_cancellation_manager,
-    get_active_scan_ids,
 )
 
 logger = logging.getLogger(__name__)
@@ -50,10 +44,10 @@ async def execute_scan_streaming(
 ) -> AsyncGenerator[Dict[str, Any], None]:
     """Execute scanning with real-time SSE streaming.
 
-    Orchestrates four sequential phases per agent:
+    Orchestrates four sequential phases per scan category:
     1. load_recon — validate recon context
-    2. plan_agent — select probes deterministically
-    3. execute_agent — run scanner, stream probe/prompt events
+    2. run_deterministic_planning — select probes deterministically
+    3. run_probe_execution — run scanner, stream probe/prompt events
     4. persist_results — save to S3, emit SCAN_COMPLETE
 
     Args:
@@ -66,7 +60,7 @@ async def execute_scan_streaming(
     if agent_types is None:
         agent_types = [AgentType.SQL.value, AgentType.AUTH.value, AgentType.JAILBREAK.value]
 
-    yield {"type": "log", "message": f"Starting scan with {len(agent_types)} agents"}
+    yield {"type": "log", "message": f"Starting scan with {len(agent_types)} categories"}
 
     # Load recon — from request or S3
     blueprint_data = request.blueprint_context
@@ -112,9 +106,6 @@ async def execute_scan_streaming(
         safety_policy=safety_policy,
     )
 
-    get_cancellation_manager(audit_id)
-    logger.info(f"Registered cancellation manager for scan {audit_id}")
-
     event_queue: List[Dict[str, Any]] = []
 
     async def emit(event: Dict[str, Any]) -> None:
@@ -126,33 +117,27 @@ async def execute_scan_streaming(
         while event_queue:
             yield event_queue.pop(0)
 
-        if state.cancelled or state.has_fatal_error:
+        if state.has_fatal_error:
             await persist_results(state, emit)
             while event_queue:
                 yield event_queue.pop(0)
             return
 
-        # Phase 2–3: Plan and execute per agent
+        # Phase 2–3: Plan and execute per category
         for _agent_type in state.agent_types:
-            if state.cancelled:
-                break
-
-            await plan_agent(state, emit)
+            await run_deterministic_planning(state, emit)
             while event_queue:
                 yield event_queue.pop(0)
 
-            if state.cancelled or not state.current_plan:
+            if not state.current_plan:
                 break
 
-            await execute_agent(state, emit)
+            await run_probe_execution(state, emit)
             while event_queue:
                 yield event_queue.pop(0)
 
             state.current_agent_index += 1
             state.current_plan = None
-
-            if state.cancelled:
-                break
 
         # Phase 4: Persist results (always runs)
         await persist_results(state, emit)
@@ -163,53 +148,3 @@ async def execute_scan_streaming(
         logger.error(f"Scan orchestration error: {e}", exc_info=True)
         yield {"type": "log", "level": "error", "message": f"Scan failed: {e}"}
         yield {"type": "complete", "data": {"audit_id": audit_id, "agents": {}, "error": str(e)}}
-    finally:
-        remove_cancellation_manager(audit_id)
-        logger.info(f"Cleaned up cancellation manager for scan {audit_id}")
-
-
-# Control functions for API endpoints
-
-def _get_manager_or_none(scan_id: str):
-    """Return (manager, None) if scan exists, or (None, error_dict) if not."""
-    if scan_id not in get_active_scan_ids():
-        return None, {"scan_id": scan_id, "found": False, "message": "Scan not found"}
-    return get_cancellation_manager(scan_id), None
-
-
-def cancel_scan(scan_id: str) -> Dict[str, Any]:
-    """Cancel a running scan."""
-    manager, err = _get_manager_or_none(scan_id)
-    if err:
-        return err
-    manager.cancel()
-    logger.info(f"Cancelled scan {scan_id}")
-    return {"scan_id": scan_id, "cancelled": True}
-
-
-def pause_scan(scan_id: str) -> Dict[str, Any]:
-    """Pause a running scan at the next checkpoint."""
-    manager, err = _get_manager_or_none(scan_id)
-    if err:
-        return err
-    manager.pause()
-    logger.info(f"Paused scan {scan_id}")
-    return {"scan_id": scan_id, "paused": True}
-
-
-def resume_scan(scan_id: str) -> Dict[str, Any]:
-    """Resume a paused scan."""
-    manager, err = _get_manager_or_none(scan_id)
-    if err:
-        return err
-    manager.resume()
-    logger.info(f"Resumed scan {scan_id}")
-    return {"scan_id": scan_id, "paused": False}
-
-
-def get_scan_status(scan_id: str) -> Dict[str, Any]:
-    """Get the current status of a scan."""
-    manager, err = _get_manager_or_none(scan_id)
-    if err:
-        return err
-    return {"scan_id": scan_id, "found": True, "cancelled": manager.is_cancelled, "paused": manager.is_paused}

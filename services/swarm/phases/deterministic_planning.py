@@ -13,19 +13,18 @@ from services.swarm.core.schema import ScanState, ScanConfig, ScanPlan
 from services.swarm.swarm_observability import (
     EventType,
     create_event,
-    get_cancellation_manager,
 )
 
 logger = logging.getLogger(__name__)
 
 
-async def plan_agent(
+async def run_deterministic_planning(
     state: ScanState,
     emit: Callable[[Dict[str, Any]], Awaitable[None]],
 ) -> None:
     """Select probes for current agent and store plan in state.
 
-    Phase: PLAN_AGENT
+    Phase: DETERMINISTIC_PLANNING
     Modifies state.current_plan and state.cancelled in place.
 
     Args:
@@ -33,26 +32,15 @@ async def plan_agent(
         emit: Async callback that sends an SSE event dict to the client
     """
     agent_type = state.current_agent
-    manager = get_cancellation_manager(state.audit_id)
     base_progress = state.current_agent_index / max(state.total_agents, 1)
 
     await emit(create_event(
         EventType.NODE_ENTER,
-        node="plan_agent",
+        node="deterministic_planning",
         agent=agent_type,
-        message=f"Starting planning for {agent_type}",
+        message=f"Starting deterministic planning for {agent_type}",
         progress=base_progress,
     ).model_dump())
-
-    if await manager.checkpoint():
-        await emit(create_event(
-            EventType.SCAN_CANCELLED,
-            node="plan_agent",
-            agent=agent_type,
-            message="Scan cancelled before planning",
-        ).model_dump())
-        state.cancelled = True
-        return
 
     await emit(create_event(
         EventType.PLAN_START,
@@ -63,7 +51,15 @@ async def plan_agent(
 
     approach = state.scan_config.get("approach", "standard")
     max_probes = state.scan_config.get("max_probes", 3)
-    probe_pool = get_agent_probe_pool(agent_type, approach)
+    
+    # Extract infrastructure for dynamic probe selection
+    infrastructure = None
+    if state.recon_context and "intelligence" in state.recon_context:
+        intel = state.recon_context["intelligence"]
+        if "infrastructure" in intel:
+            infrastructure = intel["infrastructure"]
+
+    probe_pool = get_agent_probe_pool(agent_type, approach, infrastructure=infrastructure)
     selected = probe_pool[:max_probes]
 
     plan = ScanPlan(
@@ -89,9 +85,9 @@ async def plan_agent(
 
     await emit(create_event(
         EventType.NODE_EXIT,
-        node="plan_agent",
+        node="deterministic_planning",
         agent=agent_type,
-        message=f"Planning complete for {agent_type}",
+        message=f"Deterministic planning complete for {agent_type}",
         progress=probe_progress,
     ).model_dump())
 

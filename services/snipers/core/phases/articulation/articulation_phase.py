@@ -168,7 +168,7 @@ Generate creative, realistic test prompts. Output only the test prompt.""",
         payload_guidance: str | None = None,
     ) -> PayloadContext:
         """Build PayloadContext from campaign intelligence."""
-        infrastructure = intel.recon_raw.get("intelligence", {}).get("infrastructure", {})
+        infrastructure = (intel.recon_raw.get("intelligence") or {}).get("infrastructure") or {}
 
         return PayloadContext(
             target=TargetInfo(

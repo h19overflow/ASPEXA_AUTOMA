@@ -14,7 +14,6 @@ from services.swarm.persistence.s3_adapter import persist_garak_result
 from services.swarm.swarm_observability import (
     EventType,
     create_event,
-    remove_cancellation_manager,
 )
 
 logger = logging.getLogger(__name__)
@@ -106,8 +105,6 @@ async def persist_results(
         message="Persistence complete",
         progress=1.0,
     ).model_dump())
-
-    remove_cancellation_manager(state.audit_id)
 
 
 def _build_vulnerability_clusters(
