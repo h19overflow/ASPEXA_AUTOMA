@@ -1,6 +1,8 @@
 """Scans router - S3 scan result operations."""
 from fastapi import APIRouter, HTTPException
 from typing import Any, Dict, List, Optional
+from pydantic import BaseModel
+import asyncio
 
 from libs.persistence import (
     load_scan,
@@ -12,6 +14,13 @@ from libs.persistence import (
 )
 
 router = APIRouter(prefix="/scans", tags=["scans"])
+
+class ScanIdentifier(BaseModel):
+    scan_type: str
+    scan_id: str
+
+class BatchDeleteRequest(BaseModel):
+    scans: List[ScanIdentifier]
 
 
 def _summary_to_dict(summary) -> Dict[str, Any]:
@@ -104,6 +113,16 @@ async def get_exploit_scan(scan_id: str, validate: bool = False) -> Dict[str, An
     except ArtifactNotFoundError:
         raise HTTPException(404, f"Exploit scan {scan_id} not found")
 
+@router.get("/checkpoint/{scan_id}")
+async def get_checkpoint_scan(scan_id: str, validate: bool = False) -> Dict[str, Any]:
+    """Get a checkpoint scan result."""
+    try:
+        result = await load_scan(ScanType.CHECKPOINT, scan_id, validate=validate)
+        if validate:
+            return result.model_dump()
+        return result
+    except ArtifactNotFoundError:
+        raise HTTPException(404, f"Checkpoint scan {scan_id} not found")
 
 @router.delete("/recon/{scan_id}")
 async def delete_recon_scan(scan_id: str) -> Dict[str, str]:
@@ -130,3 +149,40 @@ async def delete_exploit_scan(scan_id: str) -> Dict[str, str]:
     if not deleted:
         raise HTTPException(404, f"Exploit scan {scan_id} not found")
     return {"status": "deleted", "scan_id": scan_id}
+
+
+@router.delete("/checkpoint/{scan_id}")
+async def delete_checkpoint_scan(scan_id: str) -> Dict[str, str]:
+    """Delete a checkpoint scan from S3."""
+    deleted = await delete_scan(ScanType.CHECKPOINT, scan_id)
+    if not deleted:
+        raise HTTPException(404, f"Checkpoint scan {scan_id} not found")
+    return {"status": "deleted", "scan_id": scan_id}
+
+
+@router.post("/batch-delete")
+async def batch_delete_scans(request: BatchDeleteRequest) -> Dict[str, Any]:
+    """Delete multiple scans concurrently."""
+    tasks = []
+    
+    for scan_req in request.scans:
+        try:
+            scan_type = ScanType(scan_req.scan_type)
+        except ValueError:
+            continue
+            
+        tasks.append(delete_scan(scan_type, scan_req.scan_id))
+        
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+    
+    success_count = sum(1 for r in results if r is True)
+    not_found_count = sum(1 for r in results if r is False)
+    error_count = sum(1 for r in results if isinstance(r, Exception))
+    
+    return {
+        "status": "completed",
+        "processed": len(request.scans),
+        "deleted": success_count,
+        "not_found": not_found_count,
+        "errors": error_count
+    }

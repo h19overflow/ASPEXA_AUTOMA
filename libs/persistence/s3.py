@@ -407,6 +407,7 @@ class S3PersistenceAdapter:
         summaries: List[ScanResultSummary] = []
         types_to_search = [scan_type] if scan_type else list(ScanType)
 
+        all_objects = []
         for st in types_to_search:
             prefix = f"scans/{st.value}/"
             try:
@@ -420,29 +421,23 @@ class S3PersistenceAdapter:
                     f"Failed to list scans: {e.response['Error']['Message']}"
                 ) from e
 
+            # Process S3 list operations
             for obj in response.get("Contents", []):
-                s3_key = obj["Key"]
-                filename = s3_key.rsplit("/", 1)[-1]
-                scan_id = self._extract_scan_id(filename)
+                all_objects.append((st, obj))
 
-                # Try SQLite cache first (fast), fall back to S3 (slow)
-                if scan_id in metadata_cache:
-                    cached = metadata_cache[scan_id]
-                    audit_id = cached["audit_id"]
-                    timestamp = cached["timestamp"]
-                else:
-                    # Fallback: load from S3 file
-                    try:
-                        raw_data = await self.load_scan_result(st, scan_id, validate=False)
-                        # validate=False returns Dict[str, Any]
-                        data: Dict[str, Any] = raw_data  # type: ignore[assignment]
-                        file_audit_id = data.get("audit_id") or data.get("metadata", {}).get("audit_id", "")
-                        audit_id = file_audit_id or scan_id
-                        timestamp = data.get("timestamp", "")
-                    except Exception:
-                        # Skip files that can't be loaded
-                        continue
+        # Process hits and collect misses for concurrent fetching
+        cache_misses = []
+        for st, obj in all_objects:
+            s3_key = obj["Key"]
+            filename = s3_key.rsplit("/", 1)[-1]
+            scan_id = self._extract_scan_id(filename)
 
+            # Try SQLite cache first (fast), fall back to S3 (slow)
+            if scan_id in metadata_cache:
+                cached = metadata_cache[scan_id]
+                audit_id = cached["audit_id"]
+                timestamp = cached["timestamp"]
+                
                 # Apply audit_id filter if provided
                 if audit_id_filter and audit_id_filter not in audit_id:
                     continue
@@ -457,6 +452,40 @@ class S3PersistenceAdapter:
                         filename=filename,
                     )
                 )
+            else:
+                cache_misses.append((st, scan_id, s3_key, filename, obj.get("LastModified", "")))
+
+        # Fetch cache misses concurrently
+        async def fetch_miss(st_type, s_id, key, fname, last_mod):
+            try:
+                raw_data = await self.load_scan_result(st_type, s_id, validate=False)
+                data: Dict[str, Any] = raw_data  # type: ignore[assignment]
+                file_audit_id = data.get("audit_id") or data.get("metadata", {}).get("audit_id", "")
+                audit_id = file_audit_id or s_id
+                timestamp = data.get("timestamp") or str(last_mod)
+
+                if audit_id_filter and audit_id_filter not in audit_id:
+                    return None
+
+                return ScanResultSummary(
+                    scan_id=s_id,
+                    scan_type=st_type,
+                    audit_id=audit_id,
+                    timestamp=timestamp,
+                    s3_key=key,
+                    filename=fname,
+                )
+            except Exception:
+                # Skip files that can't be loaded
+                return None
+
+        if cache_misses:
+            miss_results = await asyncio.gather(
+                *(fetch_miss(*miss) for miss in cache_misses)
+            )
+            for res in miss_results:
+                if res:
+                    summaries.append(res)
 
         return summaries
 
