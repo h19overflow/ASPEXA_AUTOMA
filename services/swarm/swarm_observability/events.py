@@ -2,19 +2,13 @@
 Standardized event types for Swarm observability streaming.
 
 Purpose: Define event types and models for SSE streaming from Swarm workflows
-Dependencies: pydantic, datetime, enum, langgraph
-
-This module provides:
-- EventType enum for categorizing stream events
-- StreamEvent model for structured event data
-- Factory function for creating events with proper defaults
-- Safe wrapper for get_stream_writer that handles test contexts
+Dependencies: pydantic, datetime, enum
 """
 
 import logging
 from datetime import UTC, datetime
 from enum import Enum
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Dict, Optional
 
 from pydantic import BaseModel, Field
 
@@ -22,19 +16,16 @@ logger = logging.getLogger(__name__)
 
 
 class EventType(str, Enum):
-    """Event types for Swarm workflow observability."""
+    """Event types for Swarm observability streaming."""
 
     # Lifecycle events
     SCAN_STARTED = "scan_started"
-    SCAN_PAUSED = "scan_paused"
-    SCAN_RESUMED = "scan_resumed"
     SCAN_CANCELLED = "scan_cancelled"
     SCAN_COMPLETE = "scan_complete"
     SCAN_ERROR = "scan_error"
 
-    # Node events
+    # Phase events
     NODE_ENTER = "node_enter"
-    NODE_PROGRESS = "node_progress"
     NODE_EXIT = "node_exit"
 
     # Planning events
@@ -47,22 +38,16 @@ class EventType(str, Enum):
     PROBE_COMPLETE = "probe_complete"
 
     # Agent events
-    AGENT_START = "agent_start"
     AGENT_COMPLETE = "agent_complete"
-
-    # System events
-    LOG = "log"
-    HEARTBEAT = "heartbeat"
 
 
 class StreamEvent(BaseModel):
-    """
-    Structured event for SSE streaming.
+    """Structured event for SSE streaming.
 
     Args:
         type: Event category from EventType enum
         timestamp: When the event occurred (auto-generated if not provided)
-        node: Current graph node name (optional)
+        node: Current phase name (optional)
         agent: Agent identifier (optional)
         message: Human-readable event description (optional)
         data: Additional structured data (optional)
@@ -89,12 +74,11 @@ def create_event(
     data: Optional[Dict[str, Any]] = None,
     progress: Optional[float] = None,
 ) -> StreamEvent:
-    """
-    Factory function to create StreamEvent instances.
+    """Factory function to create StreamEvent instances.
 
     Args:
         event_type: The type of event to create
-        node: Current graph node name
+        node: Current phase name
         agent: Agent identifier
         message: Human-readable description
         data: Additional structured data
@@ -111,31 +95,3 @@ def create_event(
         data=data,
         progress=progress,
     )
-
-
-def _noop_writer(event: Dict[str, Any]) -> None:
-    """No-op writer for use outside of LangGraph context."""
-    pass
-
-
-def safe_get_stream_writer() -> Callable[[Dict[str, Any]], None]:
-    """
-    Safely get the LangGraph stream writer, or return a no-op if outside context.
-
-    This wrapper handles the RuntimeError that occurs when get_stream_writer()
-    is called outside of a LangGraph runnable context (e.g., in unit tests).
-
-    Returns:
-        StreamWriter callable if in LangGraph context, otherwise a no-op function
-    """
-    try:
-        from langgraph.config import get_stream_writer
-        return get_stream_writer()
-    except RuntimeError:
-        # Outside of LangGraph runnable context (e.g., unit tests)
-        logger.debug("get_stream_writer called outside LangGraph context, using no-op")
-        return _noop_writer
-    except ImportError:
-        # LangGraph not installed
-        logger.debug("LangGraph not installed, using no-op writer")
-        return _noop_writer

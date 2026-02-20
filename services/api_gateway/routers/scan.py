@@ -68,8 +68,6 @@ async def start_scan_stream(request: ScanStartRequest) -> StreamingResponse:
         async for event in execute_scan_streaming(
             scan_dispatch,
             agent_types=request.agent_types,
-            stream_mode=request.stream_mode.value,
-            enable_checkpointing=request.enable_checkpointing,
         ):
             yield f"data: {serialize_event(event)}\n\n"
 

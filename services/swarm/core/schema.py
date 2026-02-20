@@ -1,20 +1,15 @@
 """
-Purpose: Pydantic schemas for Swarm service I/O and configuration
-Role: Data validation, user configuration, and structured inputs
+Purpose: Pydantic schemas and state dataclasses for Swarm service
+Role: Data validation, user configuration, structured inputs, and runtime state
 Dependencies: pydantic, libs.contracts
-
-Note: Output schemas are handled by:
-  - garak_scanner.models.ProbeResult for probe-level results
-  - libs.contracts.scanning.VulnerabilityCluster for final reporting
-  - AgentScanResult for structured agent responses
 """
 
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import List, Dict, Any, Optional
 from pydantic import Field, model_validator, field_validator
 
 from libs.contracts.common import StrictBaseModel
-from libs.contracts.scanning import VulnerabilityCluster
 from services.swarm.core.config import ScanApproach
 
 
@@ -90,31 +85,6 @@ class ScanConfig(StrictBaseModel):
         return self
 
 
-class AgentScanResult(StrictBaseModel):
-    """Structured result from agent scan execution."""
-    success: bool = Field(..., description="Whether the scan completed successfully")
-    audit_id: str = Field(..., description="Audit identifier")
-    agent_type: str = Field(..., description="Agent type that executed the scan")
-    vulnerabilities: List[VulnerabilityCluster] = Field(
-        default_factory=list,
-        description="List of discovered vulnerabilities"
-    )
-    probes_executed: List[str] = Field(
-        default_factory=list,
-        description="List of probe names that were executed"
-    )
-    probe_results: List[Dict[str, Any]] = Field(
-        default_factory=list,
-        description="Detailed results for each probe execution (prompt, output, score, etc.)"
-    )
-    report_path: Optional[str] = Field(None, description="Path to scan report file")
-    metadata: Dict[str, Any] = Field(
-        default_factory=dict,
-        description="Additional metadata about the scan"
-    )
-    error: Optional[str] = Field(None, description="Error message if scan failed")
-
-
 class ScanPlan(StrictBaseModel):
     """Agent's probe selection output.
 
@@ -144,3 +114,62 @@ class ScanPlan(StrictBaseModel):
         if not v:
             raise ValueError("selected_probes cannot be empty")
         return v
+
+
+@dataclass
+class AgentResult:
+    """Result from a single agent execution."""
+
+    agent_type: str
+    status: str  # success | failed | blocked | error | cancelled
+    scan_id: Optional[str] = None
+    plan: Optional[Dict[str, Any]] = None
+    results: List[Dict[str, Any]] = field(default_factory=list)
+    vulnerabilities_found: int = 0
+    error: Optional[str] = None
+    phase: Optional[str] = None
+    duration_ms: int = 0
+    persisted: bool = False
+
+
+@dataclass
+class ScanState:
+    """Runtime state passed through scan phases.
+
+    Replaces LangGraph SwarmState — plain dataclass, no reducers needed.
+    """
+
+    # Input — set at scan start
+    audit_id: str
+    target_url: str
+    agent_types: List[str]
+    recon_context: Dict[str, Any]
+    scan_config: Dict[str, Any]
+    safety_policy: Optional[Dict[str, Any]]
+
+    # Runtime accumulators
+    agent_results: List[AgentResult] = field(default_factory=list)
+    errors: List[str] = field(default_factory=list)
+    cancelled: bool = False
+    current_agent_index: int = 0
+    progress: float = 0.0
+
+    # Transient inter-phase data
+    current_plan: Optional[Dict[str, Any]] = None
+
+    @property
+    def current_agent(self) -> Optional[str]:
+        """Current agent type being processed."""
+        if self.current_agent_index < len(self.agent_types):
+            return self.agent_types[self.current_agent_index]
+        return None
+
+    @property
+    def total_agents(self) -> int:
+        """Total number of agents to process."""
+        return len(self.agent_types)
+
+    @property
+    def has_fatal_error(self) -> bool:
+        """Whether a fatal error has occurred."""
+        return len(self.errors) > 0

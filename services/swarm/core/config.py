@@ -31,13 +31,11 @@ def get_probes_for_agent(
 
     agent_enum = AgentType(agent_type) if agent_type in [e.value for e in AgentType] else AgentType.SQL
     approach_enum = ScanApproach(approach) if approach in [e.value for e in ScanApproach] else ScanApproach.STANDARD
-
     probes = list(DEFAULT_PROBES.get(agent_enum, {}).get(approach_enum, ["promptinj"]))
 
     if infrastructure:
         db = (infrastructure.get("database") or "").lower()
         model = (infrastructure.get("model_family") or "").lower()
-
         for key, extra_probes in INFRASTRUCTURE_PROBES.items():
             if key in db or key in model:
                 for p in extra_probes:
@@ -87,3 +85,8 @@ def get_probe_description(probe_name: str) -> str:
 def get_probe_category(probe_name: str) -> VulnCategory:
     """Get vulnerability category for a probe."""
     return PROBE_TO_CATEGORY.get(probe_name, VulnCategory.JAILBREAK)
+
+
+def get_agent_probe_pool(agent_type: str, approach: str = "standard") -> List[str]:
+    """Get the probe pool for an agent type and approach."""
+    return get_probes_for_agent(agent_type, approach)

@@ -23,9 +23,6 @@ from .generators import HTTPGenerator, WebSocketGenerator, RateLimiter
 # Detection
 from .detection import load_detector, run_detectors_on_attempt, get_detector_triggers
 
-# Backward compat alias
-HttpGenerator = HTTPGenerator
-
 __all__ = [
     # Scanner
     "GarakScanner",
@@ -34,7 +31,6 @@ __all__ = [
     "ProbeResult",
     # Generators
     "HTTPGenerator",
-    "HttpGenerator",  # Backward compat
     "WebSocketGenerator",
     "RateLimiter",
     # Detection

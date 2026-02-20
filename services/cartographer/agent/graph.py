@@ -221,7 +221,7 @@ Generate a strategic probing question to send to the target. The question should
 
             yield {
                 "type": "sending",
-                "question": question[:100] + "..." if len(question) > 100 else question,
+                "question": question,
             }
 
             try:
@@ -235,9 +235,7 @@ Generate a strategic probing question to send to the target. The question should
                     target_response = response.text
                 yield {
                     "type": "response",
-                    "response": target_response[:200] + "..."
-                    if len(target_response) > 200
-                    else target_response,
+                    "response": target_response,
                 }
 
             except NetworkError as e:

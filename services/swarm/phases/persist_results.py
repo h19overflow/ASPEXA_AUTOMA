@@ -1,43 +1,39 @@
 """
-Persist results node for Swarm graph.
+Phase 4: Persist all successful agent results to S3.
 
-Purpose: Persist all successful agent results to S3
+Purpose: Save results and emit SCAN_COMPLETE
 Dependencies: services.swarm.persistence.s3_adapter, swarm_observability
 """
 
 import logging
 from datetime import datetime, timezone
-from typing import Dict, Any, List
+from typing import Awaitable, Callable, Dict, Any, List
 
-from services.swarm.graph.state import SwarmState
+from services.swarm.core.schema import ScanState
 from services.swarm.persistence.s3_adapter import persist_garak_result
 from services.swarm.swarm_observability import (
     EventType,
     create_event,
     remove_cancellation_manager,
-    safe_get_stream_writer,
 )
 
 logger = logging.getLogger(__name__)
 
 
-async def persist_results(state: SwarmState) -> Dict[str, Any]:
-    """Persist all successful agent results to S3.
+async def persist_results(
+    state: ScanState,
+    emit: Callable[[Dict[str, Any]], Awaitable[None]],
+) -> None:
+    """Persist successful agent results to S3 and emit SCAN_COMPLETE.
 
-    Node: PERSIST_RESULTS
-    Final node - saves results and emits completion event.
+    Phase: PERSIST_RESULTS
+    Final phase — always runs regardless of cancellation.
 
     Args:
-        state: Current graph state with agent_results
-
-    Returns:
-        Dict with events including completion
+        state: Current scan state with agent_results
+        emit: Async callback that sends an SSE event dict to the client
     """
-    writer = safe_get_stream_writer()
-    events = []
-
-    # Emit NODE_ENTER
-    writer(create_event(
+    await emit(create_event(
         EventType.NODE_ENTER,
         node="persist_results",
         message="Starting result persistence",
@@ -49,12 +45,7 @@ async def persist_results(state: SwarmState) -> Dict[str, Any]:
             continue
 
         try:
-            # Build vulnerability clusters from failed results
-            vulnerabilities = _build_vulnerability_clusters(
-                result.results,
-                result.agent_type,
-            )
-
+            vulnerabilities = _build_vulnerability_clusters(result.results, result.agent_type)
             garak_report = {
                 "audit_id": state.audit_id,
                 "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -80,52 +71,28 @@ async def persist_results(state: SwarmState) -> Dict[str, Any]:
                 garak_report=garak_report,
                 target_url=state.target_url,
             )
-
-            # Mark as persisted (we'll update the result in place conceptually)
-            events.append({
-                "type": "log",
-                "message": f"[{result.agent_type}] Persisted to S3: {result.scan_id}",
-            })
-
             logger.info(f"[{result.agent_type}] Persisted results: {result.scan_id}")
 
         except Exception as e:
             logger.warning(f"[{result.agent_type}] Persistence failed: {e}")
-            events.append({
-                "type": "log",
-                "level": "warning",
-                "message": f"[{result.agent_type}] Persistence failed: {e}",
-            })
 
-    # Build final results summary
     final_results = {
         "audit_id": state.audit_id,
-        "agents": {},
+        "agents": {
+            result.agent_type: {
+                "status": result.status,
+                "scan_id": result.scan_id,
+                "probes_executed": len(result.plan.get("selected_probes", [])) if result.plan else 0,
+                "total_results": len(result.results),
+                "vulnerabilities_found": result.vulnerabilities_found,
+                "error": result.error,
+                "phase": result.phase,
+            }
+            for result in state.agent_results
+        },
     }
 
-    for result in state.agent_results:
-        final_results["agents"][result.agent_type] = {
-            "status": result.status,
-            "scan_id": result.scan_id,
-            "probes_executed": len(result.plan.get("selected_probes", [])) if result.plan else 0,
-            "total_results": len(result.results),
-            "vulnerabilities_found": result.vulnerabilities_found,
-            "error": result.error,
-            "phase": result.phase,
-        }
-
-    events.append({
-        "type": "log",
-        "message": "Scan complete",
-    })
-
-    events.append({
-        "type": "complete",
-        "data": final_results,
-    })
-
-    # Emit SCAN_COMPLETE via StreamWriter
-    writer(create_event(
+    await emit(create_event(
         EventType.SCAN_COMPLETE,
         node="persist_results",
         message="Scan complete",
@@ -133,34 +100,28 @@ async def persist_results(state: SwarmState) -> Dict[str, Any]:
         progress=1.0,
     ).model_dump())
 
-    # Emit NODE_EXIT
-    writer(create_event(
+    await emit(create_event(
         EventType.NODE_EXIT,
         node="persist_results",
         message="Persistence complete",
         progress=1.0,
     ).model_dump())
 
-    # Cleanup cancellation manager
     remove_cancellation_manager(state.audit_id)
-
-    return {"events": events, "progress": 1.0}
 
 
 def _build_vulnerability_clusters(
     probe_results: List[Dict[str, Any]],
     agent_type: str,
 ) -> List[Dict[str, Any]]:
-    """Build vulnerability clusters from probe results.
-
-    Groups failed results by detector for reporting.
+    """Group failed results by detector for vulnerability reporting.
 
     Args:
-        probe_results: List of probe result dictionaries
+        probe_results: List of probe result dicts
         agent_type: Agent type for categorization
 
     Returns:
-        List of vulnerability cluster dictionaries
+        List of vulnerability cluster dicts
     """
     clusters: Dict[str, Dict[str, Any]] = {}
 

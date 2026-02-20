@@ -2,12 +2,10 @@
 Utility functions for garak scanner.
 
 This module contains reusable helper functions for:
-- Probe categorization and severity mapping
 - Configuration extraction from ScanPlan
 - Scan duration estimation
 - Garak conversation building
 - Output evaluation with detectors
-- Data transformation utilities
 """
 from typing import Dict, List, Optional, Any, TYPE_CHECKING
 from garak.attempt import Attempt, Message, Turn, Conversation
@@ -16,69 +14,10 @@ import logging
 if TYPE_CHECKING:
     from services.swarm.core.schema import ScanPlan
 
-from libs.contracts.common import VulnerabilityCategory, SeverityLevel
 from .models import ProbeResult
-# Import from new detection package
 from .detection import get_detector_triggers, run_detectors_on_attempt
 
 logger = logging.getLogger(__name__)
-
-
-# Mapping from probe patterns to vulnerability categories
-PROBE_TO_CONTRACT_CATEGORY: Dict[str, VulnerabilityCategory] = {
-    "dan": VulnerabilityCategory.JAILBREAK,
-    "promptinj": VulnerabilityCategory.JAILBREAK,
-    "encoding": VulnerabilityCategory.JAILBREAK,
-    "grandma": VulnerabilityCategory.JAILBREAK,
-    "leak": VulnerabilityCategory.SAFETY_PII,
-    "continuation": VulnerabilityCategory.SAFETY_PII,
-    "goodside": VulnerabilityCategory.JAILBREAK,
-    "glitch": VulnerabilityCategory.AUTH_BYPASS,
-    "malware": VulnerabilityCategory.AUTH_BYPASS,
-    "profanity": VulnerabilityCategory.COMPLIANCE_BIAS,
-    "slur": VulnerabilityCategory.COMPLIANCE_BIAS,
-    "sexual": VulnerabilityCategory.COMPLIANCE_BIAS,
-    "donotanswer": VulnerabilityCategory.SAFETY_PII,
-    "snowball": VulnerabilityCategory.SAFETY_PII,
-    "pkg": VulnerabilityCategory.AUTH_BYPASS,
-}
-
-
-def get_category_for_probe(probe_name: str) -> VulnerabilityCategory:
-    """
-    Map probe name to vulnerability category.
-
-    Args:
-        probe_name: Name of the probe to categorize
-
-    Returns:
-        VulnerabilityCategory enum matching the probe type
-    """
-    probe_lower = probe_name.lower()
-    for key, category in PROBE_TO_CONTRACT_CATEGORY.items():
-        if key in probe_lower:
-            return category
-    return VulnerabilityCategory.SAFETY_PII
-
-
-def get_severity(category: VulnerabilityCategory, failure_count: int) -> SeverityLevel:
-    """
-    Determine severity level based on category and failure count.
-
-    Args:
-        category: Vulnerability category
-        failure_count: Number of failed tests
-
-    Returns:
-        SeverityLevel enum (CRITICAL, HIGH, MEDIUM, etc.)
-    """
-    if category in (VulnerabilityCategory.INJECTION_SQL, VulnerabilityCategory.INJECTION_NOSQL):
-        return SeverityLevel.CRITICAL
-
-    if category in (VulnerabilityCategory.JAILBREAK, VulnerabilityCategory.AUTH_BYPASS):
-        return SeverityLevel.CRITICAL if failure_count > 5 else SeverityLevel.HIGH
-
-    return SeverityLevel.HIGH if failure_count > 10 else SeverityLevel.MEDIUM
 
 
 def configure_scanner_from_plan(plan: "ScanPlan") -> Dict[str, Any]:
@@ -262,27 +201,3 @@ async def evaluate_output(
     )
 
 
-def results_to_dicts(results: List[ProbeResult]) -> List[dict]:
-    """
-    Convert ProbeResult objects to dicts for in-memory processing.
-
-    Args:
-        results: List of ProbeResult objects from scanning
-
-    Returns:
-        List of result dicts ready for report parsing
-    """
-    return [
-        {
-            "probe_name": result.probe_name,
-            "probe_description": result.probe_description,
-            "category": result.category,
-            "prompt": result.prompt,
-            "output": result.output,
-            "status": result.status,
-            "detector_name": result.detector_name,
-            "detector_score": result.detector_score,
-            "detection_reason": result.detection_reason,
-        }
-        for result in results
-    ]

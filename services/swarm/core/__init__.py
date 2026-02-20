@@ -1,4 +1,4 @@
-"""Core Swarm service modules: configuration, schemas, utilities, and consumers."""
+"""Core Swarm service modules: configuration, schemas, and enums."""
 
 from .config import (
     AgentType,
@@ -7,6 +7,7 @@ from .config import (
     PROBE_MAP,
     PROBE_DESCRIPTIONS,
     get_probes_for_agent,
+    get_agent_probe_pool,
     get_all_probe_names,
     resolve_probe_path,
     get_probe_description,
@@ -15,16 +16,9 @@ from .config import (
 
 from .schema import (
     ScanConfig,
-    AgentScanResult,
-)
-
-from .utils import (
-    StructuredFormatter,
-    log_scan_start,
-    log_scan_complete,
-    log_scan_error,
-    log_performance_metric,
-    time_function,
+    ScanPlan,
+    ScanState,
+    AgentResult,
 )
 
 __all__ = [
@@ -35,19 +29,14 @@ __all__ = [
     "PROBE_MAP",
     "PROBE_DESCRIPTIONS",
     "get_probes_for_agent",
+    "get_agent_probe_pool",
     "get_all_probe_names",
     "resolve_probe_path",
     "get_probe_description",
     "get_probe_category",
     # Schema
     "ScanConfig",
-    "AgentScanResult",
-    # Utils
-    "StructuredFormatter",
-    "log_scan_start",
-    "log_scan_complete",
-    "log_scan_error",
-    "log_performance_metric",
-    "time_function",
+    "ScanPlan",
+    "ScanState",
+    "AgentResult",
 ]
-

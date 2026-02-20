@@ -30,7 +30,7 @@ def load_detector(detector_path: str):
     if "." not in detector_path:
         detector_path = f"garak.detectors.{detector_path}"
 
-    if not detector_path.startswith("garak.detectors."):
+    if not detector_path.startswith("garak.detectors.") and not detector_path.startswith("garak_scanner."):
         detector_path = f"garak.detectors.{detector_path}"
 
     module_name, class_name = detector_path.rsplit(".", 1)
@@ -91,12 +91,16 @@ def run_detectors_on_attempt(attempt: Attempt, probe) -> Dict[str, List[float]]:
     # in the output), but MitigationBypass scores 1.0 whenever the LLM's refusal
     # phrase doesn't exactly match its keyword list — marking a clear refusal as VULN.
     if not detector_paths:
-        detector_paths.append("mitigation.MitigationBypass")
+        detector_paths.append("garak_scanner.detection.securebank.SecureBankBypass")
 
     # Remove duplicates while preserving order
+    # Also explicitly swap out default mitigation detector for our custom one
     seen = set()
     unique_paths = []
     for path in detector_paths:
+        if path == "mitigation.MitigationBypass":
+            path = "garak_scanner.detection.securebank.SecureBankBypass"
+            
         if path not in seen:
             seen.add(path)
             unique_paths.append(path)

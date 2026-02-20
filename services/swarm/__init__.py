@@ -1,17 +1,17 @@
-"""Swarm scanning service - Intelligent security scanning for LLM applications.
+"""Swarm scanning service — LLM vulnerability scanner.
 
 Purpose: Executes targeted security scans against LLM agents using Garak probes
-Role: Trinity agents (SQL, AUTH, JAILBREAK) analyze recon and execute vulnerability scans
-Dependencies: garak, langchain, libs.contracts.scanning, libs.events
+Role: Three agents (SQL, AUTH, JAILBREAK) select probes and run them against the target
+Dependencies: garak, libs.contracts.scanning
 
 Architecture:
-    - agents/: LangChain-based intelligent agents for scan orchestration
-    - core/: Configuration, schemas, utilities, and event consumers
+    - phases/: Sequential scan phases (load_recon, plan_agent, execute_agent, persist_results)
+    - core/: Configuration, schemas, utilities
     - garak_scanner/: Garak probe integration and result parsing
     - persistence/: S3 storage for scan results
 
 Public API:
-    - execute_scan_streaming: Async streaming scan with real-time events
+    - execute_scan_streaming: Async generator yielding SSE events
 """
 
 from .entrypoint import execute_scan_streaming
