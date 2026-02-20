@@ -18,10 +18,20 @@ def check_success(
     if not success_scorers:
         return phase3_result.is_successful, confidences
 
+    severity_order = ["none", "low", "medium", "high", "critical"]
+
     for scorer_name in success_scorers:
-        if scorer_name not in confidences:
+        if scorer_name not in scorer_results:
             return False, confidences
-        if confidences[scorer_name] < success_threshold:
+            
+        result = scorer_results[scorer_name]
+        
+        # Must have MEDIUM severity or higher
+        severity_idx = severity_order.index(result.severity.value)
+        if severity_idx < 2:
+            return False, confidences
+            
+        if result.confidence < success_threshold:
             return False, confidences
 
     return True, confidences

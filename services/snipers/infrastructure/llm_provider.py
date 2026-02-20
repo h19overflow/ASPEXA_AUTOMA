@@ -44,9 +44,8 @@ def get_default_agent(
 
     if _default_agent is None:
         _default_agent = create_agent(
-            model=model_id,
+            model=init_chat_model(model_id, thinking_budget=1024, thinking_level="low"),
             system_prompt=system_prompt,
-            thinking_budget=1024, thinking_level="low",
         )
         logger.info(f"Created default agent with model {model_id}")
 
@@ -75,14 +74,13 @@ def create_gemini_agent(
         system_prompt = "You are an intelligent assistant."
 
     agent = create_agent(
-        model=model_id,
+        model=init_chat_model(model_id, thinking_budget=1024, thinking_level="low"),
         tools=tools or [],
         system_prompt=system_prompt,
-        thinking_budget=1024, thinking_level="low",
     )
 
     logger.info(
-        f"Created Gemini agent",
+        "Created Gemini agent",
         extra={"model": model_id, "temperature": temperature},
     )
 
@@ -138,13 +136,12 @@ def create_specialized_agent(
         system_prompt = f"You are an expert in {purpose}. Provide accurate, detailed analysis."
 
     agent = create_agent(
-        model="google_genai:gemini-3-flash-preview",
+        model=init_chat_model("google_genai:gemini-3-flash-preview", thinking_budget=1024, thinking_level="low"),
         system_prompt=system_prompt,
-        thinking_budget=1024, thinking_level="low",
     )
 
     logger.info(
-        f"Created specialized agent",
+        "Created specialized agent",
         extra={"purpose": purpose, "temperature": temperature},
     )
 

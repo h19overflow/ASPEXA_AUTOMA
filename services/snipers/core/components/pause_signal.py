@@ -8,7 +8,7 @@ This module provides a simple way to signal running attacks to pause
 after their current iteration completes.
 """
 import threading
-from typing import Dict, Set
+from typing import Set
 
 # Thread-safe storage for pause signals
 _pause_signals: Set[str] = set()

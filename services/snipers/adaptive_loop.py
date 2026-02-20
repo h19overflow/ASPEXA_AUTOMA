@@ -9,7 +9,7 @@ from services.snipers.infrastructure.persistence.s3_adapter import (
     load_checkpoint as load_checkpoint_from_s3,
     set_checkpoint_status,
 )
-from services.snipers.internals.constants import ALL_SCORERS, FRAMING_TYPES
+from services.snipers.internals.constants import FRAMING_TYPES
 from services.snipers.internals.events import make_event
 from services.snipers.internals.loop_runner import run_loop
 from services.snipers.internals.state import LoopState, create_initial_checkpoint

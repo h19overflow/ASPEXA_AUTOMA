@@ -6,7 +6,6 @@ Role: Guide the LLM to generate intelligent converter chains
 Dependencies: ChainDiscoveryContext model, ReconIntelligence model
 """
 
-from typing import Any
 
 from services.snipers.core.adaptive_models.chain_discovery import ChainDiscoveryContext
 from services.snipers.core.phases.articulation.models.tool_intelligence import ReconIntelligence

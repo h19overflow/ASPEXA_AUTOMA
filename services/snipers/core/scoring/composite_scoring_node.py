@@ -239,22 +239,21 @@ class CompositeScoringNodePhase34:
         if isinstance(result, dict):
             success = result.get("success", False)
             score = result.get("score", 0.0)
-            rationale = result.get("rationale", "")
             evidence = result.get("evidence", [])
 
             # Map legacy score to severity
-            if success and score >= 0.8:
+            if not success:
+                severity = SeverityLevel.NONE
+                confidence = score
+            elif score >= 0.8:
                 severity = SeverityLevel.HIGH
                 confidence = score
-            elif success and score >= 0.5:
+            elif score >= 0.5:
                 severity = SeverityLevel.MEDIUM
                 confidence = score
-            elif score > 0:
+            else:
                 severity = SeverityLevel.LOW
                 confidence = score
-            else:
-                severity = SeverityLevel.NONE
-                confidence = 0.0
 
             return ScoreResult(
                 scorer_name=scorer_name,

@@ -10,8 +10,6 @@ Encoding Strategies:
 - Vowel + Special: Encodes vowels and HTML special characters
 - Padded Decimals: Uses decimal entities with variable zero-padding
 """
-import html
-from typing import Set
 
 from pyrit.prompt_converter import PromptConverter, ConverterResult
 

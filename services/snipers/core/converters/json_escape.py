@@ -10,7 +10,6 @@ Encoding Strategies:
 - Full Unicode: Converts all characters to \uXXXX format
 """
 import json
-from typing import Set
 
 from pyrit.prompt_converter import PromptConverter, ConverterResult
 

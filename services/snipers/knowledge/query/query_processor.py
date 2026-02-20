@@ -1,3 +1,4 @@
+from langchain.chat_models import init_chat_model
 """
 Query processor for bypass knowledge retrieval.
 
@@ -63,11 +64,10 @@ class QueryProcessor:
             Configured agent with structured output for SynthesizedInsight.
         """
         return create_agent(
-            model=self._config.model,
+            model=init_chat_model(self._config.model, thinking_budget=1024, thinking_level="low"),
             tools=[],  # No tools needed - pure synthesis
             system_prompt=SYNTHESIS_SYSTEM_PROMPT,
             response_format=ToolStrategy(SynthesizedInsight),
-            thinking_budget=1024, thinking_level="low",
         )
 
     async def query(

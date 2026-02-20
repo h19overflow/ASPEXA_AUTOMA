@@ -25,11 +25,9 @@ Usage:
 import asyncio
 import logging
 import time
-from typing import Any
 
 import httpx
 
-from libs.config.settings import get_settings
 
 from services.snipers.core.scoring.composite_scoring_node import CompositeScoringNodePhase34
 from services.snipers.core.chain_models.models import ConverterChain
@@ -38,7 +36,7 @@ from services.snipers.models import (
     ConvertedPayload,
     Phase3Result,
 )
-from services.snipers.core.scoring.models import CompositeScore, SeverityLevel
+from services.snipers.core.scoring.models import CompositeScore
 
 logger = logging.getLogger(__name__)
 
@@ -114,7 +112,7 @@ class AttackExecution:
         self.logger.info(f"  Completed: {success_count}/{len(payloads)} successful")
 
         # Step 2: Score responses
-        self.logger.info(f"\n[Step 2/3] Scoring Responses")
+        self.logger.info("\n[Step 2/3] Scoring Responses")
         self.logger.info("-" * 40)
 
         # Build state for scoring node

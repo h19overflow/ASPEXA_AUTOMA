@@ -1,3 +1,4 @@
+from langchain.chat_models import init_chat_model
 """
 Chain Discovery Agent.
 
@@ -72,9 +73,8 @@ class ChainDiscoveryAgent:
         """
         if agent is None:
             agent = create_agent(
-                model="google_genai:gemini-3-flash-preview",
+                model=init_chat_model("google_genai:gemini-3-flash-preview", thinking_budget=1024, thinking_level="low"),
                 response_format=ToolStrategy(ChainDiscoveryDecision),
-                thinking_budget=1024, thinking_level="low",
             )
         self._agent = agent
         self.logger = logging.getLogger(__name__)
@@ -293,7 +293,7 @@ class ChainDiscoveryAgent:
             )
 
         # Phase 0: Filter chains by MAX_CHAIN_LENGTH
-        self.logger.info(f"\n  === Chain Length Filtering ===")
+        self.logger.info("\n  === Chain Length Filtering ===")
         self.logger.info(f"  MAX_CHAIN_LENGTH: {MAX_CHAIN_LENGTH}")
         self.logger.info(f"  Total candidates: {len(decision.chains)}")
 
@@ -358,7 +358,7 @@ class ChainDiscoveryAgent:
 
         self.logger.info("\n  === Chain Selection Process ===")
         self.logger.info(f"  Defense signals to match: {context.defense_signals}")
-        self.logger.info(f"  Candidates ranked by effectiveness:")
+        self.logger.info("  Candidates ranked by effectiveness:")
         for candidate in all_candidates:
             self.logger.info(
                 f"    #{candidate['rank']}: {candidate['converters']} "
@@ -368,7 +368,7 @@ class ChainDiscoveryAgent:
 
         # Phase 1: Try to find chains that match detected defenses
         defense_keywords = set(context.defense_signals)
-        self.logger.info(f"\n  Phase 1: Searching for defense-matching chains...")
+        self.logger.info("\n  Phase 1: Searching for defense-matching chains...")
 
         for chain in sorted_chains:
             strategy_lower = chain.defense_bypass_strategy.lower()
@@ -408,12 +408,12 @@ class ChainDiscoveryAgent:
             else:
                 rejected_chains.append({
                     "chain": chain.converters,
-                    "reason": f"Strategy does not match any defense signals",
+                    "reason": "Strategy does not match any defense signals",
                     "strategy_checked": chain.defense_bypass_strategy[:100],
                 })
 
         # Phase 2: No defense match - use highest effectiveness
-        self.logger.info(f"\n  Phase 2: No defense match, selecting highest effectiveness...")
+        self.logger.info("\n  Phase 2: No defense match, selecting highest effectiveness...")
         best = sorted_chains[0]
 
         reasoning = (

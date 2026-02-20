@@ -152,11 +152,19 @@ class CompositeScore(BaseModel):
             SeverityLevel.HIGH: 75,
             SeverityLevel.CRITICAL: 100
         }
-        total_score = severity_scores[max_severity] * weighted_conf
+        
+        total_score = (weighted_conf * 100.0) if weighted_conf > 0 else max(
+            (severity_scores[r.severity] * r.confidence for r in results.values()),
+            default=0.0
+        )
+        
+        # Overall confidence is the maximum confidence among the highest-severity scorers
+        max_severity_results = [r for r in results.values() if r.severity == max_severity]
+        overall_confidence = max((r.confidence for r in max_severity_results), default=0.0) if max_severity_results else 0.0
 
         return cls(
             overall_severity=max_severity,
-            overall_confidence=weighted_conf,
+            overall_confidence=overall_confidence,
             scorer_results=results,
             is_successful=is_successful,
             total_score=total_score

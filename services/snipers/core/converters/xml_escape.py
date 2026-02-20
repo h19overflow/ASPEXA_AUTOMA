@@ -11,7 +11,6 @@ Encoding Strategies:
 - Positional Hex: Uses hex entities with mixed case variation
 """
 import xml.sax.saxutils as xml_utils
-from typing import Set
 
 from pyrit.prompt_converter import PromptConverter, ConverterResult
 

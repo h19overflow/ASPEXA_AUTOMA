@@ -380,7 +380,7 @@ def _build_recon_section(recon_intelligence: ReconIntelligence | None) -> str:
         leak = recon_intelligence.system_prompt_leak[:400]
         if len(recon_intelligence.system_prompt_leak) > 400:
             leak += "..."
-        sections.append(f"  System Prompt Leak:")
+        sections.append("  System Prompt Leak:")
         sections.append(f"    {leak}")
 
     sections.append("")  # Add newline at end

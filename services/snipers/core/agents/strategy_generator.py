@@ -1,3 +1,4 @@
+from langchain.chat_models import init_chat_model
 """
 Strategy Generator.
 
@@ -42,9 +43,8 @@ class StrategyGenerator:
         """
         if agent is None:
             agent = create_agent(
-                model="google_genai:gemini-3-flash-preview",
+                model=init_chat_model("google_genai:gemini-3-flash-preview", thinking_budget=1024, thinking_level="low"),
                 response_format=ToolStrategy(AdaptationDecision),
-                thinking_budget=1024, thinking_level="low",
             )
         self._agent = agent
         self.logger = logging.getLogger(__name__)

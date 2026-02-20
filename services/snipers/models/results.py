@@ -7,7 +7,6 @@ from pydantic import BaseModel, Field
 
 from services.snipers.models.reasoning import HumanFeedback
 from services.snipers.models.requests import (
-    ExampleFinding,
     GarakVulnerabilityFinding,
     VulnerableProbe,
 )

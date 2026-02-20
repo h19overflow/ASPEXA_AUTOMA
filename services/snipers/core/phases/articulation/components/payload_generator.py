@@ -1,3 +1,4 @@
+from langchain.chat_models import init_chat_model
 """
 LLM-based contextual payload generator.
 
@@ -80,10 +81,9 @@ class PayloadGenerator:
         # Create agent with structured output if not provided
         if agent is None:
             agent = create_agent(
-                model="google_genai:gemini-3-flash-preview",
+                model=init_chat_model("google_genai:gemini-3-flash-preview", thinking_budget=1024, thinking_level="low"),
                 system_prompt=PAYLOAD_GENERATION_SYSTEM_PROMPT,
                 response_format=ToolStrategy(GeneratedPayloadResponse),
-                thinking_budget=1024, thinking_level="low",
             )
 
         self.agent = agent
