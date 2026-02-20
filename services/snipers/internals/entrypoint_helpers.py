@@ -248,13 +248,19 @@ async def stream_phase3_events(result3: Phase3Result) -> Any:
         )
 
     for scorer_name, score_result in result3.composite_score.scorer_results.items():
+        severity_val = score_result.severity.value
+        if severity_val == "none":
+            message = f"Scorer '{scorer_name}': Secure (No finding)"
+        else:
+            message = f"Scorer '{scorer_name}' detected {severity_val.upper()} risk"
+            
         yield make_stream_event(
             "score_calculated",
-            f"Scorer '{scorer_name}': {score_result.severity.value}",
+            message,
             phase="phase3",
             data={
                 "scorer_name": scorer_name,
-                "severity": score_result.severity.value,
+                "severity": severity_val,
                 "confidence": score_result.confidence,
             },
         )

@@ -28,6 +28,7 @@ class LoopState:
         self.phase1_result = None
         self.phase2_result = None
         self.phase3_result = None
+        self.discovered_parameters: dict[str, str] = {}
 
 
 async def create_initial_checkpoint(

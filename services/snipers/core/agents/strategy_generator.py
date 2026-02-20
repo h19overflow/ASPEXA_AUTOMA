@@ -59,6 +59,7 @@ class StrategyGenerator:
         pre_analysis: dict[str, Any],
         config: dict = None,
         chain_discovery_context: ChainDiscoveryContext | None = None,
+        discovered_parameters: dict[str, str] | None = None,
     ) -> AdaptationDecision:
         """
         Generate adaptation decision via LLM.
@@ -102,6 +103,7 @@ class StrategyGenerator:
             pre_analysis=pre_analysis,
             recon_intelligence=recon_intelligence,
             chain_discovery_context=chain_discovery_context,
+            discovered_parameters=discovered_parameters,
         )
 
         self.logger.info("Generating adaptation strategy via LLM")

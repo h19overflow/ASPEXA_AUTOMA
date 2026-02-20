@@ -40,6 +40,7 @@ async def run_adaptation(
     tried_converters: list[list[str]],
     tried_framings: list[str],
     phase1_result: Phase1Result | None,
+    discovered_parameters: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     """Run LLM-powered adaptation: FailureAnalyzer -> ChainDiscovery -> Strategy."""
     objective = "test security boundaries"
@@ -57,6 +58,7 @@ async def run_adaptation(
     decision = await _run_strategy_generation(
         target_responses, iteration_history, tried_framings,
         tried_converters, objective, recon_intelligence, chain_context,
+        discovered_parameters,
     )
 
     return _build_adaptation_result(decision, selection)
@@ -96,6 +98,7 @@ async def _run_chain_discovery(
 async def _run_strategy_generation(
     target_responses, iteration_history, tried_framings,
     tried_converters, objective, recon_intelligence, chain_context,
+    discovered_parameters=None,
 ):
     generator = StrategyGenerator()
     gen_config: dict[str, Any] = {
@@ -114,10 +117,12 @@ async def _run_strategy_generation(
         pre_analysis={},
         config=gen_config,
         chain_discovery_context=chain_context,
+        discovered_parameters=discovered_parameters,
     )
 
 
 def _build_adaptation_result(decision, selection) -> dict[str, Any]:
+    discovered_params = getattr(decision, "discovered_parameters", {})
     custom_framing = _extract_custom_framing(decision)
     recon_custom_framing = _extract_recon_framing(decision)
     framing_types = (
@@ -131,6 +136,7 @@ def _build_adaptation_result(decision, selection) -> dict[str, Any]:
         "recon_custom_framing": recon_custom_framing,
         "payload_guidance": decision.payload_adjustments,
         "adaptation_reasoning": decision.reasoning,
+        "discovered_parameters": discovered_params,
     }
 
 

@@ -35,6 +35,7 @@ async def adapt_strategy(
             tried_converters=state.tried_converters,
             tried_framings=state.tried_framings,
             phase1_result=state.phase1_result,
+            discovered_parameters=state.discovered_parameters or None,
         )
         state.converters = adaptation["converter_names"] or state.converters
         state.framings = adaptation["framing_types"] or state.framings
@@ -42,6 +43,8 @@ async def adapt_strategy(
         state.recon_custom_framing = adaptation["recon_custom_framing"]
         state.payload_guidance = adaptation["payload_guidance"]
         state.adaptation_reasoning = adaptation["adaptation_reasoning"] or ""
+        if adaptation.get("discovered_parameters"):
+            state.discovered_parameters.update(adaptation["discovered_parameters"])
 
         yield make_event(
             "adaptation", "Adapting strategy for next iteration",
@@ -50,7 +53,11 @@ async def adapt_strategy(
                   "next_converters": state.converters},
         )
     except Exception as e:
-        logger.warning(f"Adaptation failed: {e}, keeping current params")
+        logger.exception(f"Adaptation failed, keeping current params: {e}")
+        yield make_event(
+            "adaptation_error", f"Adaptation failed: {e}, retrying with same strategy",
+            data={"error": str(e), "error_type": type(e).__name__},
+        )
 
 
 async def handle_pause(

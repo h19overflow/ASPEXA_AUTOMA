@@ -104,6 +104,13 @@ class AdaptationDecision(BaseModel):
         description="Keywords to emphasize in payloads"
     )
 
+
+    # Discovered Parameters
+    discovered_parameters: dict[str, str] = Field(
+        default_factory=dict,
+        description="Any specific validation rules, parameter formats, or IDs leaked by the target (e.g., {'account_format': 'ACC-[0-9]{3}'})."
+    )
+
     # Meta
     confidence: float = Field(
         ge=0.0,

@@ -14,6 +14,7 @@ load_dotenv()
 
 from langchain.agents import create_agent
 from langchain.agents.structured_output import ToolStrategy
+from langchain.chat_models import init_chat_model
 
 from services.snipers.core.adaptive_models.chain_discovery import ChainDiscoveryContext
 from services.snipers.core.adaptive_models.failure_analysis import (
@@ -45,7 +46,7 @@ class FailureAnalyzerAgent:
         """
         if agent is None:
             agent = create_agent(
-                model="google_genai:gemini-2.5-pro",
+                model=init_chat_model("google_genai:gemini-3-flash-preview", thinking_budget=1024, thinking_level="low"),
                 response_format=ToolStrategy(FailureAnalysisDecision),
             )
         self._agent = agent
