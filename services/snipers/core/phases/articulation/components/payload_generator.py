@@ -81,7 +81,7 @@ class PayloadGenerator:
         # Create agent with structured output if not provided
         if agent is None:
             agent = create_agent(
-                model=init_chat_model("google_genai:gemini-3-flash-preview", thinking_budget=1024, thinking_level="low"),
+                model=init_chat_model("google_genai:gemini-3-flash-preview"),
                 system_prompt=PAYLOAD_GENERATION_SYSTEM_PROMPT,
                 response_format=ToolStrategy(GeneratedPayloadResponse),
             )

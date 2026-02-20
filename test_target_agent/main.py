@@ -10,6 +10,12 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import HumanMessage, SystemMessage, AIMessage, ToolMessage
 from langchain_core.tools import tool
 from dotenv import load_dotenv
+import logging
+import traceback
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 from .system_prompt import get_system_prompt
 from .mock_tools import (
     fetch_account_balance,
@@ -30,9 +36,8 @@ app = FastAPI(
 
 # Initialize Gemini model
 model = ChatGoogleGenerativeAI(
-    model="gemini-3-flash-preview",
-    temperature=0.7,
-    thinking_budget=1024, thinking_level="low"
+    model="gemini-2.5-flash",
+    temperature=0.7
 )
 
 # Conversation history storage (in-memory for simplicity)
@@ -180,6 +185,8 @@ async def chat(request: ChatRequest) -> ChatResponse:
         )
 
     except Exception as e:
+        logger.error(f"Error processing request: {str(e)}")
+        logger.error(traceback.format_exc())
         raise HTTPException(status_code=500, detail=f"Error processing request: {str(e)}")
 
 
@@ -203,7 +210,7 @@ async def health():
     """Health check endpoint"""
     return {
         "status": "healthy",
-        "model": "gemini-3-flash-preview",
+        "model": "gemini-2.5-flash",
         "tools_available": len(tools)
     }
 

@@ -46,7 +46,7 @@ class FailureAnalyzerAgent:
         """
         if agent is None:
             agent = create_agent(
-                model=init_chat_model("google_genai:gemini-3-flash-preview", thinking_budget=1024, thinking_level="low"),
+                model=init_chat_model("google_genai:gemini-3-flash-preview"),
                 response_format=ToolStrategy(FailureAnalysisDecision),
             )
         self._agent = agent

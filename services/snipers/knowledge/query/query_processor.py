@@ -64,7 +64,7 @@ class QueryProcessor:
             Configured agent with structured output for SynthesizedInsight.
         """
         return create_agent(
-            model=init_chat_model(self._config.model, thinking_budget=1024, thinking_level="low"),
+            model=init_chat_model(self._config.model),
             tools=[],  # No tools needed - pure synthesis
             system_prompt=SYNTHESIS_SYSTEM_PROMPT,
             response_format=ToolStrategy(SynthesizedInsight),

@@ -28,7 +28,7 @@ def build_recon_graph():
     model = ChatGoogleGenerativeAI(
         model="gemini-3-flash-preview",
         temperature=0.1,
-        thinking_budget=1024, thinking_level="low",
+        
     )
 
     # Create agent using langchain.agents.create_agent

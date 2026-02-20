@@ -60,7 +60,7 @@ class EpisodeCapturer:
             Configured agent with structured output for ReasoningOutput.
         """
         return create_agent(
-            model=init_chat_model(self._config.model, thinking_budget=1024, thinking_level="low"),
+            model=init_chat_model(self._config.model),
             tools=[],  # No tools needed - pure reasoning extraction
             system_prompt=REASONING_SYSTEM_PROMPT,
             response_format=ToolStrategy(ReasoningOutput),
