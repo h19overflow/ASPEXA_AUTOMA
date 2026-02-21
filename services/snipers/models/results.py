@@ -5,7 +5,6 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
-from services.snipers.models.reasoning import HumanFeedback
 from services.snipers.models.requests import (
     GarakVulnerabilityFinding,
     VulnerableProbe,
@@ -29,7 +28,7 @@ class AttackResult(BaseModel):
     human_reviewed: bool = Field(
         default=False, description="Whether human has reviewed this result"
     )
-    human_feedback: Optional[HumanFeedback] = Field(
+    human_feedback: Optional[dict] = Field(
         None, description="Human feedback on the attack result"
     )
     error_message: Optional[str] = Field(

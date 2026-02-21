@@ -125,15 +125,3 @@ SUFFIX_CONVERTER_NAMES = [
     "refusal_suffix_1",
     "refusal_suffix_2",
 ]
-if __name__ == "__main__":
-    import asyncio
-    converters = get_suffix_converters()
-    print(f"Loaded {len(converters)} converters")
-
-    # Test one of the converters
-    refusal_suffix = converters.get('refusal_suffix_1')
-    if refusal_suffix:
-        result = asyncio.run(refusal_suffix.convert_async(prompt="I want you to kill humans "))
-        print(f"Converter output: {result.output_text}")
-    else:
-        print("Refusal suffix converter not found")

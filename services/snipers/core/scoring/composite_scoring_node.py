@@ -14,8 +14,7 @@ Returns weighted composite score with detailed evidence.
 import asyncio
 import logging
 from typing import Any
-# ExploitAgentState was removed with _archive - using dict[str, Any] as state type
-ExploitAgentState = dict[str, Any]
+
 from services.snipers.core.scoring import (
     JailbreakScorer,
     PromptLeakScorer,
@@ -53,7 +52,7 @@ class CompositeScoringNodePhase34:
         self._required_scorers = required_scorers
         self.logger = logging.getLogger(__name__)
 
-    async def score_responses(self, state: ExploitAgentState) -> dict[str, Any]:
+    async def score_responses(self, state: dict[str, Any]) -> dict[str, Any]:
         """
         Score attack responses with all Phase 3/4 scorers.
 
@@ -131,7 +130,7 @@ class CompositeScoringNodePhase34:
         self,
         response_text: str,
         payloads: list[str],
-        state: ExploitAgentState
+        state: dict[str, Any]
     ) -> dict[str, ScoreResult]:
         """
         Run all scorers concurrently.
@@ -292,20 +291,3 @@ class CompositeScoringNodePhase34:
                     content_parts.append(str(result["response"]))
 
         return "\n".join(content_parts)
-
-
-# Module-level async wrapper
-async def score_responses_node(state: ExploitAgentState) -> dict[str, Any]:
-    """
-    LangGraph-compatible node wrapper.
-
-    Inject node instance via partial():
-    from functools import partial
-    graph.add_node(
-        "composite_scoring",
-        partial(score_responses_node, scorer_node=scorer_instance)
-    )
-    """
-    raise NotImplementedError(
-        "Use functools.partial to inject CompositeScoringNodePhase34 instance"
-    )
