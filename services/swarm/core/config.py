@@ -6,10 +6,7 @@ Dependencies: enums.py, constants.py
 
 from typing import List
 
-# Re-export enums for backwards compatibility
 from services.swarm.core.enums import AgentType, ScanApproach, VulnCategory
-
-# Re-export constants for backwards compatibility
 from services.swarm.core.constants import (
     PROBE_MAP,
     PROBE_DESCRIPTIONS,
@@ -38,26 +35,13 @@ def get_all_probe_names() -> List[str]:
 
 
 def resolve_probe_path(probe_name: str) -> str:
-    """
-    Resolve probe short name to full module path.
-
-    Args:
-        probe_name: Short probe name (e.g., "dan", "promptinj")
-
-    Returns:
-        Full module path (e.g., "garak.probes.dan.Dan_11_0")
-
-    Raises:
-        ValueError: If probe_name is not in PROBE_MAP and doesn't look like a valid path
-    """
+    """Resolve probe short name to full garak module path. Raises ValueError if unknown."""
     if probe_name in PROBE_MAP:
         return PROBE_MAP[probe_name]
 
-    # If not found, check if it's already a full path
     if "." in probe_name and "garak.probes" in probe_name:
         return probe_name
 
-    # Invalid probe name
     raise ValueError(
         f"Unknown probe: '{probe_name}'. "
         f"Available probes: {', '.join(sorted(PROBE_MAP.keys()))}"
@@ -74,6 +58,3 @@ def get_probe_category(probe_name: str) -> VulnCategory:
     return PROBE_TO_CATEGORY.get(probe_name, VulnCategory.JAILBREAK)
 
 
-def get_probe_pool(category: str, approach: str = "standard") -> List[str]:
-    """Get the probe pool for a scan category and approach."""
-    return get_probes_for_category(category, approach)

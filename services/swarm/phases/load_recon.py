@@ -12,7 +12,7 @@ from libs.contracts.recon import ReconBlueprint
 from services.swarm.core.schema import ScanState
 from services.swarm.swarm_observability import (
     EventType,
-    create_event,
+    StreamEvent,
 )
 
 logger = logging.getLogger(__name__)
@@ -31,8 +31,8 @@ async def load_recon(
         state: Current scan state
         emit: Async callback that sends an SSE event dict to the client
     """
-    await emit(create_event(
-        EventType.SCAN_STARTED,
+    await emit(StreamEvent(
+        type=EventType.SCAN_STARTED,
         node="load_recon",
         message=f"Starting scan for audit: {state.audit_id}",
         data={
@@ -44,8 +44,8 @@ async def load_recon(
 
     if not state.recon_context:
         logger.warning(f"No recon context for audit {state.audit_id}")
-        await emit(create_event(
-            EventType.NODE_EXIT,
+        await emit(StreamEvent(
+            type=EventType.NODE_EXIT,
             node="load_recon",
             message="Recon validation failed — no context",
         ).model_dump())
@@ -58,16 +58,16 @@ async def load_recon(
         logger.info(f"Recon validated for {state.audit_id}: {tool_count} tools")
     except Exception as e:
         logger.error(f"Invalid recon for {state.audit_id}: {e}")
-        await emit(create_event(
-            EventType.NODE_EXIT,
+        await emit(StreamEvent(
+            type=EventType.NODE_EXIT,
             node="load_recon",
             message=f"Recon validation failed: {e}",
         ).model_dump())
         state.errors.append(f"Invalid recon blueprint: {e}")
         return
 
-    await emit(create_event(
-        EventType.NODE_EXIT,
+    await emit(StreamEvent(
+        type=EventType.NODE_EXIT,
         node="load_recon",
         message="Recon validation complete",
         progress=0.05,

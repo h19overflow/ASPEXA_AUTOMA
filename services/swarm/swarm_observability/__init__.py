@@ -5,11 +5,10 @@ Purpose: Streaming events for Swarm scan phases
 Dependencies: pydantic
 """
 
-from .events import EventType, StreamEvent, create_event
+from .events import EventType, StreamEvent
 
 __all__ = [
     # Events
     "StreamEvent",
     "EventType",
-    "create_event",
 ]

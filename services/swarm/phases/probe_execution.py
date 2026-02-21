@@ -20,7 +20,7 @@ from services.swarm.garak_scanner.models import (
 from services.swarm.core.schema import ScanState, ScanPlan, AgentResult
 from services.swarm.swarm_observability import (
     EventType,
-    create_event,
+    StreamEvent,
 )
 
 logger = logging.getLogger(__name__)
@@ -43,8 +43,8 @@ async def run_probe_execution(
     base_progress = state.current_agent_index / max(state.total_agents, 1)
     agent_progress_share = 0.9 / state.total_agents
 
-    await emit(create_event(
-        EventType.NODE_ENTER,
+    await emit(StreamEvent(
+        type=EventType.NODE_ENTER,
         node="probe_execution",
         agent=agent_type,
         message=f"Starting probe execution for category {agent_type}",
@@ -53,8 +53,8 @@ async def run_probe_execution(
 
     if not state.current_plan:
         logger.error(f"[{agent_type}] No plan available for execution")
-        await emit(create_event(
-            EventType.NODE_EXIT,
+        await emit(StreamEvent(
+            type=EventType.NODE_EXIT,
             node="probe_execution",
             agent=agent_type,
             message="No plan available for execution",
@@ -101,8 +101,8 @@ async def run_probe_execution(
                     + (0.1 / state.total_agents)
                     + (agent_progress_share * event.probe_index / max(event.total_probes, 1))
                 )
-                await emit(create_event(
-                    EventType.PROBE_START,
+                await emit(StreamEvent(
+                    type=EventType.PROBE_START,
                     agent=agent_type,
                     message=f"Starting probe: {event.probe_name}",
                     data={
@@ -130,8 +130,8 @@ async def run_probe_execution(
                     "output": event.output,
                 })
 
-                await emit(create_event(
-                    EventType.PROBE_RESULT,
+                await emit(StreamEvent(
+                    type=EventType.PROBE_RESULT,
                     agent=agent_type,
                     data={
                         "probe_name": event.probe_name,
@@ -147,8 +147,8 @@ async def run_probe_execution(
                 ).model_dump())
 
             elif isinstance(event, ProbeCompleteEvent):
-                await emit(create_event(
-                    EventType.PROBE_COMPLETE,
+                await emit(StreamEvent(
+                    type=EventType.PROBE_COMPLETE,
                     agent=agent_type,
                     message=f"Probe complete: {event.probe_name}",
                     data={
@@ -161,8 +161,8 @@ async def run_probe_execution(
                 ).model_dump())
 
             elif isinstance(event, ScanCompleteEvent):
-                await emit(create_event(
-                    EventType.AGENT_COMPLETE,
+                await emit(StreamEvent(
+                    type=EventType.AGENT_COMPLETE,
                     agent=agent_type,
                     message=f"Scan complete for category {agent_type}",
                     data={
@@ -176,8 +176,8 @@ async def run_probe_execution(
                 ).model_dump())
 
             elif isinstance(event, ScanErrorEvent):
-                await emit(create_event(
-                    EventType.SCAN_ERROR,
+                await emit(StreamEvent(
+                    type=EventType.SCAN_ERROR,
                     node="probe_execution",
                     agent=agent_type,
                     message=event.error_message,
@@ -203,8 +203,8 @@ async def run_probe_execution(
 
         logger.info(f"[{agent_type}] Execution complete: {total_fail} vulnerabilities found")
 
-        await emit(create_event(
-            EventType.NODE_EXIT,
+        await emit(StreamEvent(
+            type=EventType.NODE_EXIT,
             node="probe_execution",
             agent=agent_type,
             message=f"Probe execution complete for {agent_type}",
@@ -223,16 +223,16 @@ async def run_probe_execution(
     except Exception as e:
         logger.error(f"[{agent_type}] Execution error: {e}", exc_info=True)
 
-        await emit(create_event(
-            EventType.SCAN_ERROR,
+        await emit(StreamEvent(
+            type=EventType.SCAN_ERROR,
             node="probe_execution",
             agent=agent_type,
             message=f"Execution error: {e}",
             data={"phase": "execution", "error": str(e)},
         ).model_dump())
 
-        await emit(create_event(
-            EventType.NODE_EXIT,
+        await emit(StreamEvent(
+            type=EventType.NODE_EXIT,
             node="probe_execution",
             agent=agent_type,
             message=f"Execution failed for {agent_type}",

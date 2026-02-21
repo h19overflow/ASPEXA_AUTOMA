@@ -13,7 +13,7 @@ from services.swarm.core.schema import ScanState
 from services.swarm.persistence.s3_adapter import persist_garak_result
 from services.swarm.swarm_observability import (
     EventType,
-    create_event,
+    StreamEvent,
 )
 
 logger = logging.getLogger(__name__)
@@ -32,13 +32,6 @@ async def persist_results(
         state: Current scan state with agent_results
         emit: Async callback that sends an SSE event dict to the client
     """
-    await emit(create_event(
-        EventType.NODE_ENTER,
-        node="persist_results",
-        message="Starting result persistence",
-        progress=0.95,
-    ).model_dump())
-
     for result in state.agent_results:
         if result.status != "success":
             continue
@@ -91,18 +84,11 @@ async def persist_results(
         },
     }
 
-    await emit(create_event(
-        EventType.SCAN_COMPLETE,
+    await emit(StreamEvent(
+        type=EventType.SCAN_COMPLETE,
         node="persist_results",
         message="Scan complete",
         data=final_results,
-        progress=1.0,
-    ).model_dump())
-
-    await emit(create_event(
-        EventType.NODE_EXIT,
-        node="persist_results",
-        message="Persistence complete",
         progress=1.0,
     ).model_dump())
 

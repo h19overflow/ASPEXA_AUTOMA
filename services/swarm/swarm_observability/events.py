@@ -62,33 +62,3 @@ class StreamEvent(BaseModel):
     model_config = {"use_enum_values": True}
 
 
-def create_event(
-    event_type: EventType,
-    *,
-    node: Optional[str] = None,
-    agent: Optional[str] = None,
-    message: Optional[str] = None,
-    data: Optional[Dict[str, Any]] = None,
-    progress: Optional[float] = None,
-) -> StreamEvent:
-    """Factory function to create StreamEvent instances.
-
-    Args:
-        event_type: The type of event to create
-        node: Current phase name
-        agent: Agent identifier
-        message: Human-readable description
-        data: Additional structured data
-        progress: Progress percentage (0.0-1.0)
-
-    Returns:
-        StreamEvent instance with timestamp auto-populated
-    """
-    return StreamEvent(
-        type=event_type,
-        node=node,
-        agent=agent,
-        message=message,
-        data=data,
-        progress=progress,
-    )

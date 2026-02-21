@@ -8,11 +8,11 @@ Dependencies: services.swarm.core.config, services.swarm.core.schema
 import logging
 from typing import Awaitable, Callable, Dict, Any
 
-from services.swarm.core.config import get_probe_pool
+from services.swarm.core.config import get_probes_for_category
 from services.swarm.core.schema import ScanState, ScanConfig, ScanPlan
 from services.swarm.swarm_observability import (
     EventType,
-    create_event,
+    StreamEvent,
 )
 
 logger = logging.getLogger(__name__)
@@ -34,16 +34,8 @@ async def run_deterministic_planning(
     agent_type = state.current_agent
     base_progress = state.current_agent_index / max(state.total_agents, 1)
 
-    await emit(create_event(
-        EventType.NODE_ENTER,
-        node="deterministic_planning",
-        agent=agent_type,
-        message=f"Starting deterministic planning for {agent_type}",
-        progress=base_progress,
-    ).model_dump())
-
-    await emit(create_event(
-        EventType.PLAN_START,
+    await emit(StreamEvent(
+        type=EventType.PLAN_START,
         agent=agent_type,
         message=f"Planning scan for {agent_type}",
         progress=base_progress,
@@ -52,7 +44,7 @@ async def run_deterministic_planning(
     approach = state.scan_config.get("approach", "standard")
     max_probes = state.scan_config.get("max_probes", 3)
 
-    probe_pool = get_probe_pool(agent_type, approach)
+    probe_pool = get_probes_for_category(agent_type, approach)
     selected = probe_pool[:max_probes]
 
     plan = ScanPlan(
@@ -65,22 +57,14 @@ async def run_deterministic_planning(
 
     probe_progress = base_progress + (0.1 / state.total_agents)
 
-    await emit(create_event(
-        EventType.PLAN_COMPLETE,
+    await emit(StreamEvent(
+        type=EventType.PLAN_COMPLETE,
         agent=agent_type,
         message=f"Planning complete: {len(plan.selected_probes)} probes selected",
         data={
             "probes": plan.selected_probes,
             "probe_count": len(plan.selected_probes),
         },
-        progress=probe_progress,
-    ).model_dump())
-
-    await emit(create_event(
-        EventType.NODE_EXIT,
-        node="deterministic_planning",
-        agent=agent_type,
-        message=f"Deterministic planning complete for {agent_type}",
         progress=probe_progress,
     ).model_dump())
 
