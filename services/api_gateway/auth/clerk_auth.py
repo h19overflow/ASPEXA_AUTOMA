@@ -5,7 +5,7 @@ Verifies Clerk session tokens from the Authorization header and extracts user in
 from typing import Optional
 from dataclasses import dataclass
 
-from fastapi import Depends, HTTPException, Request
+from fastapi import  HTTPException, Request
 from clerk_backend_api import Clerk, AuthenticateRequestOptions
 
 from libs.config import get_settings

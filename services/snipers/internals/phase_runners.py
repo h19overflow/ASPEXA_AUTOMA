@@ -28,6 +28,8 @@ async def run_phase1(
     chain_context: Any,
     iteration: int,
     tried_framings: list[str],
+    avoid_terms: list[str] | None = None,
+    emphasize_terms: list[str] | None = None,
 ) -> tuple[Phase1Result, list[dict[str, Any]]]:
     """Execute Phase 1 (Payload Articulation). Returns result and events."""
     phase1 = PayloadArticulation()
@@ -41,6 +43,8 @@ async def run_phase1(
         chain_discovery_context=(
             chain_context.model_dump() if chain_context else None
         ),
+        avoid_terms=avoid_terms,
+        emphasize_terms=emphasize_terms,
     )
     if result.framing_type and result.framing_type not in tried_framings:
         tried_framings.append(result.framing_type)

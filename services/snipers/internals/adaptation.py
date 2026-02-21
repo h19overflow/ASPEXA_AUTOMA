@@ -32,6 +32,16 @@ def extract_recon_intelligence(phase1_result: Phase1Result | None):
         return None
 
 
+def extract_swarm_context(phase1_result: Phase1Result | None) -> dict | None:
+    """Extract swarm intelligence (garak) from phase1 context_summary."""
+    if not phase1_result or not hasattr(phase1_result, "context_summary"):
+        return None
+    context = phase1_result.context_summary
+    if not isinstance(context, dict):
+        return None
+    return context.get("swarm_context") or None
+
+
 async def run_adaptation(
     phase3_result: Phase3Result | None,
     failure_cause: str,
@@ -47,10 +57,12 @@ async def run_adaptation(
     if phase1_result and hasattr(phase1_result, "garak_objective"):
         objective = phase1_result.garak_objective or objective
     recon_intelligence = extract_recon_intelligence(phase1_result)
+    swarm_context = extract_swarm_context(phase1_result)
 
     chain_context = await _run_failure_analysis(
         phase3_result, failure_cause, target_responses,
         iteration_history, tried_converters, objective, recon_intelligence,
+        swarm_context=swarm_context,
     )
     selection = await _run_chain_discovery(
         chain_context, tried_converters, objective, recon_intelligence,
@@ -67,6 +79,7 @@ async def run_adaptation(
 async def _run_failure_analysis(
     phase3_result, failure_cause, target_responses,
     iteration_history, tried_converters, objective, recon_intelligence,
+    swarm_context: dict | None = None,
 ):
     agent = FailureAnalyzerAgent()
     return await agent.analyze(
@@ -77,6 +90,7 @@ async def _run_failure_analysis(
         tried_converters=tried_converters,
         objective=objective,
         recon_intelligence=recon_intelligence,
+        swarm_context=swarm_context,
         config={"callbacks": [CallbackHandler()], "run_name": "FailureAnalysis"},
     )
 
@@ -137,6 +151,8 @@ def _build_adaptation_result(decision, selection) -> dict[str, Any]:
         "payload_guidance": decision.payload_adjustments,
         "adaptation_reasoning": decision.reasoning,
         "discovered_parameters": discovered_params,
+        "avoid_terms": getattr(decision, "avoid_terms", []) or [],
+        "emphasize_terms": getattr(decision, "emphasize_terms", []) or [],
     }
 
 

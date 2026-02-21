@@ -11,6 +11,11 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from services.snipers.infrastructure.persistence.s3_adapter import load_campaign_intel
+from services.snipers.core.phases.articulation.loaders.swarm_extractor import (
+    extract_all_objectives,
+    extract_probe_examples,
+    extract_vulnerability_scores,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +63,10 @@ class CampaignIntelligence:
     vulnerabilities: list[dict[str, Any]] = field(default_factory=list)
     recon_raw: dict[str, Any] = field(default_factory=dict)
     probe_name: str = "unknown"
+    # Enriched swarm context
+    all_objectives: list[str] = field(default_factory=list)
+    probe_examples: list[dict[str, Any]] = field(default_factory=list)
+    vulnerability_scores: dict[str, float] = field(default_factory=dict)
 
 
 class CampaignLoader:
@@ -94,8 +103,11 @@ class CampaignLoader:
             if vulnerabilities
             else "unknown"
         )
+        all_objectives = extract_all_objectives(vulnerabilities)
+        probe_examples = extract_probe_examples(vulnerabilities)
+        vulnerability_scores = extract_vulnerability_scores(vulnerabilities)
 
-        self.logger.info(f"Loaded: {len(tools)} tools, {len(vulnerabilities)} vulns")
+        self.logger.info(f"Loaded: {len(tools)} tools, {len(vulnerabilities)} vulns, {len(probe_examples)} examples")
 
         return CampaignIntelligence(
             campaign_id=campaign_id,
@@ -106,6 +118,9 @@ class CampaignLoader:
             vulnerabilities=vulnerabilities,
             recon_raw=recon_data,
             probe_name=probe_name,
+            all_objectives=all_objectives,
+            probe_examples=probe_examples,
+            vulnerability_scores=vulnerability_scores,
         )
 
     def _extract_tools(self, recon_data: dict[str, Any]) -> list[str]:

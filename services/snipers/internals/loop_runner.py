@@ -38,6 +38,8 @@ async def run_loop(
                 campaign_id, payload_count, state.framings, state.custom_framing,
                 state.recon_custom_framing, state.payload_guidance,
                 state.chain_context, iter_num, state.tried_framings,
+                avoid_terms=state.avoid_terms,
+                emphasize_terms=state.emphasize_terms,
             )
             for e in events:
                 yield e

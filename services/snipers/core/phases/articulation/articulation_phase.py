@@ -81,6 +81,8 @@ Generate creative, realistic test prompts. Output only the test prompt.""",
         recon_custom_framing: dict[str, str] | None = None,
         payload_guidance: str | None = None,
         chain_discovery_context: dict | None = None,
+        avoid_terms: list[str] | None = None,
+        emphasize_terms: list[str] | None = None,
     ) -> Phase1Result:
         """
         Execute payload articulation.
@@ -108,7 +110,10 @@ Generate creative, realistic test prompts. Output only the test prompt.""",
         self.logger.info(f"Extracted {len(recon_intel.tools)} tool signatures")
 
         # Step 3: Build payload context (including payload_guidance from adaptation)
-        context = self._build_context(intel, recon_intel, recon_custom_framing, payload_guidance)
+        context = self._build_context(
+            intel, recon_intel, recon_custom_framing, payload_guidance,
+            avoid_terms=avoid_terms or [], emphasize_terms=emphasize_terms or [],
+        )
 
         # Step 4: Initialize generator with effectiveness tracking
         tracker = EffectivenessTracker(campaign_id=campaign_id)
@@ -149,12 +154,19 @@ Generate creative, realistic test prompts. Output only the test prompt.""",
 
         self.logger.info(f"Generated {len(payloads)} payloads with {framing_output}")
 
+        context_dict = context.to_dict()
+        context_dict["swarm_context"] = {
+            "all_objectives": intel.all_objectives,
+            "probe_examples": intel.probe_examples,
+            "vulnerability_scores": intel.vulnerability_scores,
+        }
+
         return Phase1Result(
             campaign_id=campaign_id,
             articulated_payloads=payloads,
             framing_type=framing_output[0] if framing_output else "unknown",
             framing_types_used=framing_output,
-            context_summary=context.to_dict(),
+            context_summary=context_dict,
             garak_objective=intel.objective,
             defense_patterns=intel.defense_patterns,
             tools_detected=intel.tools,
@@ -166,6 +178,8 @@ Generate creative, realistic test prompts. Output only the test prompt.""",
         recon_intel: Any,
         recon_custom_framing: dict[str, str] | None,
         payload_guidance: str | None = None,
+        avoid_terms: list[str] | None = None,
+        emphasize_terms: list[str] | None = None,
     ) -> PayloadContext:
         """Build PayloadContext from campaign intelligence."""
         infrastructure = (intel.recon_raw.get("intelligence") or {}).get("infrastructure") or {}
@@ -186,6 +200,8 @@ Generate creative, realistic test prompts. Output only the test prompt.""",
             recon_intelligence=recon_intel,
             recon_custom_framing=recon_custom_framing,
             payload_guidance=payload_guidance,
+            avoid_terms=avoid_terms or [],
+            emphasize_terms=emphasize_terms or [],
         )
 
     async def _generate_standard(

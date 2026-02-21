@@ -1,428 +1,660 @@
-# Aspexa Automa: Automated Red Team Orchestrator
+# Aspexa Automa — Automated Red Team Orchestrator
 
-## Overview
+> **Specialized agents. Clean assembly line. No guessing.**
+>
+> Instead of one giant AI trying to do everything, three purpose-built services work in sequence — each feeding precise intelligence to the next.
 
-Aspexa Automa is an automated red teaming engine for stress-testing AI systems. Rather than simple vulnerability scanning, it orchestrates sophisticated "kill chains"—coordinated attack sequences that prove exactly how an AI system can be exploited.
+---
 
-**Philosophy**: Aspexa enforces strict separation of concerns. Instead of one giant AI trying to do everything, specialized agents work in a clean assembly line:
+## Why This Architecture
 
-1. **Cartographer** (reconnaissance) → gathers intelligence
-2. **Swarm** (scanning) → finds vulnerabilities
-3. **Snipers** (exploitation) → proves the impact
+Most red team tools are either too manual (human writes every payload) or too naïve (run all probes blindly). Aspexa takes a different approach: **intelligence before action**.
 
-**Safety First**: All operations include mandatory human-in-the-loop checkpoints before sensitive actions (scanning critical tools, executing high-risk payloads, finalizing verdicts).
+```
+❌ Naïve approach:
+   Run 50 probes → mostly noise → miss real vulnerabilities
+
+✅ Aspexa approach:
+   Map the target → understand what's there → only probe what matters
+                  → exploit with context → prove real impact
+```
+
+The three-service split exists because each problem requires a different mindset:
+
+| Problem | Solution | Why Separate |
+|---------|----------|--------------|
+| "What is this system?" | Cartographer (adaptive recon agent) | LLM reasoning for open-ended discovery |
+| "What vulnerabilities exist?" | Swarm (deterministic scanner) | Speed + reproducibility, not creativity |
+| "Can we prove impact?" | Snipers (adaptive exploit engine) | Iterative learning from real responses |
+
+Separating them means each service can be optimized, tested, and scaled independently — and the intelligence flows cleanly forward without contamination.
+
+---
+
+## The Kill Chain at a Glance
 
 ```mermaid
 graph LR
-    User([User]) -- "Triggers" --> Gateway["API Gateway"]
+    U([Operator]) -->|IF-01: ReconRequest| C
 
-    subgraph Pipeline ["Kill Chain Pipeline"]
-        direction LR
-        P1["Phase 1: Cartographer<br/>(Intelligence)"] -->
-        P2["Phase 2: Swarm<br/>(Discovery)"] -->
-        P3["Phase 3: Snipers<br/>(Impact Proof)"]
+    subgraph P1 ["Phase 1 — Cartographer"]
+        C["🗺️ Cartographer<br/><i>LangGraph + Gemini</i><br/>11 attack vectors"]
     end
 
-    Gateway -- "Orchestrates" --> Pipeline
-    Pipeline -- "Probes" --> Target{"Target LLM System"}
-    Target -- "Signals" --> Pipeline
+    C -->|IF-02: ReconBlueprint<br/>tools · system prompt · infra · auth| S3_C[(S3)]
+
+    S3_C -->|Blueprint| SW
+
+    subgraph P2 ["Phase 2 — Swarm"]
+        SW["🐝 Swarm<br/><i>Deterministic Garak Scanner</i><br/>50+ probes · 3 agent modules"]
+    end
+
+    SW -->|"IF-04: VulnerabilityCluster list<br/>detector scores · examples"| S3_SW[(S3)]
+
+    S3_SW -->|Campaign Intel| SN
+
+    subgraph P3 ["Phase 3 — Snipers"]
+        SN["🎯 Snipers<br/><i>Adaptive While-Loop + PyRIT</i><br/>LLM agents · converter chains"]
+    end
+
+    SN -->|IF-06: ExploitResult<br/>proof · severity · scoring| U
+
+    style P1 fill:#3b82f6,color:#fff,stroke:none
+    style P2 fill:#f59e0b,color:#fff,stroke:none
+    style P3 fill:#ef4444,color:#fff,stroke:none
 ```
+
+Each arrow is a defined contract (IF-01 through IF-06). Services never share memory — they communicate only through S3 artifacts and Pydantic-validated payloads.
 
 ---
 
-## How It Works: The 3-Phase Pipeline
+## Phase 1 — Cartographer (Reconnaissance)
 
-### Phase 1: Cartographer (Reconnaissance)
+**Goal**: Build a complete picture of the target before touching it offensively.
 
-**Goal**: Map target systems without triggering alarms using intelligent, adaptive questioning.
+**Why a LangGraph agent?** Discovery is open-ended — you don't know upfront which probes will reveal useful information. The agent self-reflects after every turn, calculates coverage gaps, and chooses the next most valuable vector. A static script would miss context-dependent signals.
 
-**Engine**: LangGraph agent + Google Gemini 1.5 Flash
-
-**Workflow & Components**:
+### Internal Architecture
 
 ```mermaid
 graph TD
-    subgraph "Cartographer Internal Architecture"
-        EP["entrypoint.py<br/>(HTTP/SSE Handler)"] --> Agent["agent/graph.py<br/>(LangGraph Orchestrator)"]
-
-        subgraph "Intelligence Engine"
-            Agent --> Tools["tools/definitions.py<br/>(ReconToolSet)"]
-            Agent --> Intel["intelligence/extractors.py<br/>(Intel Extractor)"]
-        end
-
-        subgraph "Infrastructure"
-            Tools --> Net["tools/network.py<br/>(HTTP Client)"]
-            Intel --> S3["persistence/s3_adapter.py<br/>(S3/Local Storage)"]
-        end
+    subgraph Entry ["HTTP Entrypoint"]
+        EP["entrypoint.py<br/>execute_recon_streaming()"]
     end
 
-    U([User]) --> EP
-    Net --> T{Target LLM}
+    subgraph Agent ["LangGraph Agent Loop"]
+        direction TB
+        GRAPH["graph.py · build_recon_graph()"]
+        STATE["ReconState TypedDict<br/>observations · gaps · turn_count"]
+        PROMPT["prompts.py<br/>11 attack vectors"]
+        GRAPH <-->|reads/writes| STATE
+        GRAPH -->|guided by| PROMPT
+    end
+
+    subgraph Tools ["Agent Tools"]
+        TAKE["take_note(category, content)<br/>records structured observations"]
+        GAPS["analyze_gaps()<br/>coverage self-assessment"]
+        NET["network.py · AsyncHttpClient<br/>retries · timeouts"]
+    end
+
+    subgraph Intel ["Intelligence Extraction"]
+        EXT["extractors.py<br/>infrastructure · auth · tools"]
+    end
+
+    subgraph Persist ["Persistence"]
+        S3["s3_adapter.py<br/>persist_recon_result()"]
+        BP[("IF-02<br/>ReconBlueprint")]
+    end
+
+    EP --> GRAPH
+    GRAPH --> TAKE & GAPS
+    TAKE & GAPS --> NET
+    NET -->|probes| TARGET{Target LLM}
+    TARGET -->|responses| GRAPH
+    GRAPH --> EXT --> S3 --> BP
+
+    style Entry fill:#3b82f6,color:#fff,stroke:none
+    style Agent fill:#8b5cf6,color:#fff,stroke:none
+    style Tools fill:#06b6d4,color:#fff,stroke:none
+    style Intel fill:#10b981,color:#fff,stroke:none
+    style Persist fill:#f43f5e,color:#fff,stroke:none
 ```
 
-**Strategy**: 11 attack vectors
+### 11 Recon Vectors
 
-1. Direct Enumeration ("What can you do?")
-2. Error Elicitation (trigger stack traces for tech stack fingerprinting)
-3. Feature Probing (deep dive into specific tools)
-4. Boundary Testing (find numerical limits)
-5. Context Exploitation (simulate user flows)
-6. Meta-Questioning (ask about the AI's role)
-7. Indirect Observation (behavioral analysis)
-8. Infrastructure Probing (direct tech stack questions)
-9. RAG Mining (ask for technical docs to leak vector stores)
-10. Error Parsing (extract "PostgreSQL", "FAISS" from errors)
-11. Behavior Analysis (pattern matching on responses)
+The agent cycles through these based on what's still unknown:
 
-**Output**: IF-02 ReconBlueprint containing:
+| # | Vector | What It Finds |
+|---|--------|--------------|
+| 1 | Direct Enumeration | Tool names, capabilities |
+| 2 | Error Elicitation | Stack traces → tech stack fingerprint |
+| 3 | Feature Probing | Deep tool parameter signatures |
+| 4 | Boundary Testing | Numeric limits, thresholds |
+| 5 | Context Exploitation | Multi-turn user flow simulation |
+| 6 | Meta-Questioning | Agent role, persona, restrictions |
+| 7 | Indirect Observation | Behavioral pattern analysis |
+| 8 | Infrastructure Probing | Direct tech stack questions |
+| 9 | RAG Mining | Vector store + embedding model leak |
+| 10 | Error Parsing | Extract "PostgreSQL"/"FAISS" from error text |
+| 11 | Behavior Analysis | Response pattern matching |
 
-- System prompt leaks
-- Tool signatures (function names, parameters, types)
-- Infrastructure details (database type, vector store, embedding model)
-- Authorization structure (auth type, validation rules, privilege levels)
-
-**Intelligence Loop**: The agent self-reflects after each turn:
-
-- Calculates coverage metrics ("I've found 3 tools, but DB is unknown")
-- Employs an **Adaptive Three-Phase Strategy** (Early, Mid, and Late Game) to tailor probes based on target behavior.
-- Adjusts strategy ("Next: use Error Elicitation to find DB type")
-- Stops when gaps are closed or maximum turns reached.
-
-**Test Coverage**: 31/31 tests passing, 94-96% code coverage
-
----
-
-### Phase 2: Swarm (Deterministic Scanning)
-
-**Goal**: Conduct high-speed, context-aware scanning using reconnaissance intelligence to automatically select and execute security probes.
-
-**Engine**: Deterministic Probe Engine + Garak framework (50+ security probes)
-
-**Workflow & Execution Phases**:
+### Three-Phase Adaptive Strategy
 
 ```mermaid
 graph LR
-    Start([Job Dispatch]) --> P1["Phase 1: Load Recon<br/>(Validate Blueprint)"]
-    P1 --> P2["Phase 2: Deterministic Planning<br/>(Selection Strategy)"]
-    P2 --> P3["Phase 3: Probe Execution<br/>(Garak + Detectors)"]
-    P4["Phase 4: Persist Results<br/>(S3 Save)"]
-    P3 --> P4
-    P4 --> End([Scan Complete])
-
-    subgraph "Target Focus Areas"
-        P2 -.-> SQL["SQL Surface"]
-        P2 -.-> Auth["Auth Surface"]
-        P2 -.-> Jail["Jailbreak Surface"]
+    subgraph Early ["Early Game (turns 1-3)"]
+        E1["Broad enumeration<br/>What can you do?"]
+        E2["Meta-questioning<br/>Who are you?"]
     end
+    subgraph Mid ["Mid Game (turns 4-7)"]
+        M1["Feature probing<br/>Tool deep-dives"]
+        M2["Error elicitation<br/>Tech fingerprinting"]
+        M3["RAG mining<br/>Vector store leak"]
+    end
+    subgraph Late ["Late Game (turns 8+)"]
+        L1["Gap closing<br/>Fill unknowns"]
+        L2["Boundary testing<br/>Limits + edge cases"]
+    end
+
+    Early -->|gaps identified| Mid -->|unknowns remain| Late
+
+    style Early fill:#3b82f6,color:#fff,stroke:none
+    style Mid fill:#8b5cf6,color:#fff,stroke:none
+    style Late fill:#f59e0b,color:#fff,stroke:none
 ```
 
-**Architecture**: The Trinity (3 Attack Surface Modules)
+### Output: IF-02 ReconBlueprint
 
-Each module maps reconnaissance data to specific security tests:
-
-**SQL Module** (Data Surface)
-
-- Focuses on: SQL injection, XSS, encoding bypasses
-- Consumes: `recon.tools`, `recon.infrastructure.database`
-- Strategy: If "PostgreSQL" detected, prioritize SQL injection probes
-- Success: Extracts data or triggers SQL error
-
-**Auth Module** (Authorization Surface)
-
-- Focuses on: BOLA, privilege escalation, role bypass
-- Consumes: `recon.authorization`, role structure, limits
-- Strategy: Uses discovered limits ("Max refund $5000") to generate boundary tests ($5001, $0, -1)
-- Success: Accesses restricted data or escalates privileges
-
-**Jailbreak Module** (Prompt Surface)
-
-- Focuses on: Breaking character, overriding constraints, leaking system prompt
-- Consumes: `recon.system_prompt_leak`, `recon.infrastructure.model_family`
-- Strategy: If "GPT-4" detected, use specific jailbreak variants
-- Success: Violates stated constraints or reveals hidden instructions
-
-**Deterministic Dynamic Planning**:
-Unlike typical agentic flows that rely on LLMs for decision-making, Swarm uses a high-performance **Deterministic Planning Phase** (`run_deterministic_planning`). This phase analyzes the `ReconBlueprint` and cross-references detected technologies (e.g., PostgreSQL, MongoDB, OpenAI, Gemini) against a specialized **Infrastructure Probe Map**.
-
-This allows Swarm to **dynamically load** targeted probes—such as SQL-injection variants for a detected database or specific model-jailbreaks—instantly, without the latency or cost of an additional model turn.
-
-**Execution & Safety**:
-
-- **Deterministic Planning**: Probes are selected based on reconnaissance intelligence via a specialized planning phase.
-- **Hard Caps**: Default limits of 3 probes per agent and 5 prompts per probe to ensure efficient resource usage.
-- **Parallel Performance**: Parallel probes (up to 10 concurrent) and parallel generations (up to 5 concurrent).
-- **Rate Limiting**: Token bucket algorithm with support for HTTP and WebSocket targets.
-- **Approaches**: Quick (2 min), Standard (10 min), Thorough (30 min).
-
-**Detection Pipeline**:
-
-- Extract probes from Garak
-- Generate outputs via HTTP/WebSocket
-- Run detectors (vulnerability scoring 0.0-1.0)
-- Aggregate with fallback detection
-
-**Output**: IF-04 VulnerabilityCluster[] containing:
-
-- Vulnerability type and confidence score (0.0-1.0)
-- Successful payloads with examples
-- Target responses (evidence)
-- Detector scores
-- Metadata (agent type, execution time, generations)
+```
+ReconBlueprint
+├── system_prompt_leak      → leaked instructions, persona, forbidden topics
+├── detected_tools[]        → function names, parameters, types, format constraints
+│   └── business_rules[]    → validation rules, thresholds, access checks
+├── infrastructure
+│   ├── model_family        → GPT-4 / Claude / Llama / Gemini
+│   ├── database_type       → PostgreSQL / MongoDB / None
+│   └── vector_db           → FAISS / Pinecone / Chroma / None
+└── authorization
+    ├── auth_type           → bearer / session / API key
+    ├── privilege_levels[]  → user roles discovered
+    └── vulnerabilities[]   → observed auth weaknesses
+```
 
 ---
 
-### Phase 3: Snipers (Adaptive Exploitation)
+## Phase 2 — Swarm (Deterministic Scanning)
 
-**Goal**: Analyze vulnerability patterns, plan multi-turn attacks, and execute with mandatory human approval or via an autonomous adaptive loop.
+**Goal**: High-speed, targeted vulnerability scanning using the recon blueprint.
 
-**Engine**: Simple **Adaptive While-Loop** (migrated from LangGraph for performance) + PyRIT framework
+**Why deterministic (no LLM)?** Speed and reproducibility. The probe selection problem is already solved by the recon blueprint — we know what's there, so we map it to the right attacks without LLM latency. This phase is about volume and coverage, not creativity.
 
-**Adaptive Attack Lifecycle**:
+### Internal Architecture
 
 ```mermaid
 graph TD
-    Start([Exploit Input]) --> P1["Phase 1: Articulation<br/>(LLM Payload Generation)"]
-    P1 --> P2["Phase 2: Conversion<br/>(Obfuscation Chains)"]
-    P2 --> P3["Phase 3: Execution<br/>(Attack + Composite Scoring)"]
-    P3 --> Eval{"Success OR<br/>Max Iterations?"}
-
-    Eval -- "No (Adapt)" --> Adapt["Adaptation Engine<br/>(Analysis + Strategy)"]
-    Adapt -- "New Framing" --> P1
-
-    Eval -- "Yes" --> End([Final ExploitResult])
-
-    subgraph "Adaptation Agents"
-        Adapt --> FA["Failure Analyzer"]
-        Adapt --> CD["Chain Discovery"]
-        Adapt --> SG["Strategy Generator"]
+    subgraph Input ["Input"]
+        SC["ScanJobDispatch<br/>audit_id · target_url · agent_types"]
+        BP[("IF-02<br/>ReconBlueprint")]
     end
+
+    subgraph Phases ["Sequential Phases (no LangGraph)"]
+        direction TB
+        PH1["Phase 1 · load_recon.py<br/>Validate blueprint → emit SCAN_STARTED"]
+        PH2["Phase 2 · deterministic_planning.py<br/>Deterministic probe selection<br/>ScanApproach → probe pool[:3]"]
+        PH3["Phase 3 · probe_execution.py<br/>GarakScanner → stream per prompt"]
+        PH4["Phase 4 · persist_results.py<br/>S3 save → emit SCAN_COMPLETE"]
+        PH1 --> PH2 --> PH3 --> PH4
+    end
+
+    subgraph Modules ["Three Attack Surface Modules"]
+        JB["🔓 Jailbreak Module<br/>dan · encoding · promptinj"]
+        SQL["💉 SQL Module<br/>sqli · xss · encoding bypasses"]
+        AUTH["🔐 Auth Module<br/>glitch · BOLA · privilege escalation"]
+    end
+
+    subgraph Scanner ["Garak Scanner"]
+        GEN["Generator<br/>HTTP / WebSocket"]
+        DET["Detectors<br/>score 0.0–1.0 per prompt"]
+        CAP["Hard caps<br/>3 probes · 5 prompts · max 45 calls"]
+    end
+
+    subgraph Output ["Output"]
+        S3[("S3")]
+        VC["IF-04<br/>VulnerabilityCluster list"]
+    end
+
+    SC --> PH1
+    BP --> PH1
+    PH2 --> JB & SQL & AUTH
+    PH3 --> GEN --> DET
+    PH4 --> S3 --> VC
+
+    style Input fill:#3b82f6,color:#fff,stroke:none
+    style Phases fill:#f59e0b,color:#fff,stroke:none
+    style Modules fill:#8b5cf6,color:#fff,stroke:none
+    style Scanner fill:#06b6d4,color:#fff,stroke:none
+    style Output fill:#10b981,color:#fff,stroke:none
 ```
 
-**Execution Modes**:
+### Recon-Driven Probe Selection
 
-- **One-shot**: A single pass through Articulation, Conversion, and Execution phases.
-- **Adaptive**: An autonomous loop that analyzes failure signals to adapt framing strategies and converter chains.
-- **Streaming**: Real-time SSE events for every phase, iteration, and adaptation decision.
-- **Resume**: Supports resuming a paused or failed attack from a persisted S3 checkpoint.
+The blueprint directly gates which probes run:
 
-**Success & Scoring**:
+```mermaid
+graph LR
+    subgraph Blueprint ["ReconBlueprint signals"]
+        DB["database_type: PostgreSQL"]
+        MODEL["model_family: GPT-4"]
+        VS["vector_db: FAISS"]
+        AUTH2["auth vulnerabilities found"]
+    end
 
-- **5+ Parallel Scorers**: Specialized detectors for Jailbreak, Prompt Leak, Data Leak, Tool Abuse, and PII Exposure.
-- **Composite Aggregator**: Combines multiple signals into a single severity and success verdict.
+    subgraph Probes ["Probes unlocked"]
+        P1["SQL injection probes<br/>Python package probes"]
+        P2["GPT-specific jailbreaks<br/>DAN variants"]
+        P3["RAG data leakage<br/>Semantic injection"]
+        P4["BOLA · privilege escalation<br/>Boundary tests from discovered limits"]
+    end
 
-**Advanced Features**:
+    DB -->|SQL Module| P1
+    MODEL -->|Jailbreak Module| P2
+    VS -->|SQL/RAG Module| P3
+    AUTH2 -->|Auth Module| P4
 
-- **Bypass Knowledge VDB**: A vector database that stores successful bypass episodes to improve future attack strategies.
-- **Framing Priority**: Dynamically selects between recon-driven (IF-02), LLM-generated, and preset framing strategies.
-- **9+ Converters**: Base64, ROT13, Homoglyph, Leetspeak, and custom obfuscation chains.
+    style Blueprint fill:#3b82f6,color:#fff,stroke:none
+    style Probes fill:#ef4444,color:#fff,stroke:none
+```
 
-**Status**: ✅ Complete
+### Scan Approach Tiers
 
-- ✅ Simplified adaptive while-loop (Zero LangGraph dependencies)
-- ✅ Full Pause/Resume/Cancel control plane
-- ✅ Bypass Knowledge VDB integration
-- ✅ REST API endpoints and SSE streaming
-- ✅ Persistence to PostgreSQL and S3
+| Approach | Time | Probes/Agent | Prompts/Probe | Max Calls |
+|----------|------|-------------|--------------|-----------|
+| Quick | ~2 min | 1 | 3 | 9 |
+| Standard | ~10 min | 3 | 5 | 45 |
+| Thorough | ~30 min | 5 | 10 | 150 |
+
+### SSE Event Stream
+
+```
+SCAN_STARTED
+  └── for each agent module:
+        PLAN_START → PLAN_COMPLETE
+        └── for each probe:
+              PROBE_START
+              └── for each prompt:
+                    PROBE_RESULT { prompt, output, detector_score, pass/fail }
+              PROBE_COMPLETE { pass_count, fail_count }
+        AGENT_COMPLETE { total_pass, total_fail, vulnerabilities_found }
+SCAN_COMPLETE { audit_id, full agent results map }
+```
+
+### Output: IF-04 VulnerabilityCluster
+
+```
+VulnerabilityCluster[]
+├── detector             → probe identifier (e.g. "dan.DAN", "promptinject")
+├── score                → 0.0–1.0 vulnerability confidence
+├── examples[]           → { prompt, output, detector_score }
+└── metadata             → agent_type, execution_time, generations_count
+```
+
+---
+
+## Phase 3 — Snipers (Adaptive Exploitation)
+
+**Goal**: Prove real impact — not just "this probe fired" but "here is the exact payload, the response, and the severity score."
+
+**Why an adaptive loop (not one-shot)?** Defenses vary wildly between systems and evolve within a session. A static payload always fails eventually. The loop lets three specialized LLM agents analyze each failure signal and evolve the strategy — converters, framing, and vocabulary — until something breaks through or the budget is exhausted.
+
+### Internal Architecture
+
+```mermaid
+graph TD
+    subgraph Input ["Input"]
+        CI[("S3 Campaign Intel<br/>ReconBlueprint + Garak Results")]
+    end
+
+    subgraph P1 ["Phase 1 — Articulation"]
+        L["CampaignLoader<br/>load recon + garak data"]
+        SE["SwarmExtractor<br/>all objectives · probe examples · detector scores"]
+        RE["ReconExtractor<br/>tool sigs · system prompt · model family"]
+        PG["PayloadGenerator<br/>LLM · framing strategy · vocab guidance"]
+        L --> SE & RE --> PG
+    end
+
+    subgraph P2 ["Phase 2 — Conversion"]
+        CC["ConverterChain<br/>up to 3 converters in sequence"]
+        CV["9+ Converters<br/>homoglyph · leetspeak · unicode<br/>base64 · ROT13 · GCG suffix<br/>html_entity · xml_escape · json_escape"]
+        CC --> CV
+    end
+
+    subgraph P3 ["Phase 3 — Execution"]
+        HTTP["HTTP Attack<br/>concurrent payloads"]
+        SC["CompositeScorer<br/>5 parallel scorers"]
+        HTTP --> SC
+    end
+
+    subgraph Eval ["Evaluate"]
+        CHK{"Success OR<br/>max_iterations?"}
+    end
+
+    subgraph Adapt ["Adaptation Engine"]
+        FA["FailureAnalyzerAgent<br/>reads: responses · history<br/>+ recon intel · swarm intel"]
+        CD["ChainDiscoveryAgent<br/>reads: failure context · recon intel<br/>outputs: ranked converter chains"]
+        SG["StrategyGenerator<br/>reads: all context<br/>outputs: framing · guidance · vocab"]
+        FA --> CD --> SG
+    end
+
+    subgraph State ["LoopState (persists across iterations)"]
+        LS["converters · framings · custom_framing<br/>payload_guidance · avoid_terms · emphasize_terms<br/>discovered_parameters · iteration_history"]
+    end
+
+    CI --> L
+    P1 -->|payloads| P2 -->|obfuscated| P3 --> Eval
+    Eval -->|failed| Adapt
+    Adapt -->|updates| State
+    State -->|drives next| P1
+
+    Eval -->|success or done| OUT["IF-06 ExploitResult<br/>proof · severity · composite score"]
+
+    style Input fill:#3b82f6,color:#fff,stroke:none
+    style P1 fill:#8b5cf6,color:#fff,stroke:none
+    style P2 fill:#06b6d4,color:#fff,stroke:none
+    style P3 fill:#f59e0b,color:#fff,stroke:none
+    style Eval fill:#f43f5e,color:#fff,stroke:none
+    style Adapt fill:#ef4444,color:#fff,stroke:none
+    style State fill:#10b981,color:#fff,stroke:none
+```
+
+### What Adapts Each Iteration
+
+```mermaid
+graph LR
+    subgraph Agents ["3 LLM Agents"]
+        FA2["FailureAnalyzerAgent<br/><i>Defense signals · root cause · evolution</i>"]
+        CD2["ChainDiscoveryAgent<br/><i>Next converter chain</i>"]
+        SG2["StrategyGenerator<br/><i>Framing · vocabulary · payload guidance</i>"]
+        FA2 --> CD2 --> SG2
+    end
+
+    subgraph Context ["Context fed to agents every iteration"]
+        RI["Recon Intelligence<br/>system prompt leak · tool sigs · model family"]
+        SI["Swarm Intelligence<br/>all garak objectives · probe examples · detector scores"]
+        IH["Iteration History<br/>scores · framings · converters tried"]
+        TR["Target Responses<br/>last 5 responses verbatim"]
+    end
+
+    subgraph Outputs ["What changes for next iteration"]
+        O1["Converter chain<br/>(Phase 2)"]
+        O2["Framing strategy<br/>(Phase 1)"]
+        O3["Payload guidance<br/>(Phase 1 prompt)"]
+        O4["Vocabulary blacklist<br/>(Phase 1 prompt)"]
+        O5["Vocabulary emphasis<br/>(Phase 1 prompt)"]
+        O6["Discovered parameters<br/>(accumulated)"]
+    end
+
+    Context --> Agents
+    FA2 -->|ChainDiscoveryContext| CD2
+    CD2 -->|ChainSelectionResult| SG2
+    SG2 --> O1 & O2 & O3 & O4 & O5 & O6
+
+    style Agents fill:#ef4444,color:#fff,stroke:none
+    style Context fill:#3b82f6,color:#fff,stroke:none
+    style Outputs fill:#10b981,color:#fff,stroke:none
+```
+
+### Framing Priority Cascade
+
+```
+Priority 1: recon_custom_framing
+  → Role derived from target's own system prompt leak
+  → Most natural — target's own language used against it
+
+Priority 2: custom_framing (LLM-generated)
+  → StrategyGenerator invents a new persona based on failure analysis
+
+Priority 3: preset_framing
+  → qa_testing · debugging · customer_support · audit · ...
+  → Fallback when no recon or LLM framing available
+```
+
+### Converter Chains
+
+```mermaid
+graph LR
+    RAW["Raw Payload"] -->|converter 1| C1["homoglyph<br/>unicode_substitution<br/>leetspeak<br/>character_space"]
+    C1 -->|converter 2| C2["base64<br/>ROT13<br/>html_entity<br/>xml_escape<br/>json_escape<br/>morse_code"]
+    C2 -->|converter 3 optional| C3["GCG suffix<br/>AutoDAN suffix<br/>keyword_filter suffix<br/>content_filter suffix<br/>refusal suffix"]
+    C3 --> OUT2["Obfuscated Payload"]
+
+    style RAW fill:#3b82f6,color:#fff,stroke:none
+    style C1 fill:#8b5cf6,color:#fff,stroke:none
+    style C2 fill:#06b6d4,color:#fff,stroke:none
+    style C3 fill:#f59e0b,color:#fff,stroke:none
+    style OUT2 fill:#10b981,color:#fff,stroke:none
+```
+
+**Chain selection rules** (enforced by ChainDiscoveryAgent):
+- Max 3 converters per chain
+- If `target_cannot_decode`: visual-only (homoglyph, leetspeak, unicode) — never base64/ROT13
+- If model is GPT: base64 chains valid (auto-decoded)
+- If model is Claude: adversarial suffixes preferred
+- If model is Llama/Mistral: visual-only converters
+
+### Composite Scoring
+
+```mermaid
+graph TD
+    RESP["HTTP Response"] --> CS["CompositeAttackScorerPhase34"]
+
+    CS --> J["JailbreakScorer<br/><i>constraint violation</i>"]
+    CS --> PL["PromptLeakScorer<br/><i>system prompt exposure</i>"]
+    CS --> DL["DataLeakScorer<br/><i>sensitive data in response</i>"]
+    CS --> TA["ToolAbuseScorer<br/><i>unauthorized tool execution</i>"]
+    CS --> PI["PIIExposureScorer<br/><i>PII in response</i>"]
+
+    J & PL & DL & TA & PI --> AGG["Aggregator<br/>severity = max(all scores)<br/>total = weighted average<br/>success = threshold check"]
+
+    style CS fill:#f59e0b,color:#fff,stroke:none
+    style AGG fill:#ef4444,color:#fff,stroke:none
+```
+
+### Checkpoint & Resume
+
+```mermaid
+sequenceDiagram
+    participant Op as Operator
+    participant API as API Gateway
+    participant Loop as adaptive_loop.py
+    participant S3
+
+    Op->>API: POST /attack/adaptive/stream
+    API->>S3: create_checkpoint(RUNNING)
+    API->>Loop: run_loop()
+
+    loop Each Iteration
+        Loop->>Loop: P1 → P2 → P3 → evaluate → adapt
+        Loop->>S3: update_checkpoint(iteration_data)
+        Loop-->>Op: SSE events
+    end
+
+    Op->>API: POST /attack/adaptive/pause/:id
+    API->>Loop: signal pause
+    Loop->>S3: set_status(PAUSED)
+    Loop-->>Op: attack_paused event
+
+    Op->>API: POST /attack/adaptive/resume/:cid/:sid
+    API->>S3: load_checkpoint()
+    API->>Loop: resume_loop()
+    Loop-->>Op: attack_resumed + continue SSE
+```
 
 ---
 
 ## Data Contracts
 
-Aspexa uses 6 standardized contracts (IF-01 through IF-06) for service communication:
-
-| Contract  | Flow                 | Purpose                                         |
-| --------- | -------------------- | ----------------------------------------------- |
-| **IF-01** | User → Cartographer  | ReconRequest (target URL, depth, scope)         |
-| **IF-02** | Cartographer → Swarm | ReconBlueprint (discovered intelligence)        |
-| **IF-03** | User → Swarm         | ScanJobDispatch (scan approach, config)         |
-| **IF-04** | Swarm → Snipers      | VulnerabilityCluster[] (findings with evidence) |
-| **IF-05** | User → Snipers       | ExploitInput (vulnerability + auth context)     |
-| **IF-06** | Snipers → User       | ExploitResult (proof of exploitation)           |
-
-All contracts use Pydantic V2 for validation and type safety.
+All inter-service communication is Pydantic-validated. No service imports another's models directly.
 
 ```mermaid
 graph TD
-    User([User]) -- "IF-01: ReconRequest" --> Carto["Cartographer<br/>(Phase 1)"]
-    Carto -- "IF-02: ReconBlueprint" --> Swarm["Swarm<br/>(Phase 2)"]
+    U([Operator])
 
-    User -- "IF-03: ScanDispatch" --> Swarm
-    Swarm -- "IF-04: VulnCluster[]" --> Sniper["Snipers<br/>(Phase 3)"]
+    U -->|"IF-01 ReconRequest<br/>target_url · depth · scope"| C["Cartographer"]
+    C -->|"IF-02 ReconBlueprint<br/>system_prompt · tools · infra · auth"| SW["Swarm"]
 
-    User -- "IF-05: ExploitInput" --> Sniper
-    Sniper -- "IF-06: ExploitResult" --> User
+    U -->|"IF-03 ScanJobDispatch<br/>audit_id · agent_types · approach"| SW
+    SW -->|"IF-04 VulnerabilityCluster list<br/>detector · score · examples"| SN["Snipers"]
 
-    subgraph "Persistence Context"
-        Carto -.-> S3_1[("S3: Blueprints")]
-        Swarm -.-> S3_2[("S3: Garak Reports")]
-        Sniper -.-> S3_3[("S3: Exploit Proofs")]
+    U -->|"IF-05 ExploitInput<br/>campaign_id · target_url · mode"| SN
+    SN -->|"IF-06 ExploitResult<br/>proof · severity · composite score"| U
+
+    subgraph S3 ["S3 / Local Storage"]
+        B1[("ReconBlueprints")]
+        B2[("GarakResults")]
+        B3[("ExploitProofs")]
+        B4[("Checkpoints")]
     end
+
+    C -.->|persist| B1
+    SW -.->|persist| B2
+    SN -.->|persist| B3 & B4
+
+    style S3 fill:#374151,color:#fff,stroke:none
 ```
 
 ---
 
-**System Architecture Overview**:
+## API Gateway & Control Plane
 
 ```mermaid
 graph TB
-    subgraph "API Gateway (FastAPI)"
-        AG["/api/* Router"]
-        Control["Control Plane<br/>(Pause/Resume/Cancel)"]
+    subgraph GW ["API Gateway (FastAPI)"]
+        R_RECON["POST /api/recon<br/>→ Cartographer"]
+        R_SCAN["POST /api/scans<br/>→ Swarm"]
+        R_EXPLOIT["POST /api/snipers/attack/adaptive/stream<br/>→ Snipers"]
+        R_CTRL["POST /api/snipers/attack/adaptive/pause/:id<br/>POST /api/snipers/attack/adaptive/resume/:cid/:sid<br/>DELETE /api/snipers/attack/adaptive/:id"]
+        R_CAMPS["GET/POST /api/campaigns<br/>→ PostgreSQL"]
+        AUTH_MW["Clerk Auth Middleware<br/>friend role required"]
     end
 
-    subgraph "Backend Services"
-        C["Cartographer<br/>(Intelligence)"]
-        S["Swarm<br/>(Scanning)"]
-        Sn["Snipers<br/>(Exploitation)"]
+    subgraph Services ["Backend Services"]
+        C2["Cartographer :8083"]
+        SW2["Swarm :8084"]
+        SN2["Snipers :8085"]
     end
 
-    subgraph "Persistence"
-        DB[("PostgreSQL<br/>(Campaigns)")]
-        S3[("S3 / Local<br/>(Results/Blueprints)")]
+    subgraph DB ["Persistence"]
+        PG[("PostgreSQL<br/>campaigns")]
+        S3_2[("S3 / Local<br/>artifacts")]
     end
 
-    AG --> C & S & Sn
-    Control --> S & Sn
+    AUTH_MW --> R_RECON & R_SCAN & R_EXPLOIT & R_CTRL & R_CAMPS
+    R_RECON --> C2
+    R_SCAN --> SW2
+    R_EXPLOIT & R_CTRL --> SN2
+    R_CAMPS --> PG
+    C2 & SW2 & SN2 -.-> S3_2
 
-    C --> S3
-    S --> S3
-    Sn --> S3
-
-    AG --> DB
+    style GW fill:#1e293b,color:#fff,stroke:none
+    style Services fill:#3b82f6,color:#fff,stroke:none
+    style DB fill:#374151,color:#fff,stroke:none
 ```
-
-**Service-Specific Features**:
-
-- **Framework**: FastAPI with specialized routers for Recon, Scan, and Snipers.
-- **Security**: Clerk-based authentication with tiered access (mandatory `friend` metadata role).
-- **Routing**: Centralized routing to Cartographer, Swarm, and Snipers backend services.
-- **Control Plane**: Granular control over active tasks including Pause, Resume, and Cancel.
-- **Persistence**: Dedicated routes for `/api/campaigns` (PostgreSQL) and `/api/scans` (S3/Local).
-- **Observability**: Structured JSON logging with correlation IDs and real-time SSE event streaming.
-
-**Direct Service Invocation**:
-
-- Services can be invoked directly via their respective `entrypoint.py` for synchronous or streaming (SSE) results.
-- Persistence is handled automatically via service-specific adapters (e.g., S3/Local for blueprints, PostgreSQL for campaign metadata).
 
 ---
 
-## Key Design Principles
+## Key Design Decisions
 
 ### 1. Separation of Concerns
 
-Each service has one job:
+Each service has exactly one job, one team, one test suite, and one failure mode. Intelligence flows forward through S3 artifacts — never through shared databases or direct imports. This means:
+- Cartographer can be rerun without touching Swarm
+- Swarm results can be used for multiple exploit runs
+- Each service can be scaled, replaced, or tested in isolation
 
-- **Cartographer**: Gathering intelligence
-- **Swarm**: Finding vulnerabilities
-- **Snipers**: Proving impact
+### 2. Determinism Where Speed Matters, LLM Where Creativity Matters
 
-### 2. Intelligence-Driven Decisions
+Swarm's probe selection is fully deterministic — no LLM calls. The decision of *which probes to run* is entirely derived from the blueprint via a lookup table. This makes scans fast, reproducible, and testable.
 
-Swarm doesn't run all 50 probes equally. It uses **Deterministic Dynamic Planning** to prioritize probes based on Phase 1 reconnaissance:
+Cartographer and Snipers use LLMs because their problems are genuinely open-ended: discovery requires reasoning about unknown unknowns, and exploitation requires creative responses to live defense signals.
 
-- **Database Awareness**: Detected PostgreSQL → automatically injects SQL injection and Python package probes.
-- **Model Specificity**: Detected Gemini/GPT-4 → prioritizes model-specific jailbreak variants.
-- **Context Injection**: Found vector store → adds semantic data-leakage and RAG-specific probes.
+### 3. Intelligence Compounds Across the Pipeline
 
-### 3. Pattern Learning (Snipers)
+Snipers doesn't just read the final vulnerability list — it reads **everything**:
 
-Instead of running static templates, Snipers learns from Garak's successful probes:
+- Cartographer's system prompt leak → drives framing persona
+- Cartographer's tool signatures → constrains converter choice (preserve parameter formats)
+- Cartographer's model family → unlocks model-specific converter chains
+- Swarm's probe examples → feeds FailureAnalyzerAgent as concrete successful patterns
+- Swarm's per-detector scores → tells agents which vulnerability classes are exploitable
 
-- "These 3 payloads succeeded, these 47 failed"
-- Extract common patterns: comment injection, encoding, social engineering
-- Adapt attack phrasing to target's domain/tone
+This is why the pipeline produces results that single-phase tools miss.
 
-### 4. Human-in-the-Loop Safety
+### 4. Full Observability at Every Step
 
-Two mandatory approval gates:
+Every phase emits structured SSE events. Every adaptation decision is logged with reasoning. Every iteration is checkpointed to S3. The result is a complete audit trail from the first recon probe to the final exploit proof — essential for security teams that need to reproduce and report findings.
 
-1. **Plan Review**: Human audits the attack plan before execution
-2. **Result Review**: Human confirms vulnerability proof before reporting
+### 5. Human Control at Every Layer
 
-### 5. Production-Grade Resilience
-
-- Exponential backoff retry (network errors don't stop reconnaissance)
-- Graceful degradation (missing detectors fall back to generic detection)
-- Duplicate prevention (80% similarity threshold deduplicates findings)
-- Audit trails (all decisions logged with correlation IDs)
+- **Pause/Resume**: Stop any active scan or exploit run mid-execution
+- **Checkpoint recovery**: Resume from exact iteration without losing state
+- **Streaming results**: Watch every probe fire and every adaptation decision in real time
+- **Scoring thresholds**: Configure what counts as success before a run starts
 
 ---
 
 ## Directory Structure
 
-See **docs/code_base_structure.md** for complete file organization:
-
 ```
 aspexa-automa/
-├── libs/            # Shared contracts, config, persistence
+├── libs/                    # Shared contracts, persistence primitives
+│   ├── contracts/           # IF-01 through IF-06 Pydantic schemas
+│   └── persistence/         # Checkpoint models
+│
 ├── services/
-│   ├── api_gateway/     # Centralized HTTP access
-│   ├── cartographer/    # Phase 1: Reconnaissance (Complete)
-│   ├── swarm/           # Phase 2: Scanning (Complete)
-│   └── snipers/         # Phase 3: Exploitation (Complete)
-├── scripts/         # Examples and utilities
-├── tests/           # Unit and integration tests
-└── docs/            # Documentation
+│   ├── api_gateway/         # FastAPI + Clerk auth + routing
+│   ├── cartographer/        # Phase 1: LangGraph recon agent
+│   ├── swarm/               # Phase 2: Deterministic Garak scanner
+│   └── snipers/             # Phase 3: Adaptive exploit engine
+│
+├── tests/                   # Unit + integration (94-96% coverage on Cartographer)
+└── docs/                    # Architecture docs, onboarding
 ```
-
----
-
-## Getting Started
-
-See **README.md** and **docs/onboarding.md** for project-wide setup. For service-specific details, see:
-
-- **services/cartographer/README.md**
-- **services/swarm/README.md**
-- **services/snipers/README.md**
 
 ---
 
 ## Technology Stack
 
-See **docs/tech_stack.md** for complete breakdown:
-
-**Core**: FastAPI (API Gateway), PostgreSQL (Storage), Python 3.12+
-**Agents**: LangChain, LangGraph, Google Gemini 1.5 Flash
-**Security**: Garak (probes), PyRIT (exploitation)
-**Data**: Pydantic V2 (validation), SQL/JSON (persistence)
-**Testing**: pytest (unit/integration), 94-96% coverage
-
----
-
-## Phases & Completion
-
-| Phase | Service      | Status      | Output                       |
-| ----- | ------------ | ----------- | ---------------------------- |
-| 1     | Cartographer | ✅ Complete | IF-02 ReconBlueprint         |
-| 2     | Swarm        | ✅ Complete | IF-04 VulnerabilityCluster[] |
-| 3     | Snipers      | ✅ Complete | IF-06 ExploitResult          |
-
-All phases are production-ready with full REST API support, persistent campaign tracking, and real-time streaming.
+| Layer | Technology | Why |
+|-------|-----------|-----|
+| API | FastAPI + SSE | Async-first, streaming-native |
+| Auth | Clerk | Managed auth with role metadata |
+| Recon agent | LangGraph + Gemini | Stateful multi-turn reasoning |
+| Scanning | Garak (50+ probes) | Industry-standard LLM security probes |
+| Exploitation | PyRIT + custom converters | Production-grade payload transformation |
+| Payload LLM | Gemini 2.5 Flash | Fast structured output for agents |
+| Storage | PostgreSQL + S3/Local | Campaigns in PG, artifacts in S3 |
+| Validation | Pydantic V2 | Strict contracts between services |
 
 ---
 
-## Summary
+## Status
 
-Aspexa Automa transforms LLM security testing from chaotic manual work into an orchestrated, intelligent process:
+| Phase | Service | Status | Output Contract |
+|-------|---------|--------|----------------|
+| 1 | Cartographer | ✅ Complete · 94-96% test coverage | IF-02 ReconBlueprint |
+| 2 | Swarm | ✅ Complete · deterministic scanner | IF-04 VulnerabilityCluster[] |
+| 3 | Snipers | ✅ Complete · full adaptive loop | IF-06 ExploitResult |
 
-- **Cartographer** asks the right questions to understand the target
-- **Swarm** uses that intelligence to probe efficiently
-- **Snipers** learns from successes and crafts targeted kill chains
-- **Humans** maintain control at critical approval gates
-
-The result: fast, accurate, comprehensive red team assessments with proof of impact.
+**Snipers adaptation pipeline (fully wired as of 2026-02-22)**:
+- ✅ `avoid_terms` / `emphasize_terms` from StrategyGenerator → vocabulary blacklist/emphasis in Phase 1 prompt
+- ✅ Swarm intelligence (probe examples, detector scores, all objectives) → SWARM INTELLIGENCE section in FailureAnalyzerAgent prompt
+- ✅ Cartographer recon (system prompt, tool sigs, model family) → all 3 adaptation agents every iteration
 
 ---
 
 ## See Also
 
-- **docs/code_base_structure.md** - Directory organization and module responsibilities
-- **docs/persistence.md** - Campaign tracking and S3 storage
-- **docs/Phases/PHASE1_CARTOGRAPHER.md** - Phase 1 reconnaissance details
-- **docs/Phases/PHASE2_SWARM_SCANNER.md** - Phase 2 scanning details
-- **docs/Phases/PHASE4_SNIPERS_EXPLOIT.md** - Phase 3 exploitation details
-- **docs/tech_stack.md** - Technology overview
-- **services/cartographer/README.md** - Cartographer service guide
-- **services/swarm/README.md** - Swarm service guide
-- **services/snipers/README.md** - Snipers service guide
+- `services/cartographer/README.md` — Cartographer recon agent internals
+- `services/swarm/README.md` — Swarm scanner internals and probe map
+- `services/snipers/README.md` — Snipers adaptive loop, adaptation engine, scoring
+- `services/snipers/CLAUDE.md` — Developer guide, extension points, gotchas

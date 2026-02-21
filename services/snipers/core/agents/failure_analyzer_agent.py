@@ -61,6 +61,7 @@ class FailureAnalyzerAgent:
         tried_converters: list[list[str]],
         objective: str = "test security boundaries",
         recon_intelligence: ReconIntelligence | None = None,
+        swarm_context: dict | None = None,
         config: dict | None = None,
     ) -> ChainDiscoveryContext:
         """
@@ -93,6 +94,7 @@ class FailureAnalyzerAgent:
                 tried_converters=tried_converters,
                 objective=objective,
                 recon_intelligence=recon_intelligence,
+                swarm_context=swarm_context,
                 config=config,
             )
         except Exception as e:
@@ -118,7 +120,8 @@ class FailureAnalyzerAgent:
         tried_converters: list[list[str]],
         objective: str,
         recon_intelligence: ReconIntelligence | None,
-        config: dict | None,
+        swarm_context: dict | None = None,
+        config: dict | None = None,
     ) -> ChainDiscoveryContext:
         """
         Perform LLM-powered failure analysis.
@@ -147,6 +150,7 @@ class FailureAnalyzerAgent:
             tried_converters=tried_converters,
             objective=objective,
             recon_intelligence=recon_intelligence,
+            swarm_context=swarm_context,
         )
 
         self.logger.info("[FailureAnalyzerAgent] Analyzing failure via LLM")

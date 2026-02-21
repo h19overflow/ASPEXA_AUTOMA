@@ -175,9 +175,17 @@ async def chat(request: ChatRequest) -> ChatResponse:
             conversation.append(AIMessage(content=response_content))
 
         # Keep conversation history reasonable (last 20 messages)
+        # Trim from index 1 (preserve system message) but never cut mid-tool-call sequence
         if len(conversation) > 20:
-            # Keep system message and last 19
-            conversation_sessions[request.session_id] = [conversation[0]] + conversation[-19:]
+            system_msg = conversation[0]
+            tail = conversation[-19:]
+            # Drop leading ToolMessages or AIMessages with tool_calls that lack their pair
+            while tail and (
+                isinstance(tail[0], ToolMessage) or
+                (isinstance(tail[0], AIMessage) and getattr(tail[0], "tool_calls", None))
+            ):
+                tail = tail[1:]
+            conversation_sessions[request.session_id] = [system_msg] + tail
 
         return ChatResponse(
             response=response_content,

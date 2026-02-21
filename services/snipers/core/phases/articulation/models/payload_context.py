@@ -62,6 +62,8 @@ class PayloadContext:
     exploitation_opportunity: str | None = None
     # Adaptation feedback for next iteration
     payload_guidance: str | None = None
+    avoid_terms: list[str] = field(default_factory=list)
+    emphasize_terms: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize for LLM prompt injection."""

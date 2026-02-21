@@ -45,6 +45,10 @@ async def adapt_strategy(
         state.adaptation_reasoning = adaptation["adaptation_reasoning"] or ""
         if adaptation.get("discovered_parameters"):
             state.discovered_parameters.update(adaptation["discovered_parameters"])
+        if adaptation.get("avoid_terms"):
+            state.avoid_terms = adaptation["avoid_terms"]
+        if adaptation.get("emphasize_terms"):
+            state.emphasize_terms = adaptation["emphasize_terms"]
 
         yield make_event(
             "adaptation", "Adapting strategy for next iteration",
