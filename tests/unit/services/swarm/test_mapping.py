@@ -2,7 +2,7 @@
 
 import pytest
 from services.swarm.core.config import (
-    get_probes_for_agent,
+    get_probes_for_category,
     get_generations_for_approach,
     AgentType,
     ScanApproach,
@@ -10,31 +10,31 @@ from services.swarm.core.config import (
 )
 
 
-class TestGetProbesForAgent:
-    """Tests for get_probes_for_agent function."""
+class TestGetProbesForCategory:
+    """Tests for get_probes_for_category function."""
 
-    def test_sql_agent_returns_probes(self):
-        """SQL agent should return probe list."""
-        probes = get_probes_for_agent(AgentType.SQL.value)
+    def test_sql_category_returns_probes(self):
+        """SQL category should return probe list."""
+        probes = get_probes_for_category(AgentType.SQL.value)
         assert isinstance(probes, list)
         assert len(probes) > 0
 
-    def test_auth_agent_returns_probes(self):
-        """Auth agent should return probe list."""
-        probes = get_probes_for_agent(AgentType.AUTH.value)
+    def test_auth_category_returns_probes(self):
+        """Auth category should return probe list."""
+        probes = get_probes_for_category(AgentType.AUTH.value)
         assert isinstance(probes, list)
         assert len(probes) > 0
 
-    def test_jailbreak_agent_returns_probes(self):
-        """Jailbreak agent should return probe list."""
-        probes = get_probes_for_agent(AgentType.JAILBREAK.value)
+    def test_jailbreak_category_returns_probes(self):
+        """Jailbreak category should return probe list."""
+        probes = get_probes_for_category(AgentType.JAILBREAK.value)
         assert isinstance(probes, list)
         assert len(probes) > 0
 
     def test_custom_probes_override_defaults(self):
         """Custom probes should override default probe selection."""
         custom = ["dan", "promptinj"]
-        probes = get_probes_for_agent(
+        probes = get_probes_for_category(
             AgentType.SQL.value,
             custom_probes=custom,
         )
@@ -43,7 +43,7 @@ class TestGetProbesForAgent:
     def test_invalid_custom_probes_filtered(self):
         """Invalid custom probes should be filtered out."""
         custom = ["dan", "invalid_probe", "promptinj"]
-        probes = get_probes_for_agent(
+        probes = get_probes_for_category(
             AgentType.SQL.value,
             custom_probes=custom,
         )
@@ -51,21 +51,11 @@ class TestGetProbesForAgent:
         assert "promptinj" in probes
         assert "invalid_probe" not in probes
 
-    def test_infrastructure_adds_extra_probes(self):
-        """Infrastructure details should add relevant probes."""
-        base_probes = get_probes_for_agent(AgentType.JAILBREAK.value)
-        infra_probes = get_probes_for_agent(
-            AgentType.JAILBREAK.value,
-            infrastructure={"model_family": "gpt-4"},
-        )
-        # Infrastructure may add probes, so infra_probes >= base_probes
-        assert len(infra_probes) >= len(base_probes)
-
     def test_approach_affects_probe_count(self):
-        """Different approaches should affect probe selection."""
-        quick = get_probes_for_agent(AgentType.SQL.value, approach=ScanApproach.QUICK.value)
-        standard = get_probes_for_agent(AgentType.SQL.value, approach=ScanApproach.STANDARD.value)
-        thorough = get_probes_for_agent(AgentType.SQL.value, approach=ScanApproach.THOROUGH.value)
+        """Different approaches should return different probe sets."""
+        quick = get_probes_for_category(AgentType.SQL.value, approach=ScanApproach.QUICK.value)
+        standard = get_probes_for_category(AgentType.SQL.value, approach=ScanApproach.STANDARD.value)
+        thorough = get_probes_for_category(AgentType.SQL.value, approach=ScanApproach.THOROUGH.value)
 
         # Thorough should have >= standard >= quick
         assert len(thorough) >= len(standard)

@@ -52,7 +52,7 @@ async def execute_scan_streaming(
 
     Args:
         request: Scan job dispatch with target info and config
-        agent_types: Agent types to run (defaults to SQL, AUTH, JAILBREAK)
+        agent_types: Scan categories to run (defaults to SQL, AUTH, JAILBREAK)
 
     Yields:
         SSE event dicts for real-time UI updates

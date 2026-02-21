@@ -15,40 +15,21 @@ from services.swarm.core.constants import (
     PROBE_DESCRIPTIONS,
     PROBE_TO_CATEGORY,
     DEFAULT_PROBES,
-    INFRASTRUCTURE_PROBES,
 )
 
 
-def get_probes_for_agent(
-    agent_type: str,
+def get_probes_for_category(
+    category: str,
     approach: str = ScanApproach.STANDARD,
-    infrastructure: dict = None,
     custom_probes: List[str] = None,
 ) -> List[str]:
-    """Get probe list based on agent type, approach, and infrastructure."""
+    """Get probe list for a scan category and approach from DEFAULT_PROBES."""
     if custom_probes:
         return [p for p in custom_probes if p in PROBE_MAP]
 
-    agent_enum = AgentType(agent_type) if agent_type in [e.value for e in AgentType] else AgentType.SQL
+    category_enum = AgentType(category) if category in [e.value for e in AgentType] else AgentType.SQL
     approach_enum = ScanApproach(approach) if approach in [e.value for e in ScanApproach] else ScanApproach.STANDARD
-    probes = list(DEFAULT_PROBES.get(agent_enum, {}).get(approach_enum, ["promptinj"]))
-
-    if infrastructure:
-        # Check all possible infrastructure keys from ReconBlueprint
-        # keys: vector_db, model_family, rate_limits
-        search_terms = []
-        for val in infrastructure.values():
-            if val and isinstance(val, str):
-                search_terms.append(val.lower())
-        
-        for key, extra_probes in INFRASTRUCTURE_PROBES.items():
-            # If any value in infrastructure contains the key (e.g. "PostgreSQL" contains "postgresql")
-            if any(key in term for term in search_terms):
-                for p in extra_probes:
-                    if p not in probes:
-                        probes.append(p)
-
-    return probes
+    return list(DEFAULT_PROBES.get(category_enum, {}).get(approach_enum, ["promptinj"]))
 
 
 def get_all_probe_names() -> List[str]:
@@ -93,10 +74,6 @@ def get_probe_category(probe_name: str) -> VulnCategory:
     return PROBE_TO_CATEGORY.get(probe_name, VulnCategory.JAILBREAK)
 
 
-def get_agent_probe_pool(
-    agent_type: str, 
-    approach: str = "standard",
-    infrastructure: dict = None
-) -> List[str]:
-    """Get the probe pool for an agent type and approach."""
-    return get_probes_for_agent(agent_type, approach, infrastructure=infrastructure)
+def get_probe_pool(category: str, approach: str = "standard") -> List[str]:
+    """Get the probe pool for a scan category and approach."""
+    return get_probes_for_category(category, approach)

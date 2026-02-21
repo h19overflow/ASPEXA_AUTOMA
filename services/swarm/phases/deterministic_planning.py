@@ -8,7 +8,7 @@ Dependencies: services.swarm.core.config, services.swarm.core.schema
 import logging
 from typing import Awaitable, Callable, Dict, Any
 
-from services.swarm.core.config import get_agent_probe_pool
+from services.swarm.core.config import get_probe_pool
 from services.swarm.core.schema import ScanState, ScanConfig, ScanPlan
 from services.swarm.swarm_observability import (
     EventType,
@@ -51,15 +51,8 @@ async def run_deterministic_planning(
 
     approach = state.scan_config.get("approach", "standard")
     max_probes = state.scan_config.get("max_probes", 3)
-    
-    # Extract infrastructure for dynamic probe selection
-    infrastructure = None
-    if state.recon_context and "intelligence" in state.recon_context:
-        intel = state.recon_context["intelligence"]
-        if "infrastructure" in intel:
-            infrastructure = intel["infrastructure"]
 
-    probe_pool = get_agent_probe_pool(agent_type, approach, infrastructure=infrastructure)
+    probe_pool = get_probe_pool(agent_type, approach)
     selected = probe_pool[:max_probes]
 
     plan = ScanPlan(

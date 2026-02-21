@@ -36,6 +36,59 @@ services/swarm/
     └── s3_adapter.py      # load_recon_for_campaign(), persist_garak_result()
 ```
 
+## Architecture Overview
+
+```mermaid
+flowchart TD
+    Client([Client]) -->|ScanJobDispatch| EP[entrypoint.py\nOrchestrator]
+    EP -->|ScanState| P1[Phase 1\nload_recon]
+    P1 -->|validated recon| P2[Phase 2\nplan_agent]
+    P2 -->|ScanPlan| P3[Phase 3\nexecute_agent]
+    P3 -->|AgentResults| P4[Phase 4\npersist_results]
+    P4 -->|S3| S3[(AWS S3)]
+    P3 -->|HTTP/WS| Target([Target LLM\nEndpoint])
+    Target -->|response| DET[Garak Detectors]
+    DET -->|score| P3
+    EP -->|SSE stream| Client
+
+    subgraph Probes["Per Agent (×N agents)"]
+        P2
+        P3
+        DET
+    end
+```
+
+## SSE Event Timeline
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant S as Swarm
+    participant T as Target LLM
+
+    C->>S: POST /scan (ScanJobDispatch)
+    S-->>C: SSE: SCAN_STARTED
+
+    loop For each agent_type
+        S-->>C: SSE: PLAN_START
+        S-->>C: SSE: PLAN_COMPLETE (selected_probes)
+
+        loop For each probe (max 3)
+            S-->>C: SSE: PROBE_START
+            loop For each prompt (max 5)
+                S->>T: attack prompt
+                T-->>S: response
+                S-->>C: SSE: PROBE_RESULT (prompt, output, score)
+            end
+            S-->>C: SSE: PROBE_COMPLETE
+        end
+        S-->>C: SSE: AGENT_COMPLETE
+    end
+
+    S->>S3: persist results
+    S-->>C: SSE: SCAN_COMPLETE
+```
+
 ## Data Flow
 
 ```
