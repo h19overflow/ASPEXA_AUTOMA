@@ -10,6 +10,11 @@ from services.snipers.infrastructure.pyrit.pyrit_bridge import (
     ConverterFactory,
     PayloadTransformer,
 )
+from services.snipers.infrastructure.pyrit.http_targets import (
+    HttpTargetAdapter,
+    WebSocketTargetAdapter,
+    ChatHTTPTarget,
+)
 
 __all__ = [
     "init_pyrit",
@@ -19,4 +24,7 @@ __all__ = [
     "cleanup_pyrit",
     "ConverterFactory",
     "PayloadTransformer",
+    "HttpTargetAdapter",
+    "WebSocketTargetAdapter",
+    "ChatHTTPTarget",
 ]
