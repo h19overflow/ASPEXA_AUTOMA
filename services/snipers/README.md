@@ -249,27 +249,27 @@ graph LR
 sequenceDiagram
     participant Client
     participant API
-    participant Loop as loop_runner
+    participant Runner as loop_runner
     participant S3
 
     Client->>API: POST /adaptive/stream
     API->>S3: create_checkpoint(RUNNING)
-    API->>Loop: run_loop()
+    API->>Runner: run_loop()
 
     loop Each Iteration
-        Loop->>Loop: phase1 → phase2 → phase3 → evaluate
-        Loop->>S3: save_checkpoint(iteration_data)
-        Loop->>S3: tracker.save() (effectiveness history)
-        Loop-->>Client: SSE events
+        Runner->>Runner: phase1 → phase2 → phase3 → evaluate
+        Runner->>S3: save_checkpoint(iteration_data)
+        Runner->>S3: tracker.save() (effectiveness history)
+        Runner-->>Client: SSE events
     end
 
     Client->>API: POST /adaptive/pause/:id
-    Loop-->>Client: attack_paused
+    Runner-->>Client: attack_paused
 
     Client->>API: POST /adaptive/resume/:cid/:sid
     API->>S3: load_checkpoint()
-    API->>Loop: run_loop() from saved iteration
-    Loop-->>Client: attack_resumed + continue SSE
+    API->>Runner: run_loop() from saved iteration
+    Runner-->>Client: attack_resumed + continue SSE
 ```
 
 ---

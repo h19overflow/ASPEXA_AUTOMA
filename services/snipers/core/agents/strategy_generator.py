@@ -1,4 +1,3 @@
-from langchain.chat_models import init_chat_model
 """
 Strategy Generator.
 
@@ -6,22 +5,20 @@ Purpose: LLM-powered adaptation strategy generation
 Role: Invoke LLM with structured output to produce AdaptationDecision
 Dependencies: langchain.agents.create_agent, ToolStrategy, models, prompts
 """
-
+from langchain.chat_models import init_chat_model
 import logging
 from typing import Any
-
-from dotenv import load_dotenv
-load_dotenv()
-
 from langchain.agents import create_agent
 from langchain.agents.structured_output import ToolStrategy
-
 from services.snipers.models.adaptive_models.adaptation_decision import AdaptationDecision
 from services.snipers.models.adaptive_models.chain_discovery import ChainDiscoveryContext
 from services.snipers.core.agents.prompts.adaptation_prompt import (
     ADAPTATION_SYSTEM_PROMPT,
     build_adaptation_user_prompt,
 )
+
+from dotenv import load_dotenv
+load_dotenv()
 
 logger = logging.getLogger(__name__)
 
