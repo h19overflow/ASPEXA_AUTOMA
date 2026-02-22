@@ -54,7 +54,7 @@ graph LR
     S3_SW -->|Campaign Intel| SN
 
     subgraph P3 ["Phase 3 — Snipers"]
-        SN["🎯 Snipers<br/><i>Adaptive While-Loop + PyRIT</i><br/>LLM agents · converter chains"]
+        SN["🎯 Snipers<br/><i>Adaptive While-Loop + PyRIT</i><br/>LLM agents · converter chains · effectiveness tracking"]
     end
 
     SN -->|IF-06: ExploitResult<br/>proof · severity · scoring| U
@@ -304,49 +304,53 @@ VulnerabilityCluster[]
 
 **Goal**: Prove real impact — not just "this probe fired" but "here is the exact payload, the response, and the severity score."
 
-**Why an adaptive loop (not one-shot)?** Defenses vary wildly between systems and evolve within a session. A static payload always fails eventually. The loop lets three specialized LLM agents analyze each failure signal and evolve the strategy — converters, framing, and vocabulary — until something breaks through or the budget is exhausted.
+**Why an adaptive loop (not one-shot)?** Defenses vary wildly between systems and evolve within a session. A static payload always fails eventually. The loop lets three specialized LLM agents analyze each failure signal and evolve the strategy — converters, framing, and vocabulary — until something breaks through or the budget is exhausted. A fourth, LLM-free mechanism (`EffectivenessTracker`) compounds wins across iterations and across runs by tracking historical framing success rates per domain.
 
 ### Internal Architecture
 
 ```mermaid
 graph TD
     subgraph Input ["Input"]
-        CI[("S3 Campaign Intel<br/>ReconBlueprint + Garak Results")]
+        CI[("S3 Campaign Intel\nReconBlueprint + Garak Results")]
     end
 
     subgraph P1 ["Phase 1 — Articulation"]
-        L["CampaignLoader<br/>load recon + garak data"]
-        SE["SwarmExtractor<br/>all objectives · probe examples · detector scores"]
-        RE["ReconExtractor<br/>tool sigs · system prompt · model family"]
-        PG["PayloadGenerator<br/>LLM · framing strategy · vocab guidance"]
+        L["CampaignLoader\nload recon + garak data"]
+        SE["SwarmExtractor\nall objectives · probe examples · detector scores"]
+        RE["ReconExtractor\ntool sigs · system prompt · model family"]
+        ET["EffectivenessTracker\nbias framing selection by historical win-rates"]
+        PG["PayloadGenerator\nLLM · framing strategy · vocab guidance"]
         L --> SE & RE --> PG
+        ET --> PG
     end
 
     subgraph P2 ["Phase 2 — Conversion"]
-        CC["ConverterChain<br/>up to 3 converters in sequence"]
-        CV["9+ Converters<br/>homoglyph · leetspeak · unicode<br/>base64 · ROT13 · GCG suffix<br/>html_entity · xml_escape · json_escape"]
+        CC["ConverterChain\nup to 3 converters in sequence"]
+        CV["10+ Converters\nhomoglyph · leetspeak · unicode\nbase64 · ROT13 · morse_code\nhtml_entity · xml_escape · json_escape · GCG suffix"]
         CC --> CV
     end
 
     subgraph P3 ["Phase 3 — Execution"]
-        HTTP["HTTP Attack<br/>concurrent payloads"]
-        SC["CompositeScorer<br/>5 parallel scorers"]
+        HTTP["HTTP Attack\nconcurrent payloads"]
+        SC["CompositeScorer\n5 parallel scorers"]
         HTTP --> SC
     end
 
-    subgraph Eval ["Evaluate"]
-        CHK{"Success OR<br/>max_iterations?"}
+    subgraph Eval ["Evaluate + Record"]
+        CHK{"success or\nmax_iterations?"}
+        REC["EffectivenessTracker\nrecord_attempt + save to S3"]
+        CHK --> REC
     end
 
-    subgraph Adapt ["Adaptation Engine"]
-        FA["FailureAnalyzerAgent<br/>reads: responses · history<br/>+ recon intel · swarm intel"]
-        CD["ChainDiscoveryAgent<br/>reads: failure context · recon intel<br/>outputs: ranked converter chains"]
-        SG["StrategyGenerator<br/>reads: all context<br/>outputs: framing · guidance · vocab"]
+    subgraph Adapt ["Adaptation Engine (on failure)"]
+        FA["FailureAnalyzerAgent\nreads: responses · history\n+ recon intel · swarm intel"]
+        CD["ChainDiscoveryAgent\nreads: failure context · recon intel\noutputs: ranked converter chains"]
+        SG["StrategyGenerator\nreads: all context\noutputs: framing · guidance · vocab"]
         FA --> CD --> SG
     end
 
     subgraph State ["LoopState (persists across iterations)"]
-        LS["converters · framings · custom_framing<br/>payload_guidance · avoid_terms · emphasize_terms<br/>discovered_parameters · iteration_history"]
+        LS["converters · framings · custom_framing\npayload_guidance · avoid_terms · emphasize_terms\ndiscovered_parameters · iteration_history"]
     end
 
     CI --> L
@@ -354,16 +358,17 @@ graph TD
     Eval -->|failed| Adapt
     Adapt -->|updates| State
     State -->|drives next| P1
+    REC -.->|next iteration reads updated history| ET
 
-    Eval -->|success or done| OUT["IF-06 ExploitResult<br/>proof · severity · composite score"]
+    Eval -->|success or done| OUT["IF-06 ExploitResult\nproof · severity · composite score"]
 
-    style Input fill:#3b82f6,color:#fff,stroke:none
-    style P1 fill:#8b5cf6,color:#fff,stroke:none
-    style P2 fill:#06b6d4,color:#fff,stroke:none
-    style P3 fill:#f59e0b,color:#fff,stroke:none
-    style Eval fill:#f43f5e,color:#fff,stroke:none
-    style Adapt fill:#ef4444,color:#fff,stroke:none
-    style State fill:#10b981,color:#fff,stroke:none
+    style Input fill:#1e293b,color:#94a3b8,stroke:#334155
+    style P1 fill:#0f172a,color:#a5b4fc,stroke:#4338ca
+    style P2 fill:#0f172a,color:#7dd3fc,stroke:#0369a1
+    style P3 fill:#0f172a,color:#fcd34d,stroke:#b45309
+    style Eval fill:#0f172a,color:#f87171,stroke:#b91c1c
+    style Adapt fill:#0f172a,color:#fb923c,stroke:#c2410c
+    style State fill:#0f172a,color:#6ee7b7,stroke:#065f46
 ```
 
 ### What Adapts Each Iteration
@@ -398,9 +403,9 @@ graph LR
     CD2 -->|ChainSelectionResult| SG2
     SG2 --> O1 & O2 & O3 & O4 & O5 & O6
 
-    style Agents fill:#ef4444,color:#fff,stroke:none
-    style Context fill:#3b82f6,color:#fff,stroke:none
-    style Outputs fill:#10b981,color:#fff,stroke:none
+    style Agents fill:#0f172a,color:#fb923c,stroke:#c2410c
+    style Context fill:#0f172a,color:#7dd3fc,stroke:#0369a1
+    style Outputs fill:#0f172a,color:#6ee7b7,stroke:#065f46
 ```
 
 ### Framing Priority Cascade
@@ -415,7 +420,8 @@ Priority 2: custom_framing (LLM-generated)
 
 Priority 3: preset_framing
   → qa_testing · debugging · customer_support · audit · ...
-  → Fallback when no recon or LLM framing available
+  → Selected by EffectivenessTracker — highest historical win-rate first
+  → Falls back to round-robin if no history exists
 ```
 
 ### Converter Chains
@@ -427,11 +433,11 @@ graph LR
     C2 -->|converter 3 optional| C3["GCG suffix<br/>AutoDAN suffix<br/>keyword_filter suffix<br/>content_filter suffix<br/>refusal suffix"]
     C3 --> OUT2["Obfuscated Payload"]
 
-    style RAW fill:#3b82f6,color:#fff,stroke:none
-    style C1 fill:#8b5cf6,color:#fff,stroke:none
-    style C2 fill:#06b6d4,color:#fff,stroke:none
-    style C3 fill:#f59e0b,color:#fff,stroke:none
-    style OUT2 fill:#10b981,color:#fff,stroke:none
+    style RAW fill:#1e293b,color:#94a3b8,stroke:#334155
+    style C1 fill:#0f172a,color:#a5b4fc,stroke:#4338ca
+    style C2 fill:#0f172a,color:#7dd3fc,stroke:#0369a1
+    style C3 fill:#0f172a,color:#fcd34d,stroke:#b45309
+    style OUT2 fill:#0f172a,color:#6ee7b7,stroke:#065f46
 ```
 
 **Chain selection rules** (enforced by ChainDiscoveryAgent):
@@ -455,8 +461,8 @@ graph TD
 
     J & PL & DL & TA & PI --> AGG["Aggregator<br/>severity = max(all scores)<br/>total = weighted average<br/>success = threshold check"]
 
-    style CS fill:#f59e0b,color:#fff,stroke:none
-    style AGG fill:#ef4444,color:#fff,stroke:none
+    style CS fill:#0f172a,color:#fcd34d,stroke:#b45309
+    style AGG fill:#0f172a,color:#f87171,stroke:#b91c1c
 ```
 
 ### Checkpoint & Resume
@@ -465,28 +471,28 @@ graph TD
 sequenceDiagram
     participant Op as Operator
     participant API as API Gateway
-    participant Loop as adaptive_loop.py
+    participant AL as adaptive_loop.py
     participant S3
 
     Op->>API: POST /attack/adaptive/stream
     API->>S3: create_checkpoint(RUNNING)
-    API->>Loop: run_loop()
+    API->>AL: run_loop()
 
     loop Each Iteration
-        Loop->>Loop: P1 → P2 → P3 → evaluate → adapt
-        Loop->>S3: update_checkpoint(iteration_data)
-        Loop-->>Op: SSE events
+        AL->>AL: P1 → P2 → P3 → evaluate → adapt
+        AL->>S3: update_checkpoint(iteration_data)
+        AL-->>Op: SSE events
     end
 
     Op->>API: POST /attack/adaptive/pause/:id
-    API->>Loop: signal pause
-    Loop->>S3: set_status(PAUSED)
-    Loop-->>Op: attack_paused event
+    API->>AL: signal pause
+    AL->>S3: set_status(PAUSED)
+    AL-->>Op: attack_paused event
 
     Op->>API: POST /attack/adaptive/resume/:cid/:sid
     API->>S3: load_checkpoint()
-    API->>Loop: resume_loop()
-    Loop-->>Op: attack_resumed + continue SSE
+    API->>AL: resume_loop()
+    AL-->>Op: attack_resumed + continue SSE
 ```
 
 ---
@@ -524,44 +530,6 @@ graph TD
 
 ---
 
-## API Gateway & Control Plane
-
-```mermaid
-graph TB
-    subgraph GW ["API Gateway (FastAPI)"]
-        R_RECON["POST /api/recon<br/>→ Cartographer"]
-        R_SCAN["POST /api/scans<br/>→ Swarm"]
-        R_EXPLOIT["POST /api/snipers/attack/adaptive/stream<br/>→ Snipers"]
-        R_CTRL["POST /api/snipers/attack/adaptive/pause/:id<br/>POST /api/snipers/attack/adaptive/resume/:cid/:sid<br/>DELETE /api/snipers/attack/adaptive/:id"]
-        R_CAMPS["GET/POST /api/campaigns<br/>→ PostgreSQL"]
-        AUTH_MW["Clerk Auth Middleware<br/>friend role required"]
-    end
-
-    subgraph Services ["Backend Services"]
-        C2["Cartographer :8083"]
-        SW2["Swarm :8084"]
-        SN2["Snipers :8085"]
-    end
-
-    subgraph DB ["Persistence"]
-        PG[("PostgreSQL<br/>campaigns")]
-        S3_2[("S3 / Local<br/>artifacts")]
-    end
-
-    AUTH_MW --> R_RECON & R_SCAN & R_EXPLOIT & R_CTRL & R_CAMPS
-    R_RECON --> C2
-    R_SCAN --> SW2
-    R_EXPLOIT & R_CTRL --> SN2
-    R_CAMPS --> PG
-    C2 & SW2 & SN2 -.-> S3_2
-
-    style GW fill:#1e293b,color:#fff,stroke:none
-    style Services fill:#3b82f6,color:#fff,stroke:none
-    style DB fill:#374151,color:#fff,stroke:none
-```
-
----
-
 ## Key Design Decisions
 
 ### 1. Separation of Concerns
@@ -586,6 +554,7 @@ Snipers doesn't just read the final vulnerability list — it reads **everything
 - Cartographer's model family → unlocks model-specific converter chains
 - Swarm's probe examples → feeds FailureAnalyzerAgent as concrete successful patterns
 - Swarm's per-detector scores → tells agents which vulnerability classes are exploitable
+- Prior run outcomes → `EffectivenessTracker` persists framing win-rates to S3 so each new run on the same campaign starts smarter than the last
 
 This is why the pipeline produces results that single-phase tools miss.
 
@@ -649,6 +618,7 @@ aspexa-automa/
 - ✅ `avoid_terms` / `emphasize_terms` from StrategyGenerator → vocabulary blacklist/emphasis in Phase 1 prompt
 - ✅ Swarm intelligence (probe examples, detector scores, all objectives) → SWARM INTELLIGENCE section in FailureAnalyzerAgent prompt
 - ✅ Cartographer recon (system prompt, tool sigs, model family) → all 3 adaptation agents every iteration
+- ✅ `EffectivenessTracker` wired end-to-end: created once per run, passed into Phase 1, outcomes recorded after Phase 3, saved to S3 — framing selection improves across iterations and across campaign runs without any LLM call
 
 ---
 
