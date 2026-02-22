@@ -8,12 +8,12 @@ from typing import TYPE_CHECKING, Any, AsyncGenerator
 from libs.persistence import CheckpointStatus
 from services.snipers.core.components.pause_signal import clear_pause
 from services.snipers.infrastructure.persistence.s3_adapter import set_checkpoint_status
-from services.snipers.internals.adaptation import run_adaptation
-from services.snipers.internals.evaluation import determine_failure_cause
-from services.snipers.internals.events import make_event
+from services.snipers.core.loop.adaptation.engine import run_adaptation
+from services.snipers.core.loop.adaptation.evaluation import determine_failure_cause
+from services.snipers.core.loop.events.builders import make_event
 
 if TYPE_CHECKING:
-    from services.snipers.internals.state import LoopState
+    from services.snipers.core.loop.runner.state import LoopState
 
 logger = logging.getLogger(__name__)
 

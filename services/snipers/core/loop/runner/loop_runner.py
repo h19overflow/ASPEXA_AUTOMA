@@ -8,12 +8,12 @@ from services.snipers.core.phases.articulation.components.effectiveness_tracker 
     EffectivenessTracker,
 )
 from services.snipers.core.phases.articulation.models.framing_strategy import FramingType
-from services.snipers.internals.checkpoints import save_checkpoint_events
-from services.snipers.internals.evaluation import check_success
-from services.snipers.internals.events import build_complete_event, make_event
-from services.snipers.internals.pause_and_adapt import adapt_strategy, handle_pause
-from services.snipers.internals.phase_runners import run_phase1, run_phase2, run_phase3
-from services.snipers.internals.state import LoopState
+from services.snipers.core.loop.persistence.checkpoints import save_checkpoint_events
+from services.snipers.core.loop.adaptation.evaluation import check_success
+from services.snipers.core.loop.events.builders import build_complete_event, make_event
+from services.snipers.core.loop.adaptation.pause_and_adapt import adapt_strategy, handle_pause
+from services.snipers.core.loop.runner.phase_runners import run_phase1, run_phase2, run_phase3
+from services.snipers.core.loop.runner.state import LoopState
 
 logger = logging.getLogger(__name__)
 
@@ -124,7 +124,7 @@ async def run_loop(
             format_control="",
             domain=domain,
             success=is_successful,
-            score=state.phase3_result.total_score,
+            score=min(state.phase3_result.total_score / 100.0, 1.0),
             payload_preview=first_payload,
         )
         try:

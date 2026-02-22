@@ -11,7 +11,7 @@ from services.snipers.core.phases import (
 from services.snipers.core.phases.articulation.components.effectiveness_tracker import (
     EffectivenessTracker,
 )
-from services.snipers.internals.phase_events import (
+from services.snipers.core.loop.events.phase_builders import (
     build_phase1_events,
     build_phase2_events,
     build_phase3_events,

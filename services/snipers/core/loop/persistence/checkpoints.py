@@ -9,7 +9,7 @@ from libs.persistence import (
     CheckpointStatus,
 )
 from services.snipers.infrastructure.persistence.s3_adapter import update_checkpoint
-from services.snipers.internals.events import make_event
+from services.snipers.core.loop.events.builders import make_event
 from services.snipers.models import Phase3Result
 
 logger = logging.getLogger(__name__)

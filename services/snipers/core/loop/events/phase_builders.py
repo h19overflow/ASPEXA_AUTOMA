@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from services.snipers.internals.events import make_event
+from services.snipers.core.loop.events.builders import make_event
 from services.snipers.models import Phase1Result, Phase3Result
 
 
