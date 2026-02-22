@@ -8,7 +8,7 @@ Dependencies: pytest, pyrit
 
 import pytest
 
-from services.snipers.core.converters.suffix_converters import (
+from services.snipers.core.phases.converters.suffix_converters import (
     get_suffix_converters,
     SUFFIX_CONVERTER_METADATA,
     SUFFIX_CONVERTER_NAMES,

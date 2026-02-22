@@ -9,7 +9,7 @@ Dependencies: ChainDiscoveryContext for failure analysis
 from typing import Any, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from services.snipers.core.adaptive_models.chain_discovery import ChainDiscoveryContext
+    from services.snipers.models.adaptive_models.chain_discovery import ChainDiscoveryContext
 
 
 ADAPTATION_SYSTEM_PROMPT = """You are an AI RED TEAM STRATEGIST conducting authorized security testing.

@@ -18,7 +18,7 @@ from unittest.mock import MagicMock
 from services.snipers.core.components.failure_analyzer import (
     FailureAnalyzer,
 )
-from services.snipers.core.adaptive_models.chain_discovery import (
+from services.snipers.models.adaptive_models.chain_discovery import (
     ChainDiscoveryContext,
 )
 

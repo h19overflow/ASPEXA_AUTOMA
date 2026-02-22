@@ -9,8 +9,8 @@ and history analysis.
 import logging
 from typing import Any
 
-from services.snipers.core.adaptive_models.chain_discovery import ChainDiscoveryContext
-from services.snipers.core.adaptive_models.failure_analysis import FailureAnalysisDecision
+from services.snipers.models.adaptive_models.chain_discovery import ChainDiscoveryContext
+from services.snipers.models.adaptive_models.failure_analysis import FailureAnalysisDecision
 
 logger = logging.getLogger(__name__)
 

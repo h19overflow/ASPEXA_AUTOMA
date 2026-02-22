@@ -14,7 +14,7 @@ Available converters (from pyrit_bridge):
 import logging
 from typing import Any
 
-from services.snipers.core.chain_models.models import ConverterChain
+from services.snipers.models.chain_models.models import ConverterChain
 from services.snipers.infrastructure.pyrit.pyrit_bridge import ConverterFactory, PayloadTransformer
 
 logger = logging.getLogger(__name__)

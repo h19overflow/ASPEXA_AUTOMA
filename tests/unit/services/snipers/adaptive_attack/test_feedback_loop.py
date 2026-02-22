@@ -17,7 +17,7 @@ from services.snipers.core.agents.chain_discovery_agent import (
 from services.snipers.core.agents.strategy_generator import (
     StrategyGenerator,
 )
-from services.snipers.core.adaptive_models.chain_discovery import (
+from services.snipers.models.adaptive_models.chain_discovery import (
     ChainDiscoveryContext,
     ChainSelectionResult,
 )

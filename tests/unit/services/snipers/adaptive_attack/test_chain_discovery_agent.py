@@ -19,7 +19,7 @@ from services.snipers.core.agents.chain_discovery_agent import (
     ChainDiscoveryAgent,
     AVAILABLE_CONVERTERS,
 )
-from services.snipers.core.adaptive_models.chain_discovery import (
+from services.snipers.models.adaptive_models.chain_discovery import (
     ChainDiscoveryContext,
     ChainDiscoveryDecision,
     ConverterChainCandidate,
@@ -735,7 +735,7 @@ class TestChainLengthValidation:
         from services.snipers.core.components.chain_discovery_agent import (
             MAX_CHAIN_LENGTH,
         )
-        from services.snipers.core.adaptive_models.chain_discovery import (
+        from services.snipers.models.adaptive_models.chain_discovery import (
             ChainDiscoveryContext,
         )
 
@@ -790,7 +790,7 @@ class TestChainLengthValidation:
         from services.snipers.core.components.chain_discovery_agent import (
             MAX_CHAIN_LENGTH,
         )
-        from services.snipers.core.adaptive_models.chain_discovery import (
+        from services.snipers.models.adaptive_models.chain_discovery import (
             ChainDiscoveryContext,
         )
 

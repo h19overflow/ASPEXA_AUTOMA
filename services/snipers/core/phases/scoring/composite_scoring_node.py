@@ -15,7 +15,7 @@ import asyncio
 import logging
 from typing import Any
 
-from services.snipers.core.scoring import (
+from services.snipers.core.phases.scoring import (
     JailbreakScorer,
     PromptLeakScorer,
     DataLeakScorer,

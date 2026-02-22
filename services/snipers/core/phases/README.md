@@ -45,9 +45,9 @@ graph TD
 
 ### The Three Phases
 
-1. **`PayloadArticulation` (Phase 1):** Takes raw campaign intelligence and target environments, selects an appropriate "Framing Strategy" (e.g., QA Tester, Compliance Auditor), and uses an LLM to articulate raw text into highly specific, context-aware attack prompts.
+1. **`PayloadArticulation` (Phase 1):** Takes raw campaign intelligence and target environments, selects an appropriate "Framing Strategy" (e.g., QA Tester, Compliance Auditor), and uses an LLM to articulate raw text into highly specific, context-aware attack prompts. Strategy selection is informed by the **EffectivenessTracker** (see below), which biases the `FramingLibrary` toward framing types that have historically succeeded against the same domain.
 2. **`Conversion` (Phase 2):** Takes the raw payloads from Phase 1 and obfuscates them using custom PyRIT converters (e.g., Base64, ASCII, Leetspeak, Morse Code) to evade simple signature-based guardrails.
-3. **`AttackExecution` (Phase 3):** Takes the final converted payloads, packages them into the format expected by the target (JSON, HTTP payload, etc.), and executes the attack against the target endpoints.
+3. **`AttackExecution` (Phase 3):** Takes the final converted payloads, packages them into the format expected by the target (JSON, HTTP payload, etc.), and executes the attack against the target endpoints. After scoring, the outcome (framing type, domain, score, success flag) is fed back into the `EffectivenessTracker`.
 
 ---
 
@@ -55,5 +55,6 @@ graph TD
 
 - `__init__.py`: Exports the three phases.
 - `articulation/`: Sub-module containing the complex Phase 1 orchestration.
+  - `components/effectiveness_tracker.py`: Records `(framing_type, domain) → success/score` per iteration. The adaptive loop creates one instance before the while-loop begins, passes it into Phase 1 so `FramingLibrary` can prefer historically effective strategies, then records the Phase 3 outcome and saves to S3 after each iteration.
 - `conversion.py`: Handles Phase 2 logic (stacking converters to obfuscate).
 - `execution.py`: Handles Phase 3 logic (HTTP requests against the target model/API).

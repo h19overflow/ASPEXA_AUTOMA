@@ -83,6 +83,7 @@ Generate creative, realistic test prompts. Output only the test prompt.""",
         chain_discovery_context: dict | None = None,
         avoid_terms: list[str] | None = None,
         emphasize_terms: list[str] | None = None,
+        tracker: EffectivenessTracker | None = None,
     ) -> Phase1Result:
         """
         Execute payload articulation.
@@ -116,11 +117,13 @@ Generate creative, realistic test prompts. Output only the test prompt.""",
         )
 
         # Step 4: Initialize generator with effectiveness tracking
-        tracker = EffectivenessTracker(campaign_id=campaign_id)
-        try:
-            await tracker.load_history()
-        except Exception as e:
-            self.logger.debug(f"Could not load effectiveness history: {e}")
+        # Use injected tracker (persists across loop iterations) or create a fresh one
+        if tracker is None:
+            tracker = EffectivenessTracker(campaign_id=campaign_id)
+            try:
+                await tracker.load_history()
+            except Exception as e:
+                self.logger.debug(f"Could not load effectiveness history: {e}")
 
         library = FramingLibrary(effectiveness_provider=tracker)
         generator = PayloadGenerator(framing_library=library)

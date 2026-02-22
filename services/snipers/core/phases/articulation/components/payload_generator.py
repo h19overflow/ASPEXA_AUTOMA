@@ -1,4 +1,3 @@
-from langchain.chat_models import init_chat_model
 """
 LLM-based contextual payload generator.
 
@@ -6,7 +5,7 @@ Purpose: Crafts prompts that combine attack objective with framing strategy,
 leveraging target context and historical patterns.
 Uses langchain.agents.create_agent with ToolStrategy for structured output.
 """
-
+from langchain.chat_models import init_chat_model
 import logging
 from typing import Any
 

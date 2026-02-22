@@ -16,7 +16,7 @@ Usage:
     )
 
     # Or with manual chain override
-    from services.snipers.core.chain_models.models import ConverterChain
+    from services.snipers.models.chain_models.models import ConverterChain
     custom_chain = ConverterChain.from_converter_names(["homoglyph", "xml_escape"])
     result = await phase2.execute(payloads=my_payloads, chain=custom_chain)
 
@@ -29,9 +29,9 @@ Available converters:
 import logging
 from typing import Any
 
-from services.snipers.core.chain_models.models import ConverterChain
+from services.snipers.models.chain_models.models import ConverterChain
 from services.snipers.models import ConvertedPayload, Phase2Result
-from services.snipers.core.converters.chain_executor import ChainExecutor
+from services.snipers.core.phases.converters.chain_executor import ChainExecutor
 
 logger = logging.getLogger(__name__)
 

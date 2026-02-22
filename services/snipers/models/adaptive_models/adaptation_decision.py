@@ -8,7 +8,7 @@ Dependencies: pydantic, defense_analysis
 
 from pydantic import BaseModel, Field
 
-from services.snipers.core.adaptive_models.defense_analysis import DefenseAnalysis
+from services.snipers.models.adaptive_models.defense_analysis import DefenseAnalysis
 
 
 class ReconCustomFraming(BaseModel):
@@ -103,7 +103,6 @@ class AdaptationDecision(BaseModel):
         default_factory=list,
         description="Keywords to emphasize in payloads"
     )
-
 
     # Discovered Parameters
     discovered_parameters: dict[str, str] = Field(

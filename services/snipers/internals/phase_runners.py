@@ -8,6 +8,9 @@ from services.snipers.core.phases import (
     Conversion,
     PayloadArticulation,
 )
+from services.snipers.core.phases.articulation.components.effectiveness_tracker import (
+    EffectivenessTracker,
+)
 from services.snipers.internals.phase_events import (
     build_phase1_events,
     build_phase2_events,
@@ -28,6 +31,7 @@ async def run_phase1(
     chain_context: Any,
     iteration: int,
     tried_framings: list[str],
+    tracker: EffectivenessTracker,
     avoid_terms: list[str] | None = None,
     emphasize_terms: list[str] | None = None,
 ) -> tuple[Phase1Result, list[dict[str, Any]]]:
@@ -45,6 +49,7 @@ async def run_phase1(
         ),
         avoid_terms=avoid_terms,
         emphasize_terms=emphasize_terms,
+        tracker=tracker,
     )
     if result.framing_type and result.framing_type not in tried_framings:
         tried_framings.append(result.framing_type)

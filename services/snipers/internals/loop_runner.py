@@ -4,6 +4,10 @@ import logging
 from typing import Any, AsyncGenerator
 
 from services.snipers.core.components.pause_signal import is_pause_requested
+from services.snipers.core.phases.articulation.components.effectiveness_tracker import (
+    EffectivenessTracker,
+)
+from services.snipers.core.phases.articulation.models.framing_strategy import FramingType
 from services.snipers.internals.checkpoints import save_checkpoint_events
 from services.snipers.internals.evaluation import check_success
 from services.snipers.internals.events import build_complete_event, make_event
@@ -24,6 +28,14 @@ async def run_loop(
     iteration = 0
     is_successful = False
 
+    # Single tracker instance shared across all iterations so framing selection
+    # improves based on outcomes recorded within this run.
+    tracker = EffectivenessTracker(campaign_id=campaign_id)
+    try:
+        await tracker.load_history()
+    except Exception as e:
+        logger.debug(f"Could not load effectiveness history: {e}")
+
     while iteration < max_iterations and not is_successful:
         iter_num = iteration + 1
         yield make_event("iteration_start", f"Iteration {iter_num} started",
@@ -38,6 +50,7 @@ async def run_loop(
                 campaign_id, payload_count, state.framings, state.custom_framing,
                 state.recon_custom_framing, state.payload_guidance,
                 state.chain_context, iter_num, state.tried_framings,
+                tracker=tracker,
                 avoid_terms=state.avoid_terms,
                 emphasize_terms=state.emphasize_terms,
             )
@@ -93,6 +106,32 @@ async def run_loop(
             "is_successful": is_successful, "framing": state.framings,
             "converters": state.converters, "scorer_confidences": scorer_confidences,
         })
+
+        # Record outcome so FramingLibrary makes better choices next iteration
+        domain = state.phase3_result.target_url
+        framing_str = state.phase1_result.framing_type if state.phase1_result else "unknown"
+        try:
+            framing_enum = FramingType(framing_str)
+        except ValueError:
+            framing_enum = FramingType.QA_TESTING
+        first_payload = (
+            state.phase1_result.articulated_payloads[0]
+            if state.phase1_result and state.phase1_result.articulated_payloads
+            else ""
+        )
+        tracker.record_attempt(
+            framing_type=framing_enum,
+            format_control="",
+            domain=domain,
+            success=is_successful,
+            score=state.phase3_result.total_score,
+            payload_preview=first_payload,
+        )
+        try:
+            await tracker.save()
+        except Exception as e:
+            logger.warning(f"Failed to save effectiveness history: {e}")
+
         yield make_event(
             "iteration_complete",
             f"Iteration {iter_num}: {'SUCCESS' if is_successful else 'blocked'}",

@@ -211,6 +211,16 @@ Three LLM agents drive adaptation between iterations:
 
 All three agents receive `recon_intelligence` (cartographer output) every iteration. `FailureAnalyzerAgent` additionally receives `swarm_context` (garak output) for richer signal analysis.
 
+### Effectiveness Tracking
+
+`EffectivenessTracker` (`core/phases/articulation/components/effectiveness_tracker.py`) closes the learning loop across iterations:
+
+1. **One instance per run** — created in `loop_runner.py` before the while-loop starts and loaded from S3 (prior campaign history).
+2. **Informs Phase 1** — passed into `ArticulationPhase.execute()`, which hands it to `FramingLibrary`. The library calls `get_success_rate(framing_type, domain)` to bias strategy selection toward what has worked before.
+3. **Records Phase 3 outcome** — after each iteration's score/success is known, `tracker.record_attempt(framing_type, domain, score, success)` is called and then `tracker.save()` persists to S3.
+
+This means every subsequent iteration starts with one more data point, and multi-run campaigns progressively improve framing selection without any LLM involvement.
+
 ### What Adapts Each Iteration
 
 | Field | Source Agent | Where Applied |

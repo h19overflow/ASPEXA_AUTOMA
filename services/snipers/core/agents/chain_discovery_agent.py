@@ -13,7 +13,7 @@ from langchain.agents import create_agent
 from langchain.agents.structured_output import ToolStrategy
 from langchain.chat_models import init_chat_model
 
-from services.snipers.core.adaptive_models.chain_discovery import (
+from services.snipers.models.adaptive_models.chain_discovery import (
     ChainDiscoveryContext,
     ChainDiscoveryDecision,
     ChainSelectionResult,

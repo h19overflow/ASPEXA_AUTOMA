@@ -2,7 +2,7 @@
 Agent-level constants shared across the agents package.
 """
 
-from services.snipers.core.converters import SUFFIX_CONVERTER_NAMES
+from services.snipers.core.phases.converters import SUFFIX_CONVERTER_NAMES
 
 # Maximum converters per chain to prevent over-stacking and unrecognizable payloads
 MAX_CHAIN_LENGTH = 3

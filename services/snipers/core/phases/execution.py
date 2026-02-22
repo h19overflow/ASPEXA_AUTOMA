@@ -29,14 +29,14 @@ import time
 import httpx
 
 
-from services.snipers.core.scoring.composite_scoring_node import CompositeScoringNodePhase34
-from services.snipers.core.chain_models.models import ConverterChain
+from services.snipers.core.phases.scoring.composite_scoring_node import CompositeScoringNodePhase34
+from services.snipers.models.chain_models.models import ConverterChain
 from services.snipers.models import (
     AttackResponse,
     ConvertedPayload,
     Phase3Result,
 )
-from services.snipers.core.scoring.models import CompositeScore
+from services.snipers.core.phases.scoring.models import CompositeScore
 
 logger = logging.getLogger(__name__)
 

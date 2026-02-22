@@ -8,7 +8,7 @@ and best-chain selection logic.
 import logging
 from typing import Any
 
-from services.snipers.core.adaptive_models.chain_discovery import (
+from services.snipers.models.adaptive_models.chain_discovery import (
     ChainDiscoveryContext,
     ChainDiscoveryDecision,
     ChainSelectionResult,

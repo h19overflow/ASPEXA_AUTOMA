@@ -13,8 +13,8 @@ from langchain.agents import create_agent
 from langchain.agents.structured_output import ToolStrategy
 from langchain.chat_models import init_chat_model
 
-from services.snipers.core.adaptive_models.chain_discovery import ChainDiscoveryContext
-from services.snipers.core.adaptive_models.failure_analysis import FailureAnalysisDecision
+from services.snipers.models.adaptive_models.chain_discovery import ChainDiscoveryContext
+from services.snipers.models.adaptive_models.failure_analysis import FailureAnalysisDecision
 from services.snipers.core.agents.internals.failure_analyzer_internals import (
     convert_to_chain_discovery_context,
 )

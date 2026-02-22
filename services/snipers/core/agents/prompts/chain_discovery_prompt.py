@@ -7,7 +7,7 @@ Dependencies: ChainDiscoveryContext model, ReconIntelligence model
 """
 
 
-from services.snipers.core.adaptive_models.chain_discovery import ChainDiscoveryContext
+from services.snipers.models.adaptive_models.chain_discovery import ChainDiscoveryContext
 from services.snipers.core.phases.articulation.models.tool_intelligence import ReconIntelligence
 
 
